@@ -3,6 +3,7 @@
 #include "get_time.h"
 #include "time_operations.h"
 #include "sequence_ops.h"
+#include "block_allocator.h"
 #include <cilk/cilk.h>
 #include <cilk/cilk_api.h>
 #include <iostream>
