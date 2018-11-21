@@ -88,7 +88,6 @@ class block_allocator {
 		 size_t list_length_ = default_list_size,
 		 size_t max_blocks_ = 0);
 
-
 };
 
 int block_allocator::thread_count = __cilkrts_get_nworkers();
