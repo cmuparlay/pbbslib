@@ -29,8 +29,6 @@
 
 #pragma once
 
-#include <cilk/cilk.h>
-#include <cilk/cilk_api.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -178,14 +176,14 @@ void list_allocator<T>::rand_shuffle() {
 
   // pull all free blocks out
   T** P = new T*[num_free];
-  cilk_for (int i=0; i < num_free; i ++)
+  parallel_for (size_t i=0; i < num_free; i ++)
     P[i] = alloc();
 
   // randomly shuffle them
   pbbs::random_shuffle(sequence<T*>(P,num_free));
 
   // put them back
-  cilk_for (int i=0; i < num_free; i ++)
+  parallel_for (size_t i=0; i < num_free; i ++)
     free(P[i]);
   
   delete[] P; 
@@ -200,7 +198,7 @@ void list_allocator<T>::reserve(size_t n,
   max_blocks = _max_blocks;
   size_t num_lists = thread_count + ceil(n / (double)list_length);
   block_p start = allocate_blocks(list_length*num_lists);
-  cilk_for (int i = 0; i < num_lists; ++i) 
+  parallel_for (size_t i = 0; i < num_lists; ++i) 
     global_stack.push(initialize_list(start + i*list_length));
   if (randomize) rand_shuffle();
 }
@@ -211,7 +209,7 @@ void list_allocator<T>::init() {
     initialized = true;
     blocks_allocated = 0;
     
-    thread_count = __cilkrts_get_nworkers();
+    thread_count = num_workers();
 
     // Hack to account for possible allignment expansion
     // i.e. sizeof(T) might not work -- better way?
@@ -243,7 +241,7 @@ void list_allocator<T>::finish() {
 template<typename T>
 void list_allocator<T>::free(T* node) {
     block_p new_node = (block_p) node;
-    int id = __cilkrts_get_worker_number();
+    int id = worker_id();
 
     if (local_lists[id].sz == list_length+1) {
       local_lists[id].mid = local_lists[id].head;
@@ -259,7 +257,7 @@ void list_allocator<T>::free(T* node) {
 
 template<typename T>
 inline T* list_allocator<T>::alloc() {
-    int id = __cilkrts_get_worker_number();
+    int id = worker_id();
 
     if (!local_lists[id].sz)  {
       local_lists[id].head = get_list();

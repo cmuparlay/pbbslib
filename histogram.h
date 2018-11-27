@@ -57,7 +57,7 @@ namespace pbbs {
       return counts;
     }
 		       
-    size_t num_threads = __cilkrts_get_nworkers();
+    size_t num_threads = num_workers();
     size_t num_blocks = std::min((size_t) (1 + n/(num_buckets*32)),
 				 num_threads*4);
     size_t block_size = ((n-1)/num_blocks) + 1;

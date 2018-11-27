@@ -107,7 +107,7 @@ namespace pbbs {
     size_t sqrt = (size_t) ceil(pow(n,0.5));
     size_t num_blocks = 
       (size_t) (n < (1 << 24)) ? (sqrt/16) : ((n < (1 << 28)) ? sqrt/2 : sqrt);
-    s_size_t num_threads = __cilkrts_get_nworkers();
+    s_size_t num_threads = num_workers();
     num_blocks = 1 << log2_up(num_blocks);
     if (2*num_blocks < num_threads) num_blocks *= 2;
 

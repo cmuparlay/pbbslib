@@ -29,8 +29,6 @@
 
 #pragma once
 
-#include <cilk/cilk.h>
-#include <cilk/cilk_api.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -90,7 +88,7 @@ class block_allocator {
 
 };
 
-int block_allocator::thread_count = __cilkrts_get_nworkers();
+int block_allocator::thread_count = num_workers();
 
 // Allocate a new list of list_length elements
 
@@ -142,7 +140,7 @@ auto block_allocator::get_list() -> block_p {
 void block_allocator::reserve(size_t n) {
   size_t num_lists = thread_count + ceil(n / (double)list_length);
   uchar* start = allocate_blocks(list_length*num_lists);
-  cilk_for (size_t i = 0; i < num_lists; ++i) {
+  parallel_for (size_t i = 0; i < num_lists; ++i) {
     block_p offset = (block_p) (start + i * list_length * block_size_);
     global_stack.push(initialize_list(offset));
   }
@@ -178,7 +176,7 @@ block_allocator::~block_allocator() {
 
 void block_allocator::free(void* ptr) {
   block_p new_node = (block_p) ptr;
-  int id = __cilkrts_get_worker_number();
+  int id = worker_id();
 
   if (local_lists[id].sz == list_length+1) {
       local_lists[id].mid = local_lists[id].head;
@@ -193,7 +191,7 @@ void block_allocator::free(void* ptr) {
 }
 
 inline void* block_allocator::alloc() {
-    int id = __cilkrts_get_worker_number();
+    int id = worker_id(); 
 
     if (!local_lists[id].sz)  {
       local_lists[id].head = get_list();

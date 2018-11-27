@@ -29,7 +29,7 @@
 namespace pbbs {
   using namespace std;
 
-  constexpr const size_t _log_block_size = 12;
+  constexpr const size_t _log_block_size = 10;
   constexpr const size_t _block_size = (1 << _log_block_size);
 
   inline size_t num_blocks(size_t n, size_t block_size) {

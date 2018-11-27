@@ -25,8 +25,7 @@
 
 namespace pbbs {
 
-  constexpr const size_t TRANS_THRESHHOLD = 64;
-  constexpr const size_t TRANS_THRESHHOLD_2 = 4096;
+  constexpr const size_t TRANS_THRESHHOLD = 4096;
 
   size_t split(size_t n) {
     return n/2;
@@ -40,7 +39,7 @@ namespace pbbs {
 
       void transR(size_t rStart, size_t rCount, size_t rLength,
 		  size_t cStart, size_t cCount, size_t cLength) {
-	if (cCount*rCount < TRANS_THRESHHOLD_2) { // && rCount < TRANS_THRESHHOLD) {
+	if (cCount*rCount < TRANS_THRESHHOLD) {
 	  for (size_t i=rStart; i < rStart+ rCount; i++)
 	    for (size_t j=cStart; j < cStart + cCount; j++) 
 	      B[j*cLength + i] = A[i*rLength + j];
@@ -48,20 +47,28 @@ namespace pbbs {
 	  //size_t l1 = cCount/2;
 	  size_t l1 = split(cCount);
 	  size_t l2 = cCount - l1;
-	  cilk_spawn this->transR(rStart,rCount,rLength,cStart,l1,cLength);
-	  transR(rStart,rCount,rLength,cStart + l1,l2,cLength);
-	  cilk_sync;
+	  auto left = [&] () {
+	    transR(rStart,rCount,rLength,cStart,l1,cLength);};
+	  auto right = [&] () {
+	    transR(rStart,rCount,rLength,cStart + l1,l2,cLength);};
+	  par_do(true, left, right);
 	} else {
 	  //size_t l1 = rCount/2;
 	  size_t l1 = split(cCount);
 	  size_t l2 = rCount - l1;
-	  cilk_spawn this->transR(rStart,l1,rLength,cStart,cCount,cLength);
-	  transR(rStart + l1,l2,rLength,cStart,cCount,cLength);
-	  cilk_sync;
+	  auto left = [&] () {
+	    transR(rStart,l1,rLength,cStart,cCount,cLength);};
+	  auto right = [&] () {
+	    transR(rStart + l1,l2,rLength,cStart,cCount,cLength);};
+	  par_do(true, left, right);
 	}	
       }
 
       void trans(size_t rCount, size_t cCount) {
+#if defined(OPENMP)
+#pragma omp parallel
+#pragma omp single
+#endif
 	transR(0,rCount,cCount,0,cCount,rCount);
       }
     };
@@ -76,7 +83,7 @@ namespace pbbs {
 
       void transR(size_t rStart, size_t rCount, size_t rLength,
 		  size_t cStart, size_t cCount, size_t cLength) {
-	if (cCount < TRANS_THRESHHOLD && rCount < TRANS_THRESHHOLD) {
+	if (cCount*rCount < TRANS_THRESHHOLD) {
 	  parallel_for (size_t i=rStart; i < rStart + rCount; i++) 
 	    for (size_t j=cStart; j < cStart + cCount; j++) {
 	      E* pa = A+OA[i*rLength + j];
@@ -90,20 +97,28 @@ namespace pbbs {
 	  //size_t l1 = cCount/2;
 	  size_t l1 = split(cCount);
 	  size_t l2 = cCount - l1;
-	  cilk_spawn this->transR(rStart,rCount,rLength,cStart,l1,cLength);
-	  transR(rStart,rCount,rLength,cStart + l1,l2,cLength);
-	  cilk_sync;
+	  auto left = [&] () {
+	    transR(rStart,rCount,rLength,cStart,l1,cLength);};
+	  auto right = [&] () {
+	    transR(rStart,rCount,rLength,cStart + l1,l2,cLength);};
+	  par_do(true, left, right);
 	} else {
 	  //size_t l1 = rCount/2;
 	  size_t l1 = split(cCount);
 	  size_t l2 = rCount - l1;
-	  cilk_spawn this->transR(rStart,l1,rLength,cStart,cCount,cLength);
-	  transR(rStart + l1,l2,rLength,cStart,cCount,cLength);
-	  cilk_sync;
+	  auto left = [&] () {
+	    transR(rStart,l1,rLength,cStart,cCount,cLength);};
+	  auto right = [&] () {
+	    transR(rStart + l1,l2,rLength,cStart,cCount,cLength);};
+	  par_do(true, left, right);
 	}	
       }
  
       void trans(size_t rCount, size_t cCount) {
+#if defined(OPENMP)
+#pragma omp parallel
+#pragma omp single
+#endif
 	transR(0,rCount,cCount,0,cCount,rCount);
       }
   

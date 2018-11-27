@@ -1,7 +1,6 @@
 #include "utilities.h"
 #include "get_time.h"
 #include "random.h"
-#include "reducer.h"
 #include "counting_sort.h"
 #include "collect_reduce.h"
 #include "random_shuffle.h"
@@ -19,6 +18,7 @@
 #include <iostream>
 #include <ctype.h>
 #include <math.h>
+#include <assert.h>
 
 static timer bt;
 using namespace std;
@@ -47,6 +47,7 @@ double t_map(size_t n) {
 template<typename T>
 double t_reduce_add(size_t n) {
   sequence<T> S(n, (T) 1);
+  //time(t, sum(S.as_array(), S.size()););
   time(t, pbbs::reduce_add(S););
   return t;
 }
@@ -97,6 +98,8 @@ double t_split3(size_t n) {
   return t;
 }
 
+#if defined(CILK)
+#include "reducer.h"
 double t_histogram_reducer(size_t n) {
   pbbs::random r(0);
   constexpr int count = 1024;
@@ -108,6 +111,11 @@ double t_histogram_reducer(size_t n) {
   //cout << red.get_value()[0] << endl;
   return t;
 }
+#else
+double t_histogram_reducer(size_t n) {
+  return 1.0;
+}
+#endif
 
 template<typename T>
 double t_gather(size_t n) {
@@ -352,7 +360,8 @@ double t_merge(size_t n) {
   sequence<T> in1(n/2, [&] (size_t i) {return 2*i;});
   sequence<T> in2(n-n/2, [&] (size_t i) {return 2*i+1;});
   sequence<T> out(n, (T) 0);
-  time(t, pbbs::merge(in1, in2, out, std::less<T>()););
+  time(t,
+       pbbs::merge(in1, in2, out, std::less<T>()););
   return t;
 }
 
@@ -368,18 +377,11 @@ template <typename T, typename F>
 static T my_reduce(sequence<T> s, size_t start, size_t end, F f) {
   if (end - start == 1) return s[start];
   size_t h = (end + start)/2;
-  if (h > 50) {
-    T r;
-    auto do_right = [&] () {r = my_reduce(s, h, end, f);};
-    cilk_spawn do_right();
-    T l = my_reduce(s, start, h, f);
-    cilk_sync;
-    return f(l,r);
-  } else {
-    T l = my_reduce(s, start, h, f);
-    T r = my_reduce(s, h, end, f);
-    return f(l,r);
-  }
+  T r, l;
+  auto left = [&] () {r = my_reduce(s, h, end, f);};
+  auto right = [&] () {l = my_reduce(s, start, h, f);};
+  par_do(50, left, right);
+  return f(l,r);
 }
 
 template<typename T>

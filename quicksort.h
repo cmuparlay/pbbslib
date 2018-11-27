@@ -101,10 +101,12 @@ void quicksort(E* A, size_t n, const BinPred& f) {
     E* L = std::get<0>(X);
     E* M = std::get<1>(X);
     bool mid_eq = std::get<2>(X);
-    cilk_spawn quicksort(A, L - A, f);
-    if (!mid_eq) cilk_spawn quicksort(L, M - L, f);
-    quicksort(M, A+n-M, f);
-    cilk_sync;
+    auto left = [&] () { quicksort(A, L - A, f);};
+    auto mid = [&] () {quicksort(L, M - L, f);};
+    auto right = [&] () {quicksort(M, A+n-M, f);};
+
+    if (!mid_eq) par_do3(true, left, mid, right);
+    else par_do(true, left, right);
   }
 }
 
@@ -129,7 +131,7 @@ template <class SeqA, class F>
 void p_quicksort(SeqA In, SeqA Out, const F& f, bool swap=0, long cut_size=-1) {
   size_t n = In.size();
   if (cut_size == -1)
-    cut_size = std::max<long>((2*n)/nworkers(), (1 << 14));
+    cut_size = std::max<long>((2*n)/num_workers(), (1 << 14));
   if (n < (size_t) cut_size) {
     quicksort(In.as_array(), n, f);
     if (!swap) for (size_t i=0; i < n; i++) Out[i] = In[i];

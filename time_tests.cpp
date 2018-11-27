@@ -4,8 +4,7 @@
 #include "time_operations.h"
 #include "sequence_ops.h"
 #include "allocator.h"
-#include <cilk/cilk.h>
-#include <cilk/cilk_api.h>
+#include "parse_command_line.h"
 #include <iostream>
 #include <ctype.h>
 #include <math.h>
@@ -162,23 +161,17 @@ double pick_test(size_t id, size_t n, size_t rounds,
 }
 
 int main (int argc, char *argv[]) {
-  if (argc > 5) {
-    fprintf(stderr, "time_test <n> <rounds> [half_length] [<test_num>]\n");
-    exit(1);
-  }
+  commandLine P(argc, argv,
+		"[-n <size>] [-r <rounds>] [-halflen] [-t <testid>]");
+  size_t n = P.getOptionLongValue("-n", 100000000);
+  int rounds = P.getOptionIntValue("-r", 5);
+  int test_num = P.getOptionIntValue("-t", -1);
+  bool half_length = P.getOption("-halflen");
   int num_tests = 32;
-  int test_num = -1;
-  bool half_length = 0;
-  if (argc > 3) 
-    half_length = str_to_int(argv[3]) != 0;
-  if (argc > 4)
-    test_num = str_to_int(argv[4]);
-  size_t n       = str_to_int(argv[1]);
-  size_t rounds  = str_to_int(argv[2]);
 
   cout << "n = " << n << endl;
   cout << "rounds = " << rounds << endl;
-  cout << "num threads = " << nworkers() << endl;
+  cout << "num threads = " << num_workers() << endl;
   if (half_length) cout << "half length on" << endl;
   else cout << "half length off" << endl;
 

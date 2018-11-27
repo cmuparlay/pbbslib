@@ -33,14 +33,17 @@ struct commandLine {
   char** argv;
   string comLine;
   commandLine(int _c, char** _v, string _cl) 
-    : argc(_c), argv(_v), comLine(_cl) {}
+    : argc(_c), argv(_v), comLine(_cl) {
+      if (getOption("-h") || getOption("-help"))
+	badArgument();
+    }
 
   commandLine(int _c, char** _v) 
-    : argc(_c), argv(_v), comLine("bad arguments") {}
+    : argc(_c), argv(_v), comLine("bad arguments") { }
 
   void badArgument() {
     cout << "usage: " << argv[0] << " " << comLine << endl;
-    abort();
+    exit(0);
   }
 
   // get an argument

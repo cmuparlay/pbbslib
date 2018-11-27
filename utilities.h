@@ -1,8 +1,6 @@
 
 #pragma once
 
-#include <cilk/cilk.h>
-#include <cilk/cilk_api.h>
 #include <iostream>
 #include <ctype.h>
 #include <memory>
@@ -10,40 +8,21 @@
 #include <type_traits>
 #include <type_traits>
 #include <math.h>
-
-#define parallel_for cilk_for
-//#define parallel_for_1 _Pragma("cilk_grainsize = 1") cilk_for
-//#define parallel_for_1 cilk_for
-//#define parallel_for_16 _Pragma("cilk_grainsize = 16") cilk_for
-//#define parallel_for_256 _Pragma("cilk_grainsize = 256") cilk_for
-size_t nworkers() {
-  return __cilkrts_get_nworkers();
-}
+#include "parallel.h"
 
 void* my_alloc(size_t);
 void my_free(void*);
 
-template <typename Lf, typename Rf>
-static void par_do(bool do_parallel, Lf left, Rf right) {
-  if (do_parallel) {
-    cilk_spawn right();
-    left();
-    cilk_sync;
-  } else {
-    left(); right();
-  }
-}
-
 template <typename Lf, typename Mf, typename Rf >
 static void par_do3(bool do_parallel, Lf left, Mf mid, Rf right) {
-  if (do_parallel) {
-    cilk_spawn mid();
-    cilk_spawn right();
-    left();
-    cilk_sync;
-  } else {
-    left(); mid(); right();
-  }
+  if (do_parallel) par_do3_(left, mid, right);
+  else {left(); mid(); right();}
+}
+
+template <typename Lf, typename Rf >
+static void par_do(bool do_parallel, Lf left, Rf right) {
+  if (do_parallel) par_do_(left, right);
+  else {left(); right();}
 }
 
 namespace pbbs {
@@ -55,23 +34,26 @@ template <typename F>
 static void par_for(size_t start, size_t end, size_t granularity, F f) {
   if ((end - start) <= granularity)
     for (size_t i=start; i < end; i++) f(i);
-  else {
-    // picked so not always split in 1/2 since that causes cache conflicts
-    // when n is a power of 2
-    // size_t mid = (((end - start) < 100)
-    // 		  ? (end+start)/2
-    // 		  : start + (end-start)/3);
-    size_t n = end-start;
-    size_t mid = (//(granularity == 1) || (((size_t) 1) << pbbs::log2_up(n) != n)
-		  //(n < 16) || (((size_t) 1) << pbbs::log2_up(n) != n)
-		  (((size_t) 1) << pbbs::log2_up(n) != n)
-		  ? (end+start)/2
-		  : start + (7*(n+1))/16);
-    cilk_spawn par_for(start, mid, granularity, f);
-    par_for(mid, end, granularity, f);
-    cilk_sync;
-  }
+  else 
+    parallel_for (size_t i=start; i < end; i++) f(i);
 }
+
+//     // picked so not always split in 1/2 since that causes cache conflicts
+//     // when n is a power of 2
+//     // size_t mid = (((end - start) < 100)
+//     // 		  ? (end+start)/2
+//     // 		  : start + (end-start)/3);
+//     size_t n = end-start;
+//     size_t mid = (//(granularity == 1) || (((size_t) 1) << pbbs::log2_up(n) != n)
+// 		  //(n < 16) || (((size_t) 1) << pbbs::log2_up(n) != n)
+// 		  (((size_t) 1) << pbbs::log2_up(n) != n)
+// 		  ? (end+start)/2
+// 		  : start + (7*(n+1))/16);
+//     par_spawn par_for(start, mid, granularity, f);
+//     par_for(mid, end, granularity, f);
+//     par_sync;
+//   }
+// }
 
 template <typename F>
 static void par_for(size_t start, size_t end, F f) {

@@ -58,7 +58,7 @@ namespace pbbs {
     num_buckets = std::max(num_buckets, (size_t) 16);
 
     //size_t num_blocks = ceil(pow(n/num_buckets,0.5));
-    size_t num_threads = __cilkrts_get_nworkers();
+    size_t num_threads = num_workers();
     size_t num_blocks = std::min(4*num_threads, n/num_buckets/64);
 
     num_blocks = 1 << log2_up(num_blocks);
