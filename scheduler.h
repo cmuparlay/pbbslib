@@ -89,7 +89,7 @@ struct scheduler {
     return deques[id].pop_bottom();
   }
 
-  Job* try_steel() {
+  Job* try_steal() {
     int target = rand() % num_deques;
     return deques[target].pop_top();
   }
