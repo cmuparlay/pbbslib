@@ -5,7 +5,7 @@ struct Deque {
   using qidx = int;
   age_t age;
   qidx bot;
-  Job[100] deq;
+  Job*[100] deq;
 
   struct age_pair {
     int tag;
@@ -27,19 +27,17 @@ struct Deque {
   // should be used after each
     
   void push_bottom(Job node) {
-    qidx local_bot = bot; // load
+    qidx local_bot = bot; // atomic load
     deq[local_bot] = node; // store
     bot = local_bot + 1; // store
   }
   
-  // probably needs to return maybe_job, or pointer to job
-  // so can be empty
-  Job pop_top() {
-    age_t old_age.unit = age.unit; // load
-    qidx local_bot = bot; // load
+  Job* pop_top() {
+    age_t old_age.unit = age.unit; // atomic load
+    qidx local_bot = bot; // atomic load
     if (local_bot <= old_age.pair.top)
       return NULL;
-    Job node = deq[old_age.pair.top]; // load
+    Job* node = deq[old_age.pair.top]; // atomic load
     age_t new_age = old_age;
     new_age.pair.top = new_age.pair.top + 1;
     cas(&(age.unit), old_age.unit, new_age.unit); // cas
@@ -48,16 +46,14 @@ struct Deque {
     return NULL;
   }
 
-  // probably needs to return maybe_job, or pointer to job
-  // so can be empty
-  Job pop_bottom() {
-    qidx local_bot = bot; // load
+  Job* pop_bottom() {
+    qidx local_bot = bot; // atomic load
     if (local_bot == 0) 
       return NULL;
     local_bot = local_bot - 1;
     bot = local_bot; // store
-    Job node = deq[local_bot]; // load
-    age_t old_age = age; // load
+    Job* node = deq[local_bot]; // atomic load
+    age_t old_age.unit = age.unit; // atomic load
     if (local_bot > old_age.pair.top)
       return node;
     bot = 0; // store
@@ -88,12 +84,12 @@ struct scheduler {
     deques[id].push_bottom[node];
   }
 
-  Job try_pop() {
+  Job* try_pop() {
     int id = worker_id();
     return deques[id].pop_bottom();
   }
 
-  Job try_steel() {
+  Job* try_steel() {
     int target = rand() % num_deques;
     return deques[target].pop_top();
   }
