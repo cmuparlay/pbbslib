@@ -25,7 +25,7 @@
 
 namespace pbbs {
 
-  constexpr const size_t TRANS_THRESHHOLD = 4096;
+  constexpr const size_t TRANS_THRESHHOLD = PAR_GRANULARITY;
 
   size_t split(size_t n) {
     return n/2;

@@ -5,7 +5,7 @@
 namespace pbbs {
 
   // the following parameter can be tuned
-  constexpr const size_t _merge_base = 200000; //8196;
+  constexpr const size_t _merge_base = PAR_GRANULARITY;
 
   template <class SeqA, class SeqB, class SeqR, class F> 
   void seq_merge(SeqA A, SeqB B, SeqR R, const F& f) {

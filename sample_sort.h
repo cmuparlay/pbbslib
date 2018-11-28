@@ -85,6 +85,7 @@ namespace pbbs {
       quicksort(B.as_array(), n, f);
       return B;
     } else {
+      timer t;
       size_t bucket_quotient = 5;
       size_t block_quotient = 5;
       if (is_pointer(A[0])) {
@@ -128,17 +129,21 @@ namespace pbbs {
       
       // sort each block and merge with samples to get counts for each bucket
       s_size_t *counts = new_array_no_init<s_size_t>(m,1);
-      //parallel_for (size_t i = 0; i < num_blocks; ++i) {
       auto block_f = [&] (size_t i) {
 	size_t offset = i * block_size;
 	size_t size =  (i < num_blocks - 1) ? block_size : n - offset;
 	if (!inplace)
 	  for (size_t j = offset;  j < offset+size; j++) 
 	    assign_uninitialized(B[j], A[j]);
+#if defined(OPENMP)
+	quicksort_serial(B+offset, size, f);
+#else
 	quicksort(B+offset, size, f);
+#endif
 	merge_seq(B + offset, pivots, counts + i*num_buckets,
 		 size, num_buckets-1, f);
       };
+      
       par_for (0, num_blocks, 1, block_f);
       //std::cout << "first part: " << t.get_next() << std::endl;
 
@@ -157,9 +162,13 @@ namespace pbbs {
 
 	// middle buckets need not be sorted if two consecutive pivots
 	// are equal
-	if (i == 0 || i == num_buckets - 1 || f(pivots[i-1],pivots[i]))
+	if (i == 0 || i == num_buckets - 1 || f(pivots[i-1],pivots[i])) {
+#if defined(OPENMP)
+	  quicksort_serial(C+start, end - start, f);
+#else
 	  quicksort(C+start, end - start, f);
-
+#endif
+	}
 	if (inplace)
 	  // move back to B (use memcpy to avoid initializers or overloaded =)
 	  memcpy((char*) (B+start), (char*) (C+start), (end-start)*sizeof(E));
