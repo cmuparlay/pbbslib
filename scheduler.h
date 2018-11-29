@@ -73,17 +73,42 @@ template <typename Job>
 struct scheduler {
   int num_deques;
   Deque<Job>* deques;
+  int finished_flag;
 
+public:
   scheduler() {
     num_deques = num_workers();
     deques = new Deqeue<Job>[num_deques];
+    finished_flag = 0;
   }
 
-  push(Job node) {
+  void run(Job node) {
+    deques[id].push_bottom[0];
+    auto finished = [&] () {return finished_flag > 0;}
+#pragma openmp parallel
+    {
+      wait(finished);
+    }
+  }
+    
+  void spawn(Job node) {
     int id = worker_id();
     deques[id].push_bottom[node];
   }
 
+  template <typenae F>
+  void wait(F finished) {
+    while (1) {
+      Job* node = get_job(finished);
+      if (!node) return;
+      job();
+    }
+  }
+
+  void finish() {finish_flag = 1;}
+
+private:
+  
   Job* try_pop() {
     int id = worker_id();
     return deques[id].pop_bottom();
@@ -93,5 +118,51 @@ struct scheduler {
     int target = rand() % num_deques;
     return deques[target].pop_top();
   }
-}
+
+  template <typename F>
+  Job* get_job(F finished) {
+    if (finished()) return NULL;
+    Job* node = try_pop();
+    if (node) return node;
+    while (1) {
+      if (finished()) return NULL;
+      node = try_steel();
+      if (node) return node;
+    }
+  }
+
+};
+
+struct fork_join_scheduler {
+  using Job = std::function<void()>;
+  
+  scheduler<Job>* sched;
+  
+  fork_join_scheduler() {
+    sched = new scheduler<Job>;
+  }
+
+  ~fork_join_scheduler() {
+    delete sched;
+  }
+
+  template <typename J>
+  void run(J thunk) {
+    Job job = [&] () {thunk(); sched->finish();};
+    sched->run(&job);
+  }
+    
+  template <typename L, typename R>
+  void pardo(L left, R right) {
+    int cnt = 0;
+    Job right_job = [&] () {right(); cnt = 1;};
+    sched->spawn(&right_job);
+    left();
+    auto finished = [&] () {return cnt == 1;};
+    sched->wait(finished);
+  }
+  
+};
+  
+
     
