@@ -7,28 +7,31 @@ struct Deque {
   qidx bot;
   Job*[100] deq;
 
-  struct age_pair {
-    int tag;
-    q_idx top;
-  };
-
   // use unit for atomic access
   union age_t {
-    age_pair pair;
+    struct {
+      int tag;
+      q_idx top;
+    } pair;
     size_t unit;
   };
 
-  Deque() : bot(0) {
-    age.unit = 0;
+  inline bool cas(size_t* ptr, size_t old, size_t new) {
+    return __sync_bool_compare_and_swap(ptr, old, new);
   }
-      
-  // shared stores are marked since appropriate memory barriers
-  // should be used after each
+
+  inline void fence() {
+    std::atomic_thread_fence(std::memory_order_release);
+  }
+
+  Deque() : bot(0) { age.unit = 0; }
     
   void push_bottom(Job node) {
     qidx local_bot = bot; // atomic load
-    deq[local_bot] = node; // store
-    bot = local_bot + 1; // store
+    deq[local_bot] = node; // shared store
+    fence();
+    bot = local_bot + 1; // shared store
+    fence(); // probably not needed
   }
   
   Job* pop_top() {
@@ -50,12 +53,14 @@ struct Deque {
     if (local_bot == 0) 
       return NULL;
     local_bot = local_bot - 1;
-    bot = local_bot; // store
+    bot = local_bot; // shared store
+    fence();
     Job* node = deq[local_bot]; // atomic load
     age_t old_age.unit = age.unit; // atomic load
     if (local_bot > old_age.pair.top)
       return node;
-    bot = 0; // store
+    bot = 0; // shared store
+    fence();
     new_age.pair.top = 0;
     new_age.pair.tag = old_age.pair.tag + 1;
     if (local_bot == old_age.pair.top) {
@@ -63,7 +68,8 @@ struct Deque {
       if (old_age.unit == new_age.unit)
 	return node;
     }
-    age.unit = new_age.unit; // store
+    age.unit = new_age.unit; // shared store
+    fence();
     return NULL;
   }
 };
