@@ -20,7 +20,6 @@ struct Deque {
 
   Deque() : bot(0) {
     age.unit = 0;
-    // probably clear queue, but need default value
   }
       
   // shared stores are marked since appropriate memory barriers
@@ -114,7 +113,7 @@ private:
     return deques[id].pop_bottom();
   }
 
-  Job* try_steel() {
+  Job* try_steal() {
     int target = rand() % num_deques;
     return deques[target].pop_top();
   }
@@ -163,6 +162,3 @@ struct fork_join_scheduler {
   }
   
 };
-  
-
-    
