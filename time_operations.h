@@ -73,6 +73,19 @@ double t_scan_add(size_t n) {
 }
 
 template<typename T>
+double t_scan_add_seq(size_t n) {
+  sequence<T> In(n, (T) 1);
+  sequence<T> Out(n, (T) 0);
+  time(t,
+       T x = 0;
+       for (size_t i=0; i < n; i++) {
+	 Out[i] = x;
+	 x += In[i];
+       });
+  return t;
+}
+
+template<typename T>
 double t_pack(size_t n) {
   sequence<bool> flags(n, [] (size_t i) -> bool {return i%2;});
   sequence<T> In(n, [] (size_t i) -> T {return i;});

@@ -154,6 +154,8 @@ double pick_test(size_t id, size_t n, size_t rounds,
     return run_multiple(n,rounds,1,"add to bag long", t_bag<long>, half_length, "Gelts/sec");
   case 32:  
     return run_multiple(n,rounds,1,"histogram reducer", t_histogram_reducer, half_length, "Gelts/sec");
+  case 33:  
+    return run_multiple(n,rounds,ebytes(24,8),"scan add long seq", t_scan_add_seq<long>, half_length);
   default: 
     assert(false);
     return 0.0 ;

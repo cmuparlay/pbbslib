@@ -1,46 +1,55 @@
 // from Arora, Blumofe, Plaxton
+#include <omp.h>
+
+using namespace std;
 
 template <typename Job>
 struct Deque {
   using qidx = int;
-  age_t age;
-  qidx bot;
-  Job*[100] deq;
 
   // use unit for atomic access
   union age_t {
     struct {
       int tag;
-      q_idx top;
+      qidx top;
     } pair;
     size_t unit;
   };
 
-  inline bool cas(size_t* ptr, size_t old, size_t new) {
-    return __sync_bool_compare_and_swap(ptr, old, new);
+  age_t age;
+  qidx bot;
+  Job* deq[100];
+
+  inline bool cas(size_t* ptr, size_t oldv, size_t newv) {
+    return __sync_bool_compare_and_swap(ptr, oldv, newv);
   }
 
   inline void fence() {
     std::atomic_thread_fence(std::memory_order_release);
   }
 
-  Deque() : bot(0) { age.unit = 0; }
+  Deque() : bot(-1) {
+    age.pair.tag = 0;
+    age.pair.top = -1;
+  }
     
-  void push_bottom(Job node) {
+  void push_bottom(Job* node) {
     qidx local_bot = bot; // atomic load
+    local_bot += 1;
     deq[local_bot] = node; // shared store
     fence();
-    bot = local_bot + 1; // shared store
+    bot = local_bot; // shared store
     fence(); // probably not needed
   }
   
   Job* pop_top() {
-    age_t old_age.unit = age.unit; // atomic load
+    age_t old_age, new_age;
+    old_age.unit = age.unit; // atomic load
     qidx local_bot = bot; // atomic load
     if (local_bot <= old_age.pair.top)
       return NULL;
     Job* node = deq[old_age.pair.top]; // atomic load
-    age_t new_age = old_age;
+    new_age.unit = old_age.unit;
     new_age.pair.top = new_age.pair.top + 1;
     cas(&(age.unit), old_age.unit, new_age.unit); // cas
     if (old_age.unit == new_age.unit)
@@ -49,24 +58,29 @@ struct Deque {
   }
 
   Job* pop_bottom() {
+    age_t old_age, new_age;
     qidx local_bot = bot; // atomic load
-    if (local_bot == 0) 
+    cout << "bot is " << local_bot << endl;
+    if (local_bot == -1) 
       return NULL;
     local_bot = local_bot - 1;
     bot = local_bot; // shared store
     fence();
     Job* node = deq[local_bot]; // atomic load
-    age_t old_age.unit = age.unit; // atomic load
+    old_age.unit = age.unit; // atomic load
+    cout << "here2 " << (node == NULL) << ", " << local_bot << ", " << old_age.pair.top << endl;
     if (local_bot > old_age.pair.top)
       return node;
-    bot = 0; // shared store
+    bot = -1; // shared store
     fence();
-    new_age.pair.top = 0;
+    new_age.pair.top = -1;
     new_age.pair.tag = old_age.pair.tag + 1;
     if (local_bot == old_age.pair.top) {
-      cas(&(age.unit), old_age.unit, new_age.unit); // cas
-      if (old_age.unit == new_age.unit)
+      cout << "check it out " << endl;
+      if (cas(&(age.unit), old_age.unit, new_age.unit)) { // cas
+	cout << "ooio" << endl;
 	return node;
+      }
     }
     age.unit = new_age.unit; // shared store
     fence();
@@ -83,39 +97,51 @@ struct scheduler {
 public:
   scheduler() {
     num_deques = num_workers();
-    deques = new Deqeue<Job>[num_deques];
+    deques = new Deque<Job>[num_deques];
     finished_flag = 0;
   }
 
-  void run(Job node) {
-    deques[id].push_bottom[0];
-    auto finished = [&] () {return finished_flag > 0;}
-#pragma openmp parallel
+  void run(Job* job) {
+    //(*job)();
+    cout << job << endl;
+    deques[0].push_bottom(job);
+    cout << deques[0].deq[0] << endl;
+    auto finished = [&] () {return finished_flag > 0;};
+    omp_set_num_threads(1);
+    _Pragma("omp parallel");
     {
+      _Pragma("omp single");
+      cout << worker_id() << endl;
       wait(finished);
+      _Pragma("omp single");
+      cout << "end: " << worker_id() << endl;
     }
   }
     
-  void spawn(Job node) {
+  void spawn(Job* job) {
     int id = worker_id();
-    deques[id].push_bottom[node];
+    deques[id].push_bottom[job];
   }
 
-  template <typenae F>
+  template <typename F>
   void wait(F finished) {
     while (1) {
-      Job* node = get_job(finished);
-      if (!node) return;
-      job();
+      cout << "try job: " << endl;
+      Job* job = get_job(finished);
+      if (!job) return;
+      cout << "got job: " << job <<  endl;
+      (*job)();
+      cout << "end job" << endl;
     }
   }
 
-  void finish() {finish_flag = 1;}
+  void finish() {finished_flag = 1;}
 
 private:
   
   Job* try_pop() {
     int id = worker_id();
+    cout << "worker id: " << id <<  endl;
     return deques[id].pop_bottom();
   }
 
@@ -127,12 +153,14 @@ private:
   template <typename F>
   Job* get_job(F finished) {
     if (finished()) return NULL;
-    Job* node = try_pop();
-    if (node) return node;
+    Job* job = try_pop();
+    cout << "try pop: " << (job == NULL) <<  endl;
+    if (job) return job;
+    cout << "here: " << (job == NULL) <<  endl;
     while (1) {
       if (finished()) return NULL;
-      node = try_steel();
-      if (node) return node;
+      job = try_steal();
+      if (job) return job;
     }
   }
 
@@ -153,7 +181,7 @@ struct fork_join_scheduler {
 
   template <typename J>
   void run(J thunk) {
-    Job job = [&] () {thunk(); sched->finish();};
+    Job job = [&] () {cout << "foofoo" << endl; thunk(); sched->finish();};
     sched->run(&job);
   }
     
