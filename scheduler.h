@@ -132,7 +132,6 @@ public:
       Job* job = get_job(finished);
       if (!job) return;
       (*job)();
-      //if (!finished()) std::this_thread::yield();
     }
   }
 
@@ -165,15 +164,13 @@ private:
     Job* job = try_pop();
     if (job) return job;
     int id = worker_id();
-    int i = 0;
     while (1) {
-      if (finished()) return NULL;
-      job = try_steal(id);
-      if (job) return job;
-      if (i++ == 4*num_deques) {
-	std::this_thread::sleep_for(std::chrono::nanoseconds(10000));
-	i = 0;
+      for (int i=0; i < 4 * num_deques; i++) {
+	if (finished()) return NULL;
+	job = try_steal(id);
+	if (job) return job;
       }
+      std::this_thread::sleep_for(std::chrono::nanoseconds(10000));
     }
   }
 
