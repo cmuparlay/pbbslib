@@ -7,7 +7,7 @@ using namespace std;
 
 long fib(long i) {
   if (i <= 1) return 1;
-  else if (i < 18) return fib(i-1) + fib(i-2);
+  else if (i < 15) return fib(i-1) + fib(i-2);
   long l,r;
   par_do(true,
 	 [&] () { l = fib(i-1);},

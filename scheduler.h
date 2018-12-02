@@ -28,8 +28,12 @@ struct Deque {
     return __sync_bool_compare_and_swap(ptr, oldv, newv);
   }
 
-  inline void fence() {
+  inline void write_fence() {
     std::atomic_thread_fence(std::memory_order_release);
+  }
+
+  inline void read_fence() {
+    std::atomic_thread_fence(std::memory_order_acquire);
   }
 
   Deque() : bot(0) {
@@ -38,16 +42,17 @@ struct Deque {
   }
     
   void push_bottom(Job* job) {
+    read_fence();
     qidx local_bot = bot; // atomic load
     deq[local_bot].job = job; // shared store
-    fence();
     local_bot += 1;
     bot = local_bot; // shared store
-    fence(); // probably not needed
+    write_fence(); 
   }
   
   Job* pop_top() {
     age_t old_age, new_age;
+    //read_fence();
     old_age.unit = age.unit; // atomic load
     qidx local_bot = bot; // atomic load
     if (local_bot <= old_age.pair.top)
@@ -62,18 +67,20 @@ struct Deque {
 
   Job* pop_bottom() {
     age_t old_age, new_age;
+    read_fence();
     qidx local_bot = bot; // atomic load
     if (local_bot == 0) 
       return NULL;
     local_bot = local_bot - 1;
     bot = local_bot; // shared store
-    fence();
+    write_fence();
+    read_fence();
     Job* job = deq[local_bot].job; // atomic load
     old_age.unit = age.unit; // atomic load
     if (local_bot > old_age.pair.top)
       return job;
     bot = 0; // shared store
-    fence();
+    write_fence();  // not sure if this write_fence is needed
     new_age.pair.top = 0;
     new_age.pair.tag = old_age.pair.tag + 1;
     if (local_bot == old_age.pair.top) {
@@ -82,7 +89,7 @@ struct Deque {
       }
     }
     age.unit = new_age.unit; // shared store
-    fence();
+    write_fence();
     return NULL;
   }
 };
@@ -146,8 +153,7 @@ private:
   attempt* attempts;
   int finished_flag;
 
-  Job* try_steal() {
-    int id = worker_id();
+  Job* try_steal(int id) {
     size_t target = (pbbs::hash32(id) + pbbs::hash32(attempts[id].val)) % num_deques;
     attempts[id].val++;
     return deques[target].pop_top();
@@ -158,12 +164,16 @@ private:
     if (finished()) return NULL;
     Job* job = try_pop();
     if (job) return job;
+    int id = worker_id();
+    int i = 0;
     while (1) {
       if (finished()) return NULL;
-      job = try_steal();
+      job = try_steal(id);
       if (job) return job;
-      //std::this_thread::yield();
-      std::this_thread::sleep_for(std::chrono::nanoseconds(100));
+      if (i++ == 4*num_deques) {
+	std::this_thread::sleep_for(std::chrono::nanoseconds(10000));
+	i = 0;
+      }
     }
   }
 
