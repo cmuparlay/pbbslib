@@ -1,4 +1,6 @@
 #include <omp.h>
+#include <chrono>
+#include <thread>
 
 using namespace std;
 
@@ -16,9 +18,11 @@ struct Deque {
     size_t unit;
   };
 
+  struct alignas(64) padded_job { Job* job;  };
+  
   age_t age;
   qidx bot;
-  Job* deq[100];
+  padded_job deq[100];
 
   inline bool cas(size_t* ptr, size_t oldv, size_t newv) {
     return __sync_bool_compare_and_swap(ptr, oldv, newv);
@@ -33,9 +37,9 @@ struct Deque {
     age.pair.top = 0;
   }
     
-  void push_bottom(Job* node) {
+  void push_bottom(Job* job) {
     qidx local_bot = bot; // atomic load
-    deq[local_bot] = node; // shared store
+    deq[local_bot].job = job; // shared store
     fence();
     local_bot += 1;
     bot = local_bot; // shared store
@@ -48,11 +52,11 @@ struct Deque {
     qidx local_bot = bot; // atomic load
     if (local_bot <= old_age.pair.top)
       return NULL;
-    Job* node = deq[old_age.pair.top]; // atomic load
+    Job* job = deq[old_age.pair.top].job; // atomic load
     new_age.unit = old_age.unit;
     new_age.pair.top = new_age.pair.top + 1;
     if (cas(&(age.unit), old_age.unit, new_age.unit))  // cas
-      return node;
+      return job;
     return NULL;
   }
 
@@ -64,17 +68,17 @@ struct Deque {
     local_bot = local_bot - 1;
     bot = local_bot; // shared store
     fence();
-    Job* node = deq[local_bot]; // atomic load
+    Job* job = deq[local_bot].job; // atomic load
     old_age.unit = age.unit; // atomic load
     if (local_bot > old_age.pair.top)
-      return node;
+      return job;
     bot = 0; // shared store
     fence();
     new_age.pair.top = 0;
     new_age.pair.tag = old_age.pair.tag + 1;
     if (local_bot == old_age.pair.top) {
       if (cas(&(age.unit), old_age.unit, new_age.unit)) { // cas
-	return node;
+	return job;
       }
     }
     age.unit = new_age.unit; // shared store
@@ -90,11 +94,13 @@ public:
   scheduler() {
     num_deques = 2*num_workers();
     deques = new Deque<Job>[num_deques];
+    attempts = new attempt[num_deques];
     finished_flag = 0;
   }
 
   ~scheduler() {
     delete[] deques;
+    delete[] attempts;
   }
 
   void run(Job* job, int num_threads = 0) {
@@ -104,6 +110,8 @@ public:
       omp_set_num_threads(num_threads);
     #pragma omp parallel
     wait(finished);
+
+    finished_flag = 0;
   }
     
   void spawn(Job* job) {
@@ -117,9 +125,8 @@ public:
       Job* job = get_job(finished);
       if (!job) return;
       (*job)();
+      //if (!finished()) std::this_thread::yield();
     }
-    //while (!finished()) {
-    //  std::yied
   }
 
   void finish() {finished_flag = 1;}
@@ -132,12 +139,17 @@ public:
 
 private:
 
+  struct alignas(128) attempt { size_t val; };
+  
   int num_deques;
   Deque<Job>* deques;
+  attempt* attempts;
   int finished_flag;
 
   Job* try_steal() {
-    int target = rand() % num_deques;
+    int id = worker_id();
+    size_t target = (pbbs::hash32(id) + pbbs::hash32(attempts[id].val)) % num_deques;
+    attempts[id].val++;
     return deques[target].pop_top();
   }
 
@@ -150,6 +162,8 @@ private:
       if (finished()) return NULL;
       job = try_steal();
       if (job) return job;
+      //std::this_thread::yield();
+      std::this_thread::sleep_for(std::chrono::nanoseconds(100));
     }
   }
 

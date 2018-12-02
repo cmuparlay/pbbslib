@@ -1,3 +1,5 @@
+OMPCFLAGS = -mcx16 -O2 -DOPENMP -fopenmp -Wall -std=c++11 -march=native
+
 ifdef CLANG
 CC = clang++ 
 CFLAGS = -mcx16 -O2 -DCILK -fcilkplus -ldl -std=c++11 -march=native
@@ -9,7 +11,7 @@ CC = g++
 CFLAGS = -mcx16 -O2 -DCILK -Wall -fcilkplus -std=c++11 -march=native
 else ifdef OPENMP
 CC = g++
-CFLAGS = -mcx16 -O2 -DOPENMP -fopenmp -Wall -std=c++11 -march=native
+CFLAGS = $(OMPCFLAGS)
 else ifdef SERIAL
 CC = g++
 CFLAGS = -mcx16 -O2 -Wall -std=c++11 -march=native
@@ -23,10 +25,13 @@ AllFiles = allocator.h alloc.h bag.h binary_search.h block_allocator.h collect_r
 time_tests:	$(AllFiles) time_tests.cpp time_operations.h
 	$(CC) $(CFLAGS) time_tests.cpp -o time_tests
 
-tt:	tt.cpp time_operations.h
-	$(CC) $(CFLAGS) tt.cpp -o tt
+test:	test.cpp scheduler.h
+	$(CC) $(OMPCFLAGS) test.cpp -o test
+
+test2:	test2.cpp
+	$(CC) $(CFLAGS) test2.cpp -o test2
 
 all:	time_tests 
 
 clean:
-	rm -f time_tests
+	rm -f time_tests test
