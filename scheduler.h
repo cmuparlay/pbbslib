@@ -21,7 +21,7 @@ struct Deque {
 
   struct alignas(64) padded_job { Job* job;  };
 
-  static bool const fully_safe = true;
+  static bool const fully_safe = false;
   static int const q_size = 200;
   age_t age;
   qidx bot;
@@ -32,11 +32,13 @@ struct Deque {
   }
 
   inline void write_fence() {
-    std::atomic_thread_fence(std::memory_order_release);
+    // std::atomic_thread_fence(std::memory_order_release);
+    std::atomic_thread_fence(std::memory_order_seq_cst);
   }
 
   inline void read_fence() {
-    std::atomic_thread_fence(std::memory_order_acquire);
+    //std::atomic_thread_fence(std::memory_order_acquire);
+    std::atomic_thread_fence(std::memory_order_seq_cst);
   }
 
   Deque() : bot(0) {
@@ -46,73 +48,85 @@ struct Deque {
     
   void push_bottom(Job* job) {
     qidx local_bot;
-    read_fence();
+    if (fully_safe) read_fence();
     local_bot = bot; // atomic load
     deq[local_bot].job = job; // shared store
+    if (fully_safe) write_fence();
     local_bot += 1;
     if (local_bot == q_size) abort();
     bot = local_bot; // shared store
     write_fence();
   }
+
   
   Job* pop_top() {
     age_t old_age, new_age;
     qidx local_bot;
-    Job* job;
+    Job *job, *result;
     if (fully_safe) read_fence();
     old_age.unit = age.unit; // atomic load
+
+    if (fully_safe) read_fence();
     local_bot = bot; // atomic load
     if (local_bot <= old_age.pair.top)
-      return NULL;
-    if (fully_safe) read_fence();
-    job = deq[old_age.pair.top].job; // atomic load
-    new_age.unit = old_age.unit;
-    new_age.pair.top = new_age.pair.top + 1;
-    if (cas(&(age.unit), old_age.unit, new_age.unit))  // cas
-      return job;
-    if (fully_safe) write_fence();
-    return NULL;
+      result = NULL;
+    else {
+      if (fully_safe) read_fence();
+      job = deq[old_age.pair.top].job; // atomic load
+      new_age.unit = old_age.unit;
+      new_age.pair.top = new_age.pair.top + 1;
+      if (cas(&(age.unit), old_age.unit, new_age.unit))  // cas
+	result = job;
+      else
+	result = NULL;
+      if (fully_safe) write_fence();
+    }
+    return result;
   }
 
   Job* pop_bottom() {
     age_t old_age, new_age;
     qidx local_bot;
-    Job* job;
-    read_fence();
+    Job *job, *result;
+    if (fully_safe) read_fence();
     local_bot = bot; // atomic load
     if (local_bot == 0) 
-      return NULL;
-    local_bot = local_bot - 1;
-    bot = local_bot; // shared store
-    write_fence();
-    read_fence();
-    job = deq[local_bot].job; // atomic load
-    old_age.unit = age.unit; // atomic load
-    if (local_bot > old_age.pair.top)
-      return job;
-    bot = 0; // shared store
-    write_fence();  // not sure if this write_fence is needed
-    new_age.pair.top = 0;
-    if (new_age.pair.tag == std::numeric_limits<tag_t>::max()) abort();
-    new_age.pair.tag = old_age.pair.tag + 1;
-    if (local_bot == old_age.pair.top) {
-      if (cas(&(age.unit), old_age.unit, new_age.unit)) { // cas
-	if (fully_safe) write_fence();
-	return job;
+      result = NULL;
+    else {
+      local_bot = local_bot - 1;
+      bot = local_bot; // shared store
+      write_fence();
+      job = deq[local_bot].job; // atomic load
+      old_age.unit = age.unit; // atomic load
+      if (local_bot > old_age.pair.top)
+	result = job;
+      else {
+	bot = 0; // shared store
+	if (fully_safe) write_fence(); 
+	new_age.pair.top = 0;
+	if (new_age.pair.tag == std::numeric_limits<tag_t>::max())
+	  abort();
+	new_age.pair.tag = old_age.pair.tag + 1;
+	if ((local_bot == old_age.pair.top) &&
+	    cas(&(age.unit), old_age.unit, new_age.unit))
+	  result = job;
+	else {
+	  age.unit = new_age.unit; // shared store
+	  result = NULL;
+	}
+	write_fence();
       }
-      if (fully_safe) write_fence();
     }
-    age.unit = new_age.unit; // shared store
-    write_fence();
-    return NULL;
+  return result;
   }
+
 };
 
 template <typename Job>
 struct scheduler {
 
 public:
-  static bool const conservative = false;
+  static bool const conservative = true;
 
   scheduler() {
     num_deques = 2*num_workers();
@@ -177,8 +191,9 @@ private:
   attempt* attempts;
   int finished_flag;
 
-  Job* try_steal(int id) {
-    size_t target = (pbbs::hash32(id) + pbbs::hash32(attempts[id].val)) % num_deques;
+  Job* try_steal(size_t id) {
+    size_t target = (pbbs::hash32(id) +
+		     pbbs::hash32(attempts[id].val)) % num_deques;
     attempts[id].val++;
     return deques[target].pop_top();
   }
@@ -188,9 +203,9 @@ private:
     if (finished()) return NULL;
     Job* job = try_pop();
     if (job) return job;
-    int id = worker_id();
+    size_t id = worker_id();
     while (1) {
-      for (int i=0; i < 4 * num_deques; i++) {
+      for (int i=0; i <= num_deques *4; i++) {
 	if (finished()) return NULL;
 	job = try_steal(id);
 	if (job) return job;
@@ -230,8 +245,9 @@ struct fork_join_scheduler {
     left();
     if (!stolen) {
       Job* job = sched->try_pop();
-      if (job != &right_job) sched->spawn(job);
-      else { right(); return;}
+      if (job != &right_job) {
+	if (job != NULL) sched->spawn(job);
+      } else { right(); return;}
     }
     auto finished = [&] () {return right_done;};
     sched->wait(finished);
