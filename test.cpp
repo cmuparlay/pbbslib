@@ -52,10 +52,10 @@ int main (int argc, char *argv[]) {
     auto ident = [&] (int i) {a[i] = i;};
     parfor(0,m,2000,ident);
     timer t2;
-    for (int i=0; i < 10000; i++) {
+    for (int i=0; i < 100; i++) {
       parfor(0,m,2000,ident);
-      t2.next("tabulate");
     }
+    t2.next("tabulate");
   };
   fj2.run(job2,p);
 }

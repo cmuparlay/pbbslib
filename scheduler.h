@@ -205,11 +205,12 @@ private:
     if (job) return job;
     size_t id = worker_id();
     while (1) {
-      for (int i=0; i <= num_deques *4; i++) {
+      for (int i=0; i <= num_deques; i++) {
 	if (finished()) return NULL;
 	job = try_steal(id);
 	if (job) return job;
       }
+      // if havn't found anything, take a rest
       std::this_thread::sleep_for(std::chrono::nanoseconds(10000));
     }
   }
