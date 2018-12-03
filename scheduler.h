@@ -7,22 +7,25 @@ using namespace std;
 // from Arora, Blumofe, Plaxton
 template <typename Job>
 struct Deque {
-  using qidx = int;
+  using qidx = unsigned int;
+  using tag_t = unsigned int;
 
   // use unit for atomic access
   union age_t {
     struct {
-      int tag;
+      tag_t tag;
       qidx top;
     } pair;
     size_t unit;
   };
 
   struct alignas(64) padded_job { Job* job;  };
-  
+
+  static bool const fully_safe = true;
+  static int const q_size = 200;
   age_t age;
   qidx bot;
-  padded_job deq[100];
+  padded_job deq[q_size];
 
   inline bool cas(size_t* ptr, size_t oldv, size_t newv) {
     return __sync_bool_compare_and_swap(ptr, oldv, newv);
@@ -42,51 +45,62 @@ struct Deque {
   }
     
   void push_bottom(Job* job) {
+    qidx local_bot;
     read_fence();
-    qidx local_bot = bot; // atomic load
+    local_bot = bot; // atomic load
     deq[local_bot].job = job; // shared store
     local_bot += 1;
+    if (local_bot == q_size) abort();
     bot = local_bot; // shared store
-    write_fence(); 
+    write_fence();
   }
   
   Job* pop_top() {
     age_t old_age, new_age;
-    //read_fence();
+    qidx local_bot;
+    Job* job;
+    if (fully_safe) read_fence();
     old_age.unit = age.unit; // atomic load
-    qidx local_bot = bot; // atomic load
+    local_bot = bot; // atomic load
     if (local_bot <= old_age.pair.top)
       return NULL;
-    Job* job = deq[old_age.pair.top].job; // atomic load
+    if (fully_safe) read_fence();
+    job = deq[old_age.pair.top].job; // atomic load
     new_age.unit = old_age.unit;
     new_age.pair.top = new_age.pair.top + 1;
     if (cas(&(age.unit), old_age.unit, new_age.unit))  // cas
       return job;
+    if (fully_safe) write_fence();
     return NULL;
   }
 
   Job* pop_bottom() {
     age_t old_age, new_age;
+    qidx local_bot;
+    Job* job;
     read_fence();
-    qidx local_bot = bot; // atomic load
+    local_bot = bot; // atomic load
     if (local_bot == 0) 
       return NULL;
     local_bot = local_bot - 1;
     bot = local_bot; // shared store
     write_fence();
     read_fence();
-    Job* job = deq[local_bot].job; // atomic load
+    job = deq[local_bot].job; // atomic load
     old_age.unit = age.unit; // atomic load
     if (local_bot > old_age.pair.top)
       return job;
     bot = 0; // shared store
     write_fence();  // not sure if this write_fence is needed
     new_age.pair.top = 0;
+    if (new_age.pair.tag == std::numeric_limits<tag_t>::max()) abort();
     new_age.pair.tag = old_age.pair.tag + 1;
     if (local_bot == old_age.pair.top) {
       if (cas(&(age.unit), old_age.unit, new_age.unit)) { // cas
+	if (fully_safe) write_fence();
 	return job;
       }
+      if (fully_safe) write_fence();
     }
     age.unit = new_age.unit; // shared store
     write_fence();
@@ -98,6 +112,8 @@ template <typename Job>
 struct scheduler {
 
 public:
+  static bool const conservative = false;
+
   scheduler() {
     num_deques = 2*num_workers();
     deques = new Deque<Job>[num_deques];
@@ -116,7 +132,7 @@ public:
     if (num_threads > 0 && num_threads < 2 * num_workers())
       omp_set_num_threads(num_threads);
     #pragma omp parallel
-    wait(finished);
+    start(finished);
 
     finished_flag = 0;
   }
@@ -127,7 +143,7 @@ public:
   }
 
   template <typename F>
-  void wait(F finished) {
+  void start(F finished) {
     while (1) {
       Job* job = get_job(finished);
       if (!job) return;
@@ -135,6 +151,15 @@ public:
     }
   }
 
+  template <typename F>
+  void wait(F finished) {
+    if (conservative) 
+      while (!finished()) 
+	std::this_thread::yield();
+    // if not conservative schedule within the wait
+    else start(finished);
+  }
+  
   void finish() {finished_flag = 1;}
 
   Job* try_pop() {
@@ -213,3 +238,4 @@ struct fork_join_scheduler {
   }
   
 };
+
