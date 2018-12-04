@@ -6,7 +6,7 @@
 using namespace std;
 
 fork_join_scheduler fj;
-fork_join_scheduler fj2;
+//fork_join_scheduler fj2;
 
 long fib(long i) {
   if (i <= 1) return 1;
@@ -15,20 +15,6 @@ long fib(long i) {
   fj.pardo([&] () { l = fib(i-1);},
 	   [&] () { r = fib(i-2);});
   return l + r;
-}
-
-template <typename F>
-static void parfor(size_t start, size_t end, size_t granularity, F f) {
-  if ((end - start) <= granularity)
-    for (size_t i=start; i < end; i++) f(i);
-  else {
-    size_t n = end-start;
-    size_t mid = ((((size_t) 1) << pbbs::log2_up(n) != n)
-		  ? (end+start)/2
-		  : start + (7*(n+1))/16);
-    fj2.pardo([&] () {parfor(start, mid, granularity, f);},
-	     [&] () {parfor(mid, end, granularity, f);});
-  }
 }
 
 int main (int argc, char *argv[]) {
@@ -49,28 +35,28 @@ int main (int argc, char *argv[]) {
   auto job2 = [&] () {
     long* a = new long[m];
     auto ident = [&] (int i) {a[i] = i;};
-    parfor(0,m,2000,ident);
+    fj.parfor(0,m,ident,2000);
     timer t2;
     for (int i=0; i < 100; i++) {
-      parfor(0,m,2000,ident);
+      fj.parfor(0,m,ident,2000);
     }
     t2.next("tabulate");
   };
-  fj2.run(job2,p);
+  fj.run(job2,p);
 
   auto spin = [&] (int i) {
     for (volatile int j=0; j < 1000; j++);
   };
 
   auto job3 = [&] () {
-    parfor(0,m/200,20,spin);
+    fj.parfor(0,m/200,spin,20);
     timer t2;
     for (int i=0; i < 100; i++) {
-      parfor(0,m/200,20,spin);
+      fj.parfor(0,m/200,spin,20);
     }
     t2.next("map spin");
   };
-  fj2.run(job3,p);
+  fj.run(job3,p);
 
   timer t2;
 #pragma omp parallel for

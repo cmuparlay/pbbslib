@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <iostream>
 
-// EXAMPLE USE:
+// EXAMPLE USE 1:
 //
 // fork_join_scheduler fj;
 //
@@ -16,7 +16,19 @@
 //   return l + r;
 // }
 //
-// fj.start([] () { cout << fib(40) << endl;});
+// fj.run([] () { cout << fib(40) << endl;});
+//
+// EXAMPLE USE 2:
+//
+// void init(long* x, size_t n) {
+//   fj.parfor(0, n, [&] (int i) {a[i] = i;}, 1000)
+// }
+//
+// size_t n = 1000000000;
+//
+// long* a = new long[n];
+//
+// fj.run([&] () {init(a, n);});
 
 using namespace std;
 
@@ -145,6 +157,7 @@ public:
 
   // Run the job on specified number of threads.
   void run(Job* job, int num_threads = 0) {
+    finished_flag = 0;
     deques[0].push_bottom(job);
     auto finished = [&] () {return finished_flag > 0;};
     if (num_threads > 0 && num_threads < 2 * num_workers())
@@ -174,10 +187,10 @@ public:
     else start(finished);
   }
 
-  // all scheduler threads quit after this is called.
+  // All scheduler threads quit after this is called.
   void finish() {finished_flag = 1;}
 
-  // pop from local stack
+  // Pop from local stack.
   Job* try_pop() {
     int id = worker_id();
     return deques[id].pop_bottom();
@@ -185,7 +198,7 @@ public:
 
 private:
 
-  // align to avoid false sharing
+  // Align to avoid false sharing.
   struct alignas(128) attempt { size_t val; };
   
   int num_deques;
@@ -243,6 +256,8 @@ private:
 };
 
 struct fork_join_scheduler {
+
+public:
   // Jobs are thunks -- i.e., functions that take no arguments
   // and return nothing.   Could be a lambda, e.g. [] () {}.
   using Job = std::function<void()>;
@@ -283,5 +298,29 @@ struct fork_join_scheduler {
     auto finished = [&] () {return right_done;};
     sched->wait(finished);
   }
-  
+
+  template <typename F>
+  void parfor(size_t start, size_t end, F f, size_t granularity = 1) {
+    if ((end - start) <= granularity)
+      for (size_t i=start; i < end; i++) f(i);
+    else {
+      size_t n = end-start;
+      // Hackery to avoid clashes on set-associative caches on powers of 2.
+      size_t mid = ((((size_t) 1) << log2_up(n) != n)
+		    ? (end+start)/2
+		    : start + (7*(n+1))/16);
+      pardo([&] () {parfor(start, mid, f, granularity);},
+	    [&] () {parfor(mid, end, f, granularity);});
+    }
+  }
+
+private:
+
+  size_t log2_up(size_t i) {
+    size_t a = 0;
+    size_t b = i - 1;
+    while (b > 0) {b = b >> 1; a++;}
+    return a;
+  }
+
 };
