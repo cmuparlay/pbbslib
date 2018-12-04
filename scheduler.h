@@ -1,10 +1,26 @@
 #include <omp.h>
 #include <chrono>
 #include <thread>
+#include <cstdint>
+#include <iostream>
+
+// EXAMPLE USE:
+//
+// fork_join_scheduler fj;
+//
+// long fib(long i) {
+//   if (i <= 1) return 1;
+//   long l,r;
+//   fj.pardo([&] () { l = fib(i-1);},
+//            [&] () { r = fib(i-2);});
+//   return l + r;
+// }
+//
+// fj.start([] () { cout << fib(40) << endl;});
 
 using namespace std;
 
-// from Arora, Blumofe, Plaxton
+// Deque from Arora, Blumofe, and Plaxton (SPAA, 1998).
 template <typename Job>
 struct Deque {
   using qidx = unsigned int;
@@ -19,9 +35,9 @@ struct Deque {
     size_t unit;
   };
 
+  // align to avoid false sharing
   struct alignas(64) padded_job { Job* job;  };
 
-  static bool const fully_safe = false;
   static int const q_size = 200;
   age_t age;
   qidx bot;
@@ -31,13 +47,7 @@ struct Deque {
     return __sync_bool_compare_and_swap(ptr, oldv, newv);
   }
 
-  inline void write_fence() {
-    // std::atomic_thread_fence(std::memory_order_release);
-    std::atomic_thread_fence(std::memory_order_seq_cst);
-  }
-
-  inline void read_fence() {
-    //std::atomic_thread_fence(std::memory_order_acquire);
+  inline void fence() {
     std::atomic_thread_fence(std::memory_order_seq_cst);
   }
 
@@ -48,30 +58,27 @@ struct Deque {
     
   void push_bottom(Job* job) {
     qidx local_bot;
-    if (fully_safe) read_fence();
     local_bot = bot; // atomic load
     deq[local_bot].job = job; // shared store
-    if (fully_safe) write_fence();
     local_bot += 1;
-    if (local_bot == q_size) abort();
+    if (local_bot == q_size) {
+      cout << "internal error: scheduler queue overflow" << endl;
+      abort();
+    }
     bot = local_bot; // shared store
-    write_fence();
+    fence();
   }
-
   
   Job* pop_top() {
     age_t old_age, new_age;
     qidx local_bot;
     Job *job, *result;
-    if (fully_safe) read_fence();
     old_age.unit = age.unit; // atomic load
 
-    if (fully_safe) read_fence();
     local_bot = bot; // atomic load
     if (local_bot <= old_age.pair.top)
       result = NULL;
     else {
-      if (fully_safe) read_fence();
       job = deq[old_age.pair.top].job; // atomic load
       new_age.unit = old_age.unit;
       new_age.pair.top = new_age.pair.top + 1;
@@ -79,7 +86,6 @@ struct Deque {
 	result = job;
       else
 	result = NULL;
-      if (fully_safe) write_fence();
     }
     return result;
   }
@@ -88,24 +94,20 @@ struct Deque {
     age_t old_age, new_age;
     qidx local_bot;
     Job *job, *result;
-    if (fully_safe) read_fence();
     local_bot = bot; // atomic load
     if (local_bot == 0) 
       result = NULL;
     else {
       local_bot = local_bot - 1;
       bot = local_bot; // shared store
-      write_fence();
+      fence();
       job = deq[local_bot].job; // atomic load
       old_age.unit = age.unit; // atomic load
       if (local_bot > old_age.pair.top)
 	result = job;
       else {
 	bot = 0; // shared store
-	if (fully_safe) write_fence(); 
 	new_age.pair.top = 0;
-	if (new_age.pair.tag == std::numeric_limits<tag_t>::max())
-	  abort();
 	new_age.pair.tag = old_age.pair.tag + 1;
 	if ((local_bot == old_age.pair.top) &&
 	    cas(&(age.unit), old_age.unit, new_age.unit))
@@ -114,7 +116,7 @@ struct Deque {
 	  age.unit = new_age.unit; // shared store
 	  result = NULL;
 	}
-	write_fence();
+	fence();
       }
     }
   return result;
@@ -126,7 +128,8 @@ template <typename Job>
 struct scheduler {
 
 public:
-  static bool const conservative = true;
+  // see comments under wait(..)
+  static bool const conservative = false;
 
   scheduler() {
     num_deques = 2*num_workers();
@@ -140,6 +143,7 @@ public:
     delete[] attempts;
   }
 
+  // Run the job on specified number of threads.
   void run(Job* job, int num_threads = 0) {
     deques[0].push_bottom(job);
     auto finished = [&] () {return finished_flag > 0;};
@@ -150,12 +154,46 @@ public:
 
     finished_flag = 0;
   }
-    
+
+  // Push onto local stack.
   void spawn(Job* job) {
     int id = worker_id();
     deques[id].push_bottom(job);
   }
 
+  // Wait for condition: finished().
+  template <typename F>
+  void wait(F finished) {
+    // Conservative avoids deadlock if scheduler is used in conjunction 
+    // with user locks enclosing a wait.
+    if (conservative) 
+      while (!finished()) 
+	std::this_thread::yield();
+    // If not conservative, schedule within the wait.
+    // Can deadlock if a stolen job uses same lock as encloses the wait.
+    else start(finished);
+  }
+
+  // all scheduler threads quit after this is called.
+  void finish() {finished_flag = 1;}
+
+  // pop from local stack
+  Job* try_pop() {
+    int id = worker_id();
+    return deques[id].pop_bottom();
+  }
+
+private:
+
+  // align to avoid false sharing
+  struct alignas(128) attempt { size_t val; };
+  
+  int num_deques;
+  Deque<Job>* deques;
+  attempt* attempts;
+  int finished_flag;
+
+  // Start an individual scheduler task.  Runs until finished().
   template <typename F>
   void start(F finished) {
     while (1) {
@@ -165,39 +203,14 @@ public:
     }
   }
 
-  template <typename F>
-  void wait(F finished) {
-    if (conservative) 
-      while (!finished()) 
-	std::this_thread::yield();
-    // if not conservative schedule within the wait
-    else start(finished);
-  }
-  
-  void finish() {finished_flag = 1;}
-
-  Job* try_pop() {
-    int id = worker_id();
-    return deques[id].pop_bottom();
-  }
-
-
-private:
-
-  struct alignas(128) attempt { size_t val; };
-  
-  int num_deques;
-  Deque<Job>* deques;
-  attempt* attempts;
-  int finished_flag;
-
   Job* try_steal(size_t id) {
-    size_t target = (pbbs::hash32(id) +
-		     pbbs::hash32(attempts[id].val)) % num_deques;
+    // use hashing to get "random" target
+    size_t target = (hash(id) + hash(attempts[id].val)) % num_deques;
     attempts[id].val++;
     return deques[target].pop_top();
   }
 
+  // Find a job, first trying local stack, then random steals.
   template <typename F>
   Job* get_job(F finished) {
     if (finished()) return NULL;
@@ -205,19 +218,33 @@ private:
     if (job) return job;
     size_t id = worker_id();
     while (1) {
-      for (int i=0; i <= num_deques; i++) {
+      // By coupon collector's problem, this should touch all.
+      for (int i=0; i <= num_deques * 16; i++) {
 	if (finished()) return NULL;
 	job = try_steal(id);
 	if (job) return job;
       }
-      // if havn't found anything, take a rest
-      std::this_thread::sleep_for(std::chrono::nanoseconds(10000));
+      // If havn't found anything, take a breather.
+      std::this_thread::sleep_for(std::chrono::nanoseconds(num_deques*100));
     }
   }
+
+  uint64_t hash(uint64_t x) {
+    x = (x ^ (x >> 30)) * UINT64_C(0xbf58476d1ce4e5b9);
+    x = (x ^ (x >> 27)) * UINT64_C(0x94d049bb133111eb);
+    x = x ^ (x >> 31);
+    return x;
+  }
+
+  static int num_workers() { return omp_get_max_threads(); }
+  static int worker_id() { return omp_get_thread_num(); }
+  void set_num_workers(int n) { omp_set_num_threads(n); }
 
 };
 
 struct fork_join_scheduler {
+  // Jobs are thunks -- i.e., functions that take no arguments
+  // and return nothing.   Could be a lambda, e.g. [] () {}.
   using Job = std::function<void()>;
   
   scheduler<Job>* sched;
@@ -230,12 +257,15 @@ struct fork_join_scheduler {
     delete sched;
   }
 
+  // Run thunk on given number of threads.
+  // 0 means however many the hardware claims it has.
   template <typename J>
   void run(J thunk, int num_threads=0) {
     Job job = [&] () {thunk(); sched->finish();};
     sched->run(&job,num_threads);
   }
-    
+
+  // Fork two thunks and wait until they both finish.
   template <typename L, typename R>
   void pardo(L left, R right) {
     bool right_done = false;
@@ -255,4 +285,3 @@ struct fork_join_scheduler {
   }
   
 };
-

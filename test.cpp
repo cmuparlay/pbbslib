@@ -1,8 +1,7 @@
-#include "utilities.h"
 #include "scheduler.h"
 #include "get_time.h"
 #include "parse_command_line.h"
-#include <iostream>
+#include "utilities.h"
 
 using namespace std;
 
@@ -11,7 +10,7 @@ fork_join_scheduler fj2;
 
 long fib(long i) {
   if (i <= 1) return 1;
-  else if (i < 24) return fib(i-1) + fib(i-2);
+  else if (i < 18) return fib(i-1) + fib(i-2);
   long l,r;
   fj.pardo([&] () { l = fib(i-1);},
 	   [&] () { r = fib(i-2);});
@@ -58,6 +57,28 @@ int main (int argc, char *argv[]) {
     t2.next("tabulate");
   };
   fj2.run(job2,p);
+
+  auto spin = [&] (int i) {
+    for (volatile int j=0; j < 1000; j++);
+  };
+
+  auto job3 = [&] () {
+    parfor(0,m/200,20,spin);
+    timer t2;
+    for (int i=0; i < 100; i++) {
+      parfor(0,m/200,20,spin);
+    }
+    t2.next("map spin");
+  };
+  fj2.run(job3,p);
+
+  timer t2;
+#pragma omp parallel for
+  for (int i=0; i < 100; i++) {
+#pragma omp parallel for schedule(static,20)
+    for (size_t k=0 ; k < m/200; k++) spin(k);
+  }
+  t2.next("map spin omp");
 }
   
   

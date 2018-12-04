@@ -35,12 +35,25 @@ int main (int argc, char *argv[]) {
     auto ident = [&] (int i) {a[i] = i;};
     par_for(0,m,2000,ident);
     timer t2;
-    for (int i=0; i < 10; i++) {
+    for (int i=0; i < 100; i++) {
       par_for(0,m,2000,ident);
     }
     t2.next("tabulate");
   };
   job2();
+
+  auto job3 = [&] () {
+    auto spin = [&] (int i) {
+      for (volatile int j=0; j < 1000; j++);
+    };
+    par_for(0,m/200,10,spin);
+    timer t2;
+    for (int i=0; i < 100; i++) {
+      par_for(0,m/200,10,spin);
+    }
+    t2.next("map spin");
+  };
+  job3();
 }
   
   

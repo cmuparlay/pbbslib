@@ -8,8 +8,8 @@
 #define parallel_for cilk_for
 #define PAR_GRANULARITY 5000
 
-static int num_workers() {return __cilkrts_get_nworkers();}
-static int worker_id() {return __cilkrts_get_worker_number();}
+int num_workers() {return __cilkrts_get_nworkers();}
+int worker_id() {return __cilkrts_get_worker_number();}
 void set_num_workers(int n) {
   __cilkrts_end_cilk();
   std::stringstream ss; ss << n;
@@ -40,8 +40,8 @@ inline void par_do3_(Lf left, Mf mid, Rf right) {
 #define parallel_for _Pragma("omp parallel for") for
 #define PAR_GRANULARITY 200000
 
-static int num_workers() { return omp_get_max_threads(); }
-static int worker_id() { return omp_get_thread_num(); }
+int num_workers() { return omp_get_max_threads(); }
+int worker_id() { return omp_get_thread_num(); }
 void set_num_workers(int n) { omp_set_num_threads(n); }
 
 template <typename Lf, typename Rf>
@@ -68,8 +68,8 @@ static void par_do3_(Lf left, Mf mid, Rf right) {
 #else
 #define parallel_for for
 
-static int num_workers() { return 1;}
-static int worker_id() { return 0;}
+int num_workers() { return 1;}
+int worker_id() { return 0;}
 void set_num_workers(int n) { ; }
 #define PAR_GRANULARITY 1000
 
