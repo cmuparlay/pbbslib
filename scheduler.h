@@ -335,21 +335,12 @@ private:
       for (size_t i=start; i < end; i++) f(i);
     else {
       size_t n = end-start;
-      // Hackery to avoid clashes on set-associative caches on powers of 2.
-      size_t mid = (!is_powerof_2(n)
-		    ? (end+start)/2
-		    : start + (7*(n+1))/16);
+      // Not in middle to avoid clashes on set-associative caches
+      // on powers of 2.
+      size_t mid = (start + (9*(n+1))/16);
       pardo([&] () {parfor_(start, mid, f, granularity);},
 	    [&] () {parfor_(mid, end, f, granularity);});
     }
-  }
-
-  size_t is_powerof_2(size_t i) {
-    while (i > 1) {
-      if (i & 1) return false;
-      i = i >> 1;
-    }
-    return true;
   }
 
 };
