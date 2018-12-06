@@ -35,10 +35,10 @@ int main (int argc, char *argv[]) {
   auto job2 = [&] () {
     long* a = new long[m];
     auto ident = [&] (int i) {a[i] = i;};
-    fj.parfor(0,m,ident,2000);
+    fj.parfor(0,m,ident);
     timer t2;
     for (int i=0; i < 100; i++) {
-      fj.parfor(0,m,ident,2000);
+      fj.parfor(0,m,ident);
     }
     t2.next("tabulate");
   };
@@ -49,22 +49,34 @@ int main (int argc, char *argv[]) {
   };
 
   auto job3 = [&] () {
-    fj.parfor(0,m/200,spin,20);
+    fj.parfor(0,m/200,spin);
     timer t2;
     for (int i=0; i < 100; i++) {
-      fj.parfor(0,m/200,spin,20);
+      fj.parfor(0,m/200,spin);
     }
     t2.next("map spin");
   };
   fj.run(job3,p);
 
-  timer t2;
-#pragma omp parallel for
+  {
+  long* a = new long[m];
+  for (size_t k=0 ; k < m; k++) a[k] = k;
+  timer t1;
   for (int i=0; i < 100; i++) {
-#pragma omp parallel for schedule(static,20)
+#pragma omp parallel for
+    for (size_t k=0 ; k < m; k++) a[k] = k;
+  }
+  t1.next("tabulate omp");
+  }
+
+  {
+  timer t2;
+  for (int i=0; i < 100; i++) {
+#pragma omp parallel for
     for (size_t k=0 ; k < m/200; k++) spin(k);
   }
   t2.next("map spin omp");
+  }
 }
   
   

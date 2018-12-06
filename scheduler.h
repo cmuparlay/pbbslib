@@ -21,7 +21,7 @@
 // EXAMPLE USE 2:
 //
 // void init(long* x, size_t n) {
-//   fj.parfor(0, n, [&] (int i) {a[i] = i;}, 1000)
+//   fj.parfor(0, n, [&] (int i) {a[i] = i;});
 // }
 //
 // size_t n = 1000000000;
@@ -142,6 +142,7 @@ struct scheduler {
 public:
   // see comments under wait(..)
   static bool const conservative = false;
+  int num_threads;
 
   scheduler() {
     num_deques = 2*num_workers();
@@ -156,12 +157,11 @@ public:
   }
 
   // Run the job on specified number of threads.
-  void run(Job* job, int num_threads = 0) {
+  void run(Job* job, int threads = 0) {
     finished_flag = 0;
     deques[0].push_bottom(job);
     auto finished = [&] () {return finished_flag > 0;};
-    if (num_threads > 0 && num_threads < 2 * num_workers())
-      omp_set_num_threads(num_threads);
+    num_threads = (threads > 0) ? threads : num_workers();
     #pragma omp parallel
     start(finished);
 
@@ -300,27 +300,55 @@ public:
   }
 
   template <typename F>
-  void parfor(size_t start, size_t end, F f, size_t granularity = 1) {
+  int get_granularity(size_t start, size_t end, F f) {
+    size_t done = 0;
+    size_t size = 1;
+    int ticks;
+    do {
+      auto tstart = std::chrono::high_resolution_clock::now();
+      for (size_t i=0; i < size; i++) f(start+done+i);
+      auto tstop = std::chrono::high_resolution_clock::now();
+      ticks = (tstop-tstart).count();
+      done += size;
+      size *= 2;
+    } while (ticks < 1000 && done+size < (end-start));
+    return done;
+  }
+      
+  template <typename F>
+  void parfor(size_t start, size_t end, F f, size_t granularity = 0) {
+    if (granularity == 0) {
+      size_t done = get_granularity(start,end, f);
+      done = max(done, (end-start)/(128*sched->num_threads));
+      //cout << done << endl;
+      parfor_(start+done, end, f, done);
+    } else parfor_(start, end, f, granularity);
+  }
+
+private:
+
+        
+  template <typename F>
+  void parfor_(size_t start, size_t end, F f, size_t granularity) {
     if ((end - start) <= granularity)
       for (size_t i=start; i < end; i++) f(i);
     else {
       size_t n = end-start;
       // Hackery to avoid clashes on set-associative caches on powers of 2.
-      size_t mid = ((((size_t) 1) << log2_up(n) != n)
+      size_t mid = (!is_powerof_2(n)
 		    ? (end+start)/2
 		    : start + (7*(n+1))/16);
-      pardo([&] () {parfor(start, mid, f, granularity);},
-	    [&] () {parfor(mid, end, f, granularity);});
+      pardo([&] () {parfor_(start, mid, f, granularity);},
+	    [&] () {parfor_(mid, end, f, granularity);});
     }
   }
 
-private:
-
-  size_t log2_up(size_t i) {
-    size_t a = 0;
-    size_t b = i - 1;
-    while (b > 0) {b = b >> 1; a++;}
-    return a;
+  size_t is_powerof_2(size_t i) {
+    while (i > 1) {
+      if (i & 1) return false;
+      i = i >> 1;
+    }
+    return true;
   }
 
 };
