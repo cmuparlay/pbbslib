@@ -305,13 +305,14 @@ public:
     size_t size = 1;
     int ticks;
     do {
+      size = min(size,end-(start+done));
       auto tstart = std::chrono::high_resolution_clock::now();
       for (size_t i=0; i < size; i++) f(start+done+i);
       auto tstop = std::chrono::high_resolution_clock::now();
       ticks = (tstop-tstart).count();
       done += size;
       size *= 2;
-    } while (ticks < 1000 && done+size < (end-start));
+    } while (ticks < 1000 && done < (end-start));
     return done;
   }
       
