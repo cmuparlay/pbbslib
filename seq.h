@@ -46,7 +46,8 @@ public:
     : s(pbbs::new_array_no_init<E>(n, true)), allocated(true) {
     e = s + n;
     auto f = [=] (size_t i) {new ((void*) (s+i)) T(v);};
-    par_for(0, n, pbbs::granularity(n), f);
+    //par_for(0, n, pbbs::granularity(n), f);
+    parallel_for(0, n, f, 0);
     //parallel_for (size_t i=0; i < n; i++) f(i);
   };
 

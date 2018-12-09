@@ -237,11 +237,15 @@ namespace pbbs {
     sliced_for (n, _block_size,
 		[&] (size_t i, size_t s, size_t e) 
 		{
+		  size_t c0 = 0;
+		  size_t c1 = 0;
 		  Sums0[i] = Sums1[i] = 0;
 		  for (size_t j=s; j < e; j++) {
-		    if (Fl[j] == 0) Sums0[i]++;
-		    else if (Fl[j] == 1) Sums1[i]++;
+		    if (Fl[j] == 0) c0++;
+		    else if (Fl[j] == 1) c1++;
 		  }
+		  Sums0[i] = c0;
+		  Sums1[i] = c1;
 		});
     size_t m0 = scan_add(Sums0, Sums0);
     size_t m1 = scan_add(Sums1, Sums1);

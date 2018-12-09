@@ -93,12 +93,10 @@ void quicksort_serial(E* A, size_t n, const BinPred& f) {
 
 template <class E, class BinPred>
 void quicksort(E* A, size_t n, const BinPred& f) {
-  if (n < (1 << 12)) quicksort_serial(A, n, f);
+  if (n < (1 << 10)) quicksort_serial(A, n, f);
   else {
-    std::tuple<E*,E*,bool> X = split3(A,n,f);
-    E* L = std::get<0>(X);
-    E* M = std::get<1>(X);
-    bool mid_eq = std::get<2>(X);
+    E* L; E* M; bool mid_eq;
+    std::tie(L, M, mid_eq) = split3(A,n,f);
     auto left = [&] () { quicksort(A, L - A, f);};
     auto mid = [&] () {quicksort(L, M - L, f);};
     auto right = [&] () {quicksort(M, A+n-M, f);};
@@ -129,23 +127,21 @@ template <class SeqA, class F>
 void p_quicksort(SeqA In, SeqA Out, const F& f, bool swap=0, long cut_size=-1) {
   size_t n = In.size();
   if (cut_size == -1)
-    cut_size = std::max<long>((2*n)/num_workers(), (1 << 14));
+    cut_size = std::max<long>((3*n)/num_workers(), (1 << 14));
   if (n < (size_t) cut_size) {
     quicksort(In.as_array(), n, f);
-    if (!swap) for (size_t i=0; i < n; i++) Out[i] = In[i];
+    auto copy_out = [&] (size_t i) {Out[i] = In[i];};
+    if (!swap) par_for(0, n, 2000, copy_out);
   } else {
-    std::tuple<size_t,size_t,bool> X = p_split3(In, Out, f);
-    size_t l = std::get<0>(X);
-    size_t m = std::get<1>(X);
-    bool mid_eq = std::get<2>(X);
+    size_t l, m; bool mid_eq;
+    std::tie(l, m, mid_eq) = p_split3(In, Out, f);
     par_do3(true,
       [&] () {p_quicksort(Out.slice(0,l), In.slice(0,l), f, !swap, cut_size);},
       [&] () {
+	auto copy_in = [&] (size_t i) {In[i] = Out[i];};
 	if (!mid_eq) p_quicksort(Out.slice(l,m), In.slice(l,m), f, !swap, cut_size);
-	else if (swap) {
-	  auto copy_f = [&] (size_t i) {In[i] = Out[i];};
-	  par_for(l, m, 4000, copy_f);
-	}},
+	else if (swap) par_for(l, m, 2000, copy_in);
+	},
       [&] () {p_quicksort(Out.slice(m,n), In.slice(m,n), f, !swap, cut_size);});
   }
 }
