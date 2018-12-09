@@ -84,7 +84,7 @@ namespace pbbs {
       void transR(size_t rStart, size_t rCount, size_t rLength,
 		  size_t cStart, size_t cCount, size_t cLength) {
 	if (cCount*rCount < TRANS_THRESHHOLD) {
-	  parallel_for (size_t i=rStart; i < rStart + rCount; i++) 
+	  par_for(rStart, rStart+rCount, [&] (size_t i) {
 	    for (size_t j=cStart; j < cStart + cCount; j++) {
 	      E* pa = A+OA[i*rLength + j];
 	      E* pb = B+OB[j*cLength + i];
@@ -93,6 +93,7 @@ namespace pbbs {
 	      for (size_t k=0; k < bytes; k++)
 		((char*) pb)[k] = ((char *) pa)[k];
 	    }
+          });
 	} else if (cCount > rCount) {
 	  //size_t l1 = cCount/2;
 	  size_t l1 = split(cCount);

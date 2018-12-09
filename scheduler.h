@@ -67,7 +67,7 @@ struct Deque {
     age.pair.tag = 0;
     age.pair.top = 0;
   }
-    
+
   void push_bottom(Job* job) {
     qidx local_bot;
     local_bot = bot; // atomic load
@@ -80,7 +80,7 @@ struct Deque {
     bot = local_bot; // shared store
     fence();
   }
-  
+
   Job* pop_top() {
     age_t old_age, new_age;
     qidx local_bot;
@@ -107,7 +107,7 @@ struct Deque {
     qidx local_bot;
     Job *job, *result;
     local_bot = bot; // atomic load
-    if (local_bot == 0) 
+    if (local_bot == 0)
       result = NULL;
     else {
       local_bot = local_bot - 1;
@@ -177,10 +177,10 @@ public:
   // Wait for condition: finished().
   template <typename F>
   void wait(F finished) {
-    // Conservative avoids deadlock if scheduler is used in conjunction 
+    // Conservative avoids deadlock if scheduler is used in conjunction
     // with user locks enclosing a wait.
-    if (conservative) 
-      while (!finished()) 
+    if (conservative)
+      while (!finished())
 	std::this_thread::yield();
     // If not conservative, schedule within the wait.
     // Can deadlock if a stolen job uses same lock as encloses the wait.
@@ -196,11 +196,16 @@ public:
     return deques[id].pop_bottom();
   }
 
+  // TODO:
+  int num_workers() { return omp_get_max_threads(); }
+  int worker_id() { return omp_get_thread_num(); }
+  void set_num_workers(int n) { omp_set_num_threads(n); }
+
 private:
 
   // Align to avoid false sharing.
   struct alignas(128) attempt { size_t val; };
-  
+
   int num_deques;
   Deque<Job>* deques;
   attempt* attempts;
@@ -232,12 +237,12 @@ private:
     size_t id = worker_id();
     while (1) {
       // By coupon collector's problem, this should touch all.
-      for (int i=0; i <= num_deques * 16; i++) {
+      for (int i=0; i <= num_deques * 100; i++) {
 	if (finished()) return NULL;
 	job = try_steal(id);
 	if (job) return job;
       }
-      // If havn't found anything, take a breather.
+      // If haven't found anything, take a breather.
       std::this_thread::sleep_for(std::chrono::nanoseconds(num_deques*100));
     }
   }
@@ -248,11 +253,6 @@ private:
     x = x ^ (x >> 31);
     return x;
   }
-
-  static int num_workers() { return omp_get_max_threads(); }
-  static int worker_id() { return omp_get_thread_num(); }
-  void set_num_workers(int n) { omp_set_num_threads(n); }
-
 };
 
 struct fork_join_scheduler {
@@ -261,9 +261,9 @@ public:
   // Jobs are thunks -- i.e., functions that take no arguments
   // and return nothing.   Could be a lambda, e.g. [] () {}.
   using Job = std::function<void()>;
-  
+
   scheduler<Job>* sched;
-  
+
   fork_join_scheduler() {
     sched = new scheduler<Job>;
   }
@@ -271,6 +271,11 @@ public:
   ~fork_join_scheduler() {
     delete sched;
   }
+
+  int num_workers() { return sched->num_workers(); }
+  int worker_id() { return sched->worker_id(); }
+  void set_num_workers(int n) { sched->set_num_workers(n); }
+
 
   // Run thunk on given number of threads.
   // 0 means however many the hardware claims it has.

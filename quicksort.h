@@ -82,10 +82,8 @@ std::tuple<E*,E*,bool> split3(E* A, size_t n, const BinPred& f) {
 template <class E, class BinPred>
 void quicksort_serial(E* A, size_t n, const BinPred& f) {
   while (n > 24) {
-    std::tuple<E*,E*,bool> X = split3(A,n,f);
-    E* L = std::get<0>(X);  // C++ is so incredibly ugly
-    E* M = std::get<1>(X);
-    bool mid_eq = std::get<2>(X);
+    E* L; E* M; bool mid_eq;
+    std::tie(L, M, mid_eq) = split3(A, n, f);
     if (!mid_eq) quicksort_serial(L, M - L, f);
     quicksort_serial(M, A+n-M, f);
     n = L - A;
@@ -95,7 +93,7 @@ void quicksort_serial(E* A, size_t n, const BinPred& f) {
 
 template <class E, class BinPred>
 void quicksort(E* A, size_t n, const BinPred& f) {
-  if (n < (1 << 10)) quicksort_serial(A, n, f);
+  if (n < (1 << 12)) quicksort_serial(A, n, f);
   else {
     std::tuple<E*,E*,bool> X = split3(A,n,f);
     E* L = std::get<0>(X);

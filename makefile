@@ -12,6 +12,9 @@ CFLAGS = -mcx16 -O2 -DCILK -Wall -fcilkplus -std=c++11 -march=native
 else ifdef OPENMP
 CC = g++
 CFLAGS = $(OMPCFLAGS)
+else ifdef HOMEGROWN
+CC = g++
+CFLAGS = -fopenmp -mcx16 -O2 -Wall -std=c++11 -march=native -DHOMEGROWN
 else ifdef SERIAL
 CC = g++
 CFLAGS = -mcx16 -O2 -Wall -std=c++11 -march=native

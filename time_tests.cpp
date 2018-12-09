@@ -12,6 +12,8 @@
 #include <vector>
 #include <algorithm>
 
+#include "parallel.h"
+
 using namespace std;
 
 size_t str_to_int(char* str) {
@@ -25,7 +27,11 @@ void report_time(double t, string name) {
 template<typename F>
 vector<double> repeat(size_t n, size_t rounds, F test) {
   vector<double> R;
+#ifdef HOMEGROWN
+  for (size_t i=0; i < rounds; i++) fj.run([&] () { R.push_back(test(n)); });
+#else
   for (size_t i=0; i < rounds; i++) R.push_back(test(n));
+#endif
   return R;
 }
 

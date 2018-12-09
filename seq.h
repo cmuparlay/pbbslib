@@ -11,7 +11,7 @@ public:
   sequence(sequence& a) : s(a.s), e(a.e), allocated(false) {}
 
   // move constructor
-  sequence(sequence&& b) 
+  sequence(sequence&& b)
     : s(b.s), e(b.e), allocated(b.allocated) {
     b.s = b.e = NULL; b.allocated = false;}
 
@@ -28,8 +28,8 @@ public:
       b.s = b.e = NULL; b.allocated=false;}
     return *this;
   }
-  
-  sequence(const size_t n) 
+
+  sequence(const size_t n)
     : s(pbbs::new_array<E>(n)), allocated(true) {
     e = s + n;
   };
@@ -42,7 +42,7 @@ public:
     return r;
   };
 
-  sequence(const size_t n, T v) 
+  sequence(const size_t n, T v)
     : s(pbbs::new_array_no_init<E>(n, true)), allocated(true) {
     e = s + n;
     auto f = [=] (size_t i) {new ((void*) (s+i)) T(v);};
@@ -51,7 +51,7 @@ public:
   };
 
   template <typename Func>
-  sequence(const size_t n, const Func& f) 
+  sequence(const size_t n, const Func& f)
     : s(pbbs::new_array_no_init<E>(n)), allocated(true) {
     e = s + n;
     auto g = [&] (size_t i) {
@@ -71,7 +71,7 @@ public:
   // template <typename X, typename F>
   // static sequence<X> tabulateo(size_t n, F f) {
   //   X* r = pbbs::new_array_no_init<X>(n);
-  //   parallel_for (size_t i = 0; i < n; i++) 
+  //   parallel_for (size_t i = 0; i < n; i++)
   //     new ((void*) (r+i)) X(f(i));
   //   sequence<X> y(r,n);
   //   y.allocated = true;
@@ -96,7 +96,7 @@ public:
 
   E& operator[] (const size_t i) const {return s[i];}
 
-  sequence slice(size_t ss, size_t ee) { 
+  sequence slice(size_t ss, size_t ee) {
     return sequence(s + ss, s + ee);
   }
 
@@ -109,7 +109,7 @@ public:
   sequence as_sequence() {
     return sequence(s, e);
   }
-      
+
   T* as_array() {return s;}
   T* start() {return s;}
   T* end() {return e;}

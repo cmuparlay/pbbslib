@@ -35,7 +35,7 @@ static void par_for(size_t start, size_t end, size_t granularity, F f) {
   if ((end - start) <= granularity)
     for (size_t i=start; i < end; i++) f(i);
   else 
-    parallel_for (size_t i=start; i < end; i++) f(i);
+    parallel_for(start, end, f, granularity);
 }
 
 //     // picked so not always split in 1/2 since that causes cache conflicts
