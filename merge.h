@@ -5,7 +5,7 @@
 namespace pbbs {
 
   // the following parameter can be tuned
-  constexpr const size_t _merge_base = PAR_GRANULARITY;
+  constexpr const size_t _merge_base = PAR_GRANULARITY; 
 
   template <class SeqA, class SeqB, class SeqR, class F> 
   void seq_merge(SeqA A, SeqB B, SeqR R, const F& f) {
@@ -34,7 +34,7 @@ namespace pbbs {
   }
     
   template <class SeqA, class SeqB, class SeqR, class F> 
-  void par_merge(SeqA A, SeqB B, SeqR R, const F& f) {
+  void par_merge(SeqA A, SeqB B, SeqR R, const F& f, bool cons=false) {
     size_t nA = A.size();
     size_t nB = B.size();
     size_t nR = nA + nB;
@@ -45,19 +45,19 @@ namespace pbbs {
       size_t mB = binary_search(B, A[mA], f);
       size_t mR = mA + mB;
       auto left = [&] () {par_merge(A.slice(0, mA), B.slice(0, mB), 
-				R.slice(0, mR), f);};
+				    R.slice(0, mR), f, cons);};
       auto right = [&] () {par_merge(A.slice(mA, nA), B.slice(mB, nB), 
-				 R.slice(mR, nR), f);};
-      par_do(true, left, right);
+				     R.slice(mR, nR), f, cons);};
+      par_do(true, left, right, cons);
     }
   }
 
   template <class SeqA, class SeqB, class SeqR, class F> 
-  void merge(SeqA A, SeqB B, SeqR R, const F& f) {
+  void merge(SeqA A, SeqB B, SeqR R, const F& f, bool cons=false) {
 #if defined(OPENMP)
 #pragma omp parallel
 #pragma omp single
 #endif
-    par_merge(A, B, R, f);
+    par_merge(A, B, R, f, cons);
   }
 }

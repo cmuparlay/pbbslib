@@ -5,7 +5,7 @@
 #include <cilk/cilk.h>
 #include <cilk/cilk_api.h>
 #include <sstream>
-#define PAR_GRANULARITY 5000
+#define PAR_GRANULARITY 2000
 
 int num_workers() {return __cilkrts_get_nworkers();}
 int worker_id() {return __cilkrts_get_worker_number();}
@@ -19,14 +19,16 @@ void set_num_workers(int n) {
 }
 
 template <class F>
-inline void parallel_for(size_t start, size_t end, F f, size_t granularity) {
+inline void parallel_for(size_t start, size_t end, F f,
+			 size_t granularity=0,
+			 bool conservative=false) {
   cilk_for(size_t i=start; i<end; i++) {
     f(i);
   }
 }
 
 template <typename Lf, typename Rf>
-inline void par_do_(Lf left, Rf right) {
+inline void par_do_(Lf left, Rf right, bool cons=false) {
     cilk_spawn right();
     left();
     cilk_sync;
@@ -50,14 +52,15 @@ int worker_id() { return omp_get_thread_num(); }
 void set_num_workers(int n) { omp_set_num_threads(n); }
 
 template <class F>
-inline void parallel_for(size_t start, size_t end, F f, size_t granularity) {
-  _Pragma("omp parallel for") for(size_t i=start; i<end; i++) {
-    f(i);
-  }
+inline void parallel_for(size_t start, size_t end, F f,
+			 size_t granularity=0,
+			 bool conservative=false) {
+  _Pragma("omp parallel for")
+    for(size_t i=start; i<end; i++) f(i);
 }
 
 template <typename Lf, typename Rf>
-static void par_do_(Lf left, Rf right) {
+static void par_do_(Lf left, Rf right, bool cons=false) {
 #pragma omp task
     left();
 #pragma omp task
@@ -96,13 +99,15 @@ void set_num_workers(int n) {
 }
 
 template <class F>
-inline void parallel_for(size_t start, size_t end, F f, size_t granularity) {
-  fj.parfor(start, end, f, granularity);
+inline void parallel_for(size_t start, size_t end, F f,
+			 size_t granularity=0,
+			 bool conservative=false) {
+  fj.parfor(start, end, f, granularity, conservative);
 }
 
 template <typename Lf, typename Rf>
-static void par_do_(Lf left, Rf right) {
-  return fj.pardo(left, right);
+static void par_do_(Lf left, Rf right, bool cons=false) {
+  return fj.pardo(left, right, cons);
 }
 
 template <typename Lf, typename Mf, typename Rf>
@@ -125,14 +130,16 @@ void set_num_workers(int n) { ; }
 #define PAR_GRANULARITY 1000
 
 template <class F>
-inline void parallel_for(size_t start, size_t end, F f, size_t granularity) {
+inline void parallel_for(size_t start, size_t end, F f,
+			 size_t granularity=0,
+			 bool conservative=false) {
   for (size_t i=start; i<end; i++) {
     f(i);
   }
 }
 
 template <typename Lf, typename Rf>
-static void par_do_(Lf left, Rf right) {
+static void par_do_(Lf left, Rf right, bool cons=false) {
   left(); right();
 }
 

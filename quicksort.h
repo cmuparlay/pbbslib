@@ -119,7 +119,7 @@ std::tuple<size_t,size_t,bool> p_split3(SeqA A, SeqA B, const BinPred& f) {
   if (!f(A[0],A[1])) p1 = p2; // if few elements less than p1, then set to p2
   if (!f(A[3],A[4])) p2 = p1; // if few elements greater than p2, then set to p1
   auto flag = [&] (size_t i) {return (A[i] < p1) ? 0 : (A[i] > p2) ? 2 : 1;};
-  auto r = split_three(A, B, make_sequence<unsigned char>(n, flag));
+  auto r = split_three(A, B, make_sequence<unsigned char>(n, flag), fl_conservative);
   return std::make_tuple(r.first, r.first + r.second, !f(p1,p2));
 }
 

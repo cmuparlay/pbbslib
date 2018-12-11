@@ -37,7 +37,7 @@ namespace pbbs {
     else return (1 + ((n)-1)/(block_size));}
 
   template <class F>
-  void sliced_for(size_t n, size_t block_size, const F& f) {
+  void sliced_for(size_t n, size_t block_size, const F& f, flags fl = no_flag) {
     size_t l = num_blocks(n, block_size);
     //parallel_for_1 (size_t i = 0; i < l; i++) {	
     //  size_t s = i * block_size; 		
@@ -49,7 +49,7 @@ namespace pbbs {
       size_t e = min(s + block_size, n);
       f(i, s, e);
     };
-    par_for(0, l, 1, body);
+    parallel_for(0, l, body, 1, 0 != (fl & fl_conservative));
   }
 
   template <class Seq, class F>
@@ -248,7 +248,7 @@ namespace pbbs {
 		  }
 		  Sums0[i] = c0;
 		  Sums1[i] = c1;
-		});
+		}, fl);
     size_t m0 = scan_add(Sums0, Sums0);
     size_t m1 = scan_add(Sums1, Sums1);
     sliced_for (n, _block_size,
@@ -262,7 +262,7 @@ namespace pbbs {
 		    else if (Fl[j] == 1) Out[c1++] = In[j];
 		    else Out[c2++] = In[j];
 		  }
-		});
+		}, fl);
     return make_pair(m0,m1);
   }
 }

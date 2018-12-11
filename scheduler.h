@@ -319,20 +319,24 @@ public:
   }
       
   template <typename F>
-  void parfor(size_t start, size_t end, F f, size_t granularity = 0) {
+  void parfor(size_t start, size_t end, F f,
+	      size_t granularity = 0,
+	      bool conservative = false) {
     if (granularity == 0) {
       size_t done = get_granularity(start,end, f);
       granularity = max(done, (end-start)/(128*sched->num_threads));
       //cout << done << endl;
-      parfor_(start+done, end, f, granularity);
-    } else parfor_(start, end, f, granularity);
+      parfor_(start+done, end, f, granularity, conservative);
+    } else parfor_(start, end, f, granularity, conservative);
   }
 
 private:
 
         
   template <typename F>
-  void parfor_(size_t start, size_t end, F f, size_t granularity) {
+  void parfor_(size_t start, size_t end, F f,
+	       size_t granularity,
+	       bool conservative) {
     if ((end - start) <= granularity)
       for (size_t i=start; i < end; i++) f(i);
     else {
@@ -340,8 +344,9 @@ private:
       // Not in middle to avoid clashes on set-associative caches
       // on powers of 2.
       size_t mid = (start + (9*(n+1))/16);
-      pardo([&] () {parfor_(start, mid, f, granularity);},
-	    [&] () {parfor_(mid, end, f, granularity);}, false);
+      pardo([&] () {parfor_(start, mid, f, granularity, conservative);},
+	    [&] () {parfor_(mid, end, f, granularity, conservative);},
+	    conservative);
     }
   }
 

@@ -14,13 +14,13 @@ namespace pbbs {
       return;
     }
     size_t m = n/2;
-    par_do(true,
+    par_do(n > 64,
 	   [&] () {merge_sort(Out.slice(0,m), In.slice(0,m), f, !swap);},
-	   [&] () {merge_sort(Out.slice(m,n), In.slice(m,n), f, !swap);}
-	   );
+	   [&] () {merge_sort(Out.slice(m,n), In.slice(m,n), f, !swap);},
+	   true);
     if (swap)
-      pbbs::merge(Out.slice(0,m), Out.slice(m,n), In.slice(0,n), f);
+      pbbs::merge(Out.slice(0,m), Out.slice(m,n), In.slice(0,n), f, true);
     else
-      pbbs::merge(In.slice(0,m), In.slice(m,n), Out.slice(0,n), f);
+      pbbs::merge(In.slice(0,m), In.slice(m,n), Out.slice(0,n), f, true);
   }
 }

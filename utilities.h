@@ -20,8 +20,8 @@ static void par_do3(bool do_parallel, Lf left, Mf mid, Rf right) {
 }
 
 template <typename Lf, typename Rf >
-static void par_do(bool do_parallel, Lf left, Rf right) {
-  if (do_parallel) par_do_(left, right);
+static void par_do(bool do_parallel, Lf left, Rf right, bool cons=false) {
+  if (do_parallel) par_do_(left, right, cons);
   else {left(); right();}
 }
 
@@ -103,6 +103,7 @@ namespace pbbs {
   const flags fl_sequential = 1;
   const flags fl_debug = 2;
   const flags fl_time = 4;
+  const flags fl_conservative = 8;
 
   template<typename T>
   inline void assign_uninitialized(T& a, const T& b) {
