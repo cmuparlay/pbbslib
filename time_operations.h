@@ -120,7 +120,7 @@ double t_histogram_reducer(size_t n) {
   using aa = array<size_t,8>;
   sequence<aa> In(n, [&] (size_t i) {aa x; x[0] = r.ith_rand(i) % count; return x;});
   auto f = [&] (size_t i) { red->add_value(In[i][0]);};
-  time(t, par_for(0, n, 100, f););
+  time(t, par_for(0, n, 0, f););
   //cout << red.get_value()[0] << endl;
   return t;
 }
@@ -154,7 +154,7 @@ double t_scatter(size_t n) {
   auto f = [&] (size_t i) {
       __builtin_prefetch (&out[idx[i+4]], 1, 1);
       out[idx[i]] = i;};
-  time(t, par_for(0, n-4, 10000, f););
+  time(t, par_for(0, n-4, 0, f););
   //time(t, parallel_for(size_t i=0; i < n; i++) {out[idx[i]] = i;});
   return t;
 }
@@ -168,7 +168,7 @@ double t_write_add(size_t n) {
     // putting write prefetch in slows it down
     //__builtin_prefetch (&out[idx[i+4]], 0, 1);
     pbbs::write_add(&out[idx[i]],1);};
-  time(t, par_for(0, n-4, 10000, f););
+  time(t, par_for(0, n-4, 0, f););
   //time(t, parallel_for(size_t i=0; i<n-3; i++) {
   //pbbs::write_add(&out[idx[i]],1);});
   return t;
@@ -183,7 +183,7 @@ double t_write_min(size_t n) {
     // putting write prefetch in slows it down
     //__builtin_prefetch (&out[idx[i+4]], 1, 1);
     pbbs::write_min(&out[idx[i]], (T) i, pbbs::less<T>());};
-  time(t, par_for(0, n-4, 10000, f););
+  time(t, par_for(0, n-4, 0, f););
   //time(t, parallel_for(size_t i=0; i<n-3; i++) {
   //pbbs::write_min(&out[idx[i]], (T) i, pbbs::less<T>());});
   return t;

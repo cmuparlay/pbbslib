@@ -58,7 +58,8 @@ public:
     auto g = [&] (size_t i) {
       T x = f(i);
       new ((void*) (s+i)) T(x);};
-    par_for(0, n, pbbs::granularity(n), g);
+    //par_for(0, n, pbbs::granularity(n), g);
+    parallel_for(0, n, g, 0);
   }
 
   sequence(E* s, const size_t n, bool allocated = false)

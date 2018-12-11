@@ -66,14 +66,15 @@ namespace pbbs {
   {
     using T = typename Seq::T;
     size_t n = A.size();
-    size_t l = num_blocks(n, _block_size);
+    size_t block_size = max(_block_size, 4 * (size_t) ceil(sqrt(n)));
+    size_t l = num_blocks(n, block_size);
     if (l <= 1 || (fl & fl_sequential)) 
       return reduce_serial(A, f);
     sequence<T> Sums(l);
-    sliced_for (n, _block_size,
+    sliced_for (n, block_size,
 		[&] (size_t i, size_t s, size_t e) 
 		{ Sums[i] = reduce_serial(A.slice(s,e), f);});
-    T r = reduce_serial(Sums, f);
+    T r = reduce(Sums, f);
     return r;
   }
 
@@ -179,16 +180,17 @@ namespace pbbs {
   {
     using T = typename In_Seq::T;
     size_t n = In.size();
-    size_t l = num_blocks(n,_block_size);
+    size_t block_size = max(_block_size, 4 * (size_t) ceil(sqrt(n)));
+    size_t l = num_blocks(n,block_size);
     if (l <= 1 || fl & fl_sequential) 
       return pack_serial(In, Fl);
     sequence<size_t> Sums(l);
-    sliced_for (n, _block_size,
+    sliced_for (n, block_size,
 		[&] (size_t i, size_t s, size_t e) 
 		{ Sums[i] = sum_flags_serial(Fl.slice(s,e));});
     size_t m = scan_add(Sums, Sums);
     T* Out = new_array_no_init<T>(m);
-    sliced_for (n, _block_size,
+    sliced_for (n, block_size,
 		[&] (size_t i, size_t s, size_t e) 
 		{ pack_serial_at(In.slice(s,e),
 				 Out + Sums[i],

@@ -162,6 +162,7 @@ public:
     deques[0].push_bottom(job);
     auto finished = [&] () {return finished_flag > 0;};
     num_threads = (threads > 0) ? threads : num_workers();
+    omp_set_num_threads(num_threads);
     #pragma omp parallel
     start(finished);
 
@@ -176,12 +177,12 @@ public:
 
   // Wait for condition: finished().
   template <typename F>
-  void wait(F finished) {
+  void wait(F finished, bool conservative=false) {
     // Conservative avoids deadlock if scheduler is used in conjunction
     // with user locks enclosing a wait.
     if (conservative)
       while (!finished())
-	std::this_thread::yield();
+    	std::this_thread::yield();
     // If not conservative, schedule within the wait.
     // Can deadlock if a stolen job uses same lock as encloses the wait.
     else start(finished);
@@ -287,21 +288,17 @@ public:
 
   // Fork two thunks and wait until they both finish.
   template <typename L, typename R>
-  void pardo(L left, R right) {
+  void pardo(L left, R right, bool conservative=false) {
     bool right_done = false;
-    bool stolen = false;
     Job right_job = [&] () {
-      stolen = true; right(); right_done = true;};
+      right(); right_done = true;};
     sched->spawn(&right_job);
     left();
-    if (!stolen) {
-      Job* job = sched->try_pop();
-      if (job != &right_job) {
-	if (job != NULL) sched->spawn(job);
-      } else { right(); return;}
+    if (sched->try_pop() != NULL) right();
+    else {
+      auto finished = [&] () {return right_done;};
+      sched->wait(finished, conservative);
     }
-    auto finished = [&] () {return right_done;};
-    sched->wait(finished);
   }
 
   template <typename F>
@@ -325,9 +322,9 @@ public:
   void parfor(size_t start, size_t end, F f, size_t granularity = 0) {
     if (granularity == 0) {
       size_t done = get_granularity(start,end, f);
-      done = max(done, (end-start)/(128*sched->num_threads));
+      granularity = max(done, (end-start)/(128*sched->num_threads));
       //cout << done << endl;
-      parfor_(start+done, end, f, done);
+      parfor_(start+done, end, f, granularity);
     } else parfor_(start, end, f, granularity);
   }
 
@@ -344,7 +341,7 @@ private:
       // on powers of 2.
       size_t mid = (start + (9*(n+1))/16);
       pardo([&] () {parfor_(start, mid, f, granularity);},
-	    [&] () {parfor_(mid, end, f, granularity);});
+	    [&] () {parfor_(mid, end, f, granularity);}, false);
     }
   }
 
