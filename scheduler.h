@@ -30,7 +30,6 @@
 //
 // fj.run([&] () {init(a, n);});
 
-using namespace std;
 
 // Deque from Arora, Blumofe, and Plaxton (SPAA, 1998).
 template <typename Job>

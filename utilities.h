@@ -10,6 +10,9 @@
 #include <math.h>
 #include "parallel.h"
 
+using std::cout;
+using std::endl;
+
 void* my_alloc(size_t);
 void my_free(void*);
 

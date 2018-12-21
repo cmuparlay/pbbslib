@@ -278,8 +278,8 @@ namespace pbbs {
   }
     
   template <typename K, typename V, typename I, typename H>
-  sequence<V> collect_reduce(sequence<pair<K,V>> A, size_t m, I identity, H add) {
-    using P = pair<K,V>;
+  sequence<V> collect_reduce(sequence<std::pair<K,V>> A, size_t m, I identity, H add) {
+    using P = std::pair<K,V>;
     auto get_index = [] (P v) {return v.first;};
     auto get_val = [] (P v) {return v.second;};
     return collect_reduce<V>(A, m, get_index, get_val, identity, add);

@@ -3,8 +3,6 @@
 #include "parse_command_line.h"
 #include "utilities.h"
 
-using namespace std;
-
 fork_join_scheduler fj;
 //fork_join_scheduler fj2;
 

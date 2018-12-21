@@ -22,11 +22,10 @@
 #pragma once
 #include "utilities.h"
 #include "sequence_ops.h"
-using namespace std;
 
 namespace pbbs {
 
-  // A "history independent" hash table that supports insertion, and searching 
+  // A "history independent" hash table that supports insertion, and searching
   // It is described in the paper
   //   Guy E. Blelloch, Daniel Golovin
   //   Strongly History-Independent Hashing with Applications
@@ -56,8 +55,8 @@ namespace pbbs {
       par_for(0, n, granularity(n), f);
     }
 
-    struct notEmptyF { 
-      eType e; notEmptyF(eType _e) : e(_e) {} 
+    struct notEmptyF {
+      eType e; notEmptyF(eType _e) : e(_e) {}
       int operator() (eType a) {return e != a;}};
 
     //index hashToRange(index h) {return h & mask;}
@@ -84,12 +83,12 @@ namespace pbbs {
       m(((size_t) 100.0 + load * size)),
       //mask(m-1),
       empty(hashF.empty()),
-      hashStruct(hashF), 
+      hashStruct(hashF),
       TA(new_array_no_init<eType>(m)) {
       clear(TA, m, empty); }
 
     // Table(size_t size, HASH hashF) :
-    //   m(1 << log2_up(100+2*size)), 
+    //   m(1 << log2_up(100+2*size)),
     //   mask(m-1),
     //   empty(hashF.empty()),
     //   hashStruct(hashF),
@@ -111,9 +110,9 @@ namespace pbbs {
 	} else {
 	  int cmp = hashStruct.cmp(hashStruct.getKey(v),hashStruct.getKey(c));
 	  if (cmp == 0) {
-	    if (!hashStruct.replaceQ(v,c)) return false; 
+	    if (!hashStruct.replaceQ(v,c)) return false;
 	    else if (hashStruct.cas(&TA[i],c,v)) return true;
-	  } else if (cmp < 0) 
+	  } else if (cmp < 0)
 	    i = incrementIndex(i);
 	  else if (hashStruct.cas(&TA[i],c,v)) {
 	    v = c;
@@ -136,12 +135,12 @@ namespace pbbs {
 	} else {
 	  int cmp = hashStruct.cmp(hashStruct.getKey(v),hashStruct.getKey(c));
 	  if (cmp == 0) {
-	    if (!hashStruct.replaceQ(v,c)) return false; 
+	    if (!hashStruct.replaceQ(v,c)) return false;
 	    else {
 	      eType new_val = hashStruct.update(c,v);
 	      if (hashStruct.cas(&TA[i],c,new_val)) return true;
 	    }
-	  } else if (cmp < 0) 
+	  } else if (cmp < 0)
 	    i = incrementIndex(i);
 	  else if (hashStruct.cas(&TA[i],c,v)) {
 	    v = c;
@@ -160,7 +159,7 @@ namespace pbbs {
       eType c = TA[j];
 
       if (c == empty) return true;
-      
+
       // find first location with priority less or equal to v's priority
       while ((cmp = (c==empty) ? 1 : hashStruct.cmp(v, hashStruct.getKey(c))) < 0) {
 	j = incrementIndex(j);
@@ -180,14 +179,14 @@ namespace pbbs {
 	  if (j == i) return true;
 	  j = decrementIndex(j);
 	  c = TA[j];
-	  cmp = (c == empty) ? 1 : hashStruct.cmp(v, hashStruct.getKey(c));      
+	  cmp = (c == empty) ? 1 : hashStruct.cmp(v, hashStruct.getKey(c));
 	} else { // found v at location j (at least at some prior time)
 
 	  // Find next available element to fill location j.
 	  // This is a little tricky since we need to skip over elements for
 	  // which the hash index is greater than j, and need to account for
 	  // things being moved downwards by others as we search.
-	  // Makes use of the fact that values in a cell can only decrease 
+	  // Makes use of the fact that values in a cell can only decrease
 	  // during a delete phase as elements are moved from the right to left.
 	  index jj = incrementIndex(j);
 	  eType x = TA[jj];
@@ -213,7 +212,7 @@ namespace pbbs {
 
 	    // Otherwise there are now two copies of the replacement element x
 	    // delete one copy (probably the original) by starting to look at jj.
-	    // Note that others can come along in the meantime and delete 
+	    // Note that others can come along in the meantime and delete
 	    // one or both of them, but that is fine.
 	    v = hashStruct.getKey(x);
 	    j = jj;
@@ -222,7 +221,7 @@ namespace pbbs {
 	  c = TA[j];
 	  cmp = (c == empty) ? 1 : hashStruct.cmp(v, hashStruct.getKey(c));
 	}
-      } 
+      }
     }
 
     // Returns the value if an equal value is found in the table
@@ -230,7 +229,7 @@ namespace pbbs {
     // due to prioritization, can quit early if v is greater than cell
     eType find(kType v) {
       index h = firstIndex(v);
-      eType c = TA[h]; 
+      eType c = TA[h];
       while (true) {
 	if (c == empty) return empty;
 	int cmp = hashStruct.cmp(v,hashStruct.getKey(c));
@@ -261,7 +260,7 @@ namespace pbbs {
 
     index findIndex(kType v) {
       index h = firstIndex(v);
-      eType c = TA[h]; 
+      eType c = TA[h];
       while (true) {
 	if (c == empty) return -1;
 	int cmp = hashStruct.cmp(v,hashStruct.getKey(c));
@@ -273,7 +272,7 @@ namespace pbbs {
 	c = TA[h];
       }
     }
-	
+
     sequence<index> get_index() {
       auto is_full = [&] (const size_t i) -> int {
 	   if (TA[i] != empty) return 1; else return 0;};
@@ -290,7 +289,7 @@ namespace pbbs {
     // prints the current entries along with the index they are stored at
     void print() {
       cout << "vals = ";
-      for (size_t i=0; i < m; i++) 
+      for (size_t i=0; i < m; i++)
 	if (TA[i] != empty)
 	  cout << i << ":" << TA[i] << ",";
       cout << endl;

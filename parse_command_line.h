@@ -26,13 +26,12 @@
 #include <fstream>
 #include <string>
 #include <cstring>
-using namespace std;
 
 struct commandLine {
   int argc;
   char** argv;
-  string comLine;
-  commandLine(int _c, char** _v, string _cl) 
+  std::string comLine;
+  commandLine(int _c, char** _v, std::string _cl) 
     : argc(_c), argv(_v), comLine(_cl) {
       if (getOption("-h") || getOption("-help"))
 	badArgument();
@@ -54,37 +53,37 @@ struct commandLine {
   }
 
   // looks for two filenames
-  pair<char*,char*> IOFileNames() {
+  std::pair<char*,char*> IOFileNames() {
     if (argc < 3) badArgument();
-    return pair<char*,char*>(argv[argc-2],argv[argc-1]);
+    return std::pair<char*,char*>(argv[argc-2],argv[argc-1]);
   }
 
-  pair<size_t,char*> sizeAndFileName() {
+  std::pair<size_t,char*> sizeAndFileName() {
     if (argc < 3) badArgument();
-    return pair<size_t,char*>(std::atoi(argv[argc-2]),(char*) argv[argc-1]);
+    return std::pair<size_t,char*>(std::atoi(argv[argc-2]),(char*) argv[argc-1]);
   }
 
-  bool getOption(string option) {
+  bool getOption(std::string option) {
     for (int i = 1; i < argc; i++)
-      if ((string) argv[i] == option) return true;
+      if ((std::string) argv[i] == option) return true;
     return false;
   }
 
-  char* getOptionValue(string option) {
+  char* getOptionValue(std::string option) {
     for (int i = 1; i < argc-1; i++)
-      if ((string) argv[i] == option) return argv[i+1];
+      if ((std::string) argv[i] == option) return argv[i+1];
     return NULL;
   }
 
-  string getOptionValue(string option, string defaultValue) {
+  std::string getOptionValue(std::string option, std::string defaultValue) {
     for (int i = 1; i < argc-1; i++)
-      if ((string) argv[i] == option) return (string) argv[i+1];
+      if ((std::string) argv[i] == option) return (std::string) argv[i+1];
     return defaultValue;
   }
 
-  long getOptionLongValue(string option, long defaultValue) {
+  long getOptionLongValue(std::string option, long defaultValue) {
     for (int i = 1; i < argc-1; i++)
-      if ((string) argv[i] == option) {
+      if ((std::string) argv[i] == option) {
 	long r = atol(argv[i+1]);
 	if (r < 0) badArgument();
 	return r;
@@ -92,9 +91,9 @@ struct commandLine {
     return defaultValue;
   }
 
-  int getOptionIntValue(string option, int defaultValue) {
+  int getOptionIntValue(std::string option, int defaultValue) {
     for (int i = 1; i < argc-1; i++)
-      if ((string) argv[i] == option) {
+      if ((std::string) argv[i] == option) {
 	int r = atoi(argv[i+1]);
 	if (r < 0) badArgument();
 	return r;
@@ -102,9 +101,9 @@ struct commandLine {
     return defaultValue;
   }
 
-  double getOptionDoubleValue(string option, double defaultValue) {
+  double getOptionDoubleValue(std::string option, double defaultValue) {
     for (int i = 1; i < argc-1; i++)
-      if ((string) argv[i] == option) {
+      if ((std::string) argv[i] == option) {
 	double val;
 	if (sscanf(argv[i+1], "%lf",  &val) == EOF) {
 	  badArgument();

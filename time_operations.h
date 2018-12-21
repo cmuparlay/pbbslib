@@ -21,7 +21,6 @@
 #include <assert.h>
 
 static timer bt;
-using namespace std;
 using uchar = unsigned char;
 
 #define time(_var,_body)    \
@@ -117,7 +116,7 @@ double t_histogram_reducer(size_t n) {
   pbbs::random r(0);
   constexpr int count = 1024;
   histogram_reducer<int,count> red;
-  using aa = array<size_t,8>;
+  using aa = std::array<size_t,8>;
   sequence<aa> In(n, [&] (size_t i) {aa x; x[0] = r.ith_rand(i) % count; return x;});
   auto f = [&] (size_t i) { red->add_value(In[i][0]);};
   time(t, par_for(0, n, 0, f););
@@ -182,7 +181,7 @@ double t_write_min(size_t n) {
   auto f = [&] (size_t i) {
     // putting write prefetch in slows it down
     //__builtin_prefetch (&out[idx[i+4]], 1, 1);
-    pbbs::write_min(&out[idx[i]], (T) i, pbbs::less<T>());};
+    pbbs::write_min(&out[idx[i]], (T) i, std::less<T>());};
   time(t, par_for(0, n-4, 0, f););
   //time(t, parallel_for(size_t i=0; i<n-3; i++) {
   //pbbs::write_min(&out[idx[i]], (T) i, pbbs::less<T>());});
@@ -282,7 +281,7 @@ double t_count_sort_8(size_t n) {
 
 template<typename T>
 double t_collect_reduce_pair(size_t n) {
-  using par = pair<T,T>;
+  using par = std::pair<T,T>;
   pbbs::random r(0);
   sequence<par> S(n, [&] (size_t i) -> par {
       return par(r.ith_rand(i)%n,1);});
@@ -312,15 +311,15 @@ double t_collect_reduce_8(size_t n) {
   pbbs::random r(0);
   size_t num_buckets = (1<<8);
   size_t mask = num_buckets - 1;
-  using sums = tuple<float,float,float,float>;
+  using sums = std::tuple<float,float,float,float>;
 
   sequence<sums> in(n, [&] (size_t i) -> sums {return sums(1.0,1.0,1.0,1.0);});
   auto bucket = [&] (size_t i) -> uchar { return r.ith_rand(i) & mask; };
   auto keys = make_sequence<unsigned char>(n, bucket);
 
   auto sum = [] (sums a, sums b) -> sums {
-    return sums(get<0>(a)+get<0>(b), get<1>(a)+get<1>(b),
-		get<2>(a)+get<2>(b), get<3>(a)+get<3>(b));
+    return sums(std::get<0>(a)+std::get<0>(b), std::get<1>(a)+std::get<1>(b),
+		std::get<2>(a)+std::get<2>(b), std::get<3>(a)+std::get<3>(b));
   };
 
   time(t,
@@ -336,7 +335,7 @@ double t_collect_reduce_8(size_t n) {
 
 template<typename T>
 double t_integer_sort_pair(size_t n) {
-  using par = pair<T,T>;
+  using par = std::pair<T,T>;
   pbbs::random r(0);
   size_t bits = sizeof(T)*8;
   sequence<par> S(n, [&] (size_t i) -> par {

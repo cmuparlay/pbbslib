@@ -3,7 +3,6 @@
 #include "parse_command_line.h"
 #include <iostream>
 
-using namespace std;
 
 long fib(long i) {
   if (i <= 1) return 1;

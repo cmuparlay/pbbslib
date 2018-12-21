@@ -28,9 +28,8 @@
 #include "sequence_ops.h"
 
 namespace pbbs {
-  using namespace std;
 
-  sequence<char> read_string_from_file(string fileName, 
+  sequence<char> read_string_from_file(string fileName,
 					  size_t start, size_t end) {
     ifstream file (fileName, ios::in | ios::binary | ios::ate);
     if (!file.is_open()) {
@@ -65,21 +64,21 @@ namespace pbbs {
     ~words() { //if (n > 0) { free(Chars); free(Strings);}
 	//cout << "destructing words" << endl;
     }
-    
+
     char* operator[] (const int i) {return Strings[i];}
     size_t size() {return Strings.size();}
     size_t mem_size() {return Str.size() + size()*sizeof(char*);}
-    
+
   private:
     sequence<char> Str;
     sequence<char*> Strings;
   };
- 
+
   auto is_space = [] (char c) -> bool {
     switch (c)  {
-    case '\r': 
-    case '\t': 
-    case '\n': 
+    case '\r':
+    case '\t':
+    case '\n':
     case 0:
     case ' ' : return true;
     default : return false;
@@ -108,7 +107,7 @@ namespace pbbs {
     auto set_f = [&] (size_t i) {
       FL[i] = Str[i] && !Str[i-1];};
     par_for(0, n, 10000, set_f);
-    
+
     auto f = [&] (size_t i) {return &Str[i];};
     auto offset = make_sequence<char*>(n, f);
     return pack(offset, FL);
@@ -116,7 +115,7 @@ namespace pbbs {
 
   template <typename Func>
   words::words(sequence<char> Str, Func is_separator) : Str(Str) {
-    //parallel_for (size_t i=0; i < Str.size(); i++) 
+    //parallel_for (size_t i=0; i < Str.size(); i++)
     auto set_f = [&] (size_t i) { if (is_separator(Str[i])) Str[i] = 0;};
     par_for (0, Str.size(), 10000, set_f);
     Strings = string_to_words(Str);

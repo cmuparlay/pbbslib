@@ -56,7 +56,7 @@ namespace pbbs {
       _seq_count(In, counts);
       return counts;
     }
-		       
+
     size_t num_threads = num_workers();
     size_t num_blocks = std::min((size_t) (1 + n/(num_buckets*32)),
 				 num_threads*4);
@@ -82,9 +82,9 @@ namespace pbbs {
 	sum += block_counts[i*num_buckets+j];
       counts[j] = sum;
     };
-    //parallel_for (size_t j = 0; j < num_buckets; j++) 
+    //parallel_for (size_t j = 0; j < num_buckets; j++)
     if (m >= (1 << 14)) par_for(0, num_buckets, 1, bucket_f);
-    else 
+    else
       for (size_t j = 0; j < num_buckets; j++) bucket_f(j);
     return counts;
   }
@@ -93,7 +93,7 @@ namespace pbbs {
   template <typename Seq>
   struct get_bucket {
     using E = typename Seq::T;
-    pair<E,int>* hash_table;
+    std::pair<E,int>* hash_table;
     size_t table_mask;
     size_t low_mask;
     size_t bucket_mask;
@@ -101,7 +101,7 @@ namespace pbbs {
     int k;
     Seq I;
 
-    pair<E*,int> heavy_hitters(Seq A, size_t count) {
+    std::pair<E*,int> heavy_hitters(Seq A, size_t count) {
       size_t n = A.size();
       E* sample = new E[count];
       for (size_t i = 0; i < count; i++)
@@ -115,21 +115,21 @@ namespace pbbs {
 	if (sample[i] == sample[i-1]) {
 	  if (c++ == 0) sample[k++] = sample[i];
 	} else c = 0;
-      return make_pair(sample,k);
+      return std::make_pair(sample,k);
     }
 
-    pair<E,int>* make_hash_table(E* entries, size_t n,
+    std::pair<E,int>* make_hash_table(E* entries, size_t n,
 				 size_t table_size, size_t table_mask) {
-      auto table = new pair<E,int>[table_size];
+      auto table = new std::pair<E,int>[table_size];
       for (size_t i=0; i < table_size; i++)
-	table[i] = make_pair(0,-1);
+	table[i] = std::make_pair(0,-1);
 
       for (size_t i = 0; i < n; i++)
-	table[hash64(entries[i])&table_mask] = make_pair(entries[i],i);
+	table[hash64(entries[i])&table_mask] = std::make_pair(entries[i],i);
 
       return table;
     }
-    
+
     get_bucket(Seq A, size_t bits) : I(A) {
       num_buckets = 1 << bits;
       bucket_mask = num_buckets-1;
@@ -138,7 +138,7 @@ namespace pbbs {
       int table_size = 4 * count;
       table_mask = table_size-1;
 
-      pair<E*,int> heavy = heavy_hitters(A, count);
+      std::pair<E*,int> heavy = heavy_hitters(A, count);
       k = heavy.second;
       E* sample = heavy.first;
 
@@ -146,20 +146,20 @@ namespace pbbs {
       delete[] sample;
     }
 
-    ~get_bucket() { 
+    ~get_bucket() {
       free(hash_table); }
-    
+
     size_t operator() (size_t i) {
       if (k > 0) {
-	pair<E,int> h = hash_table[hash64(I[i])&table_mask];
-	if (h.first == I[i] && h.second != -1) 
+        std::pair<E,int> h = hash_table[hash64(I[i])&table_mask];
+	if (h.first == I[i] && h.second != -1)
 	  return h.second + num_buckets;
       }
       return pbbs::hash64_2(I[i] & low_mask) & bucket_mask;
     }
-    
+
   };
-    
+
   template <typename s_size_t, typename Seq>
   sequence<s_size_t> histogram(Seq A, size_t m) {
     size_t n = A.size();
@@ -169,7 +169,7 @@ namespace pbbs {
     // for large n selected so each bucket fits into cache
     else bits = (log2_up(n) - 17);
     size_t num_buckets = (1<<bits);
-    if (m < n / num_buckets) 
+    if (m < n / num_buckets)
       return  _count<s_size_t>(A, m);
     if (n < (1 << 13))
       return seq_histogram<s_size_t>(A , m);
@@ -185,15 +185,15 @@ namespace pbbs {
     auto get_buckets = make_sequence<size_t>(n, x);
 
     // first buckets based on hash using a counting sort
-    sequence<size_t> bucket_offsets 
+    sequence<size_t> bucket_offsets
       = count_sort(A, A, get_buckets, num_buckets);
-    //t.next("send to buckets");        
+    //t.next("send to buckets");
 
     // note that this is cache line alligned
     sequence<s_size_t> counts(m, 0);
     //parallel_for (size_t i = 0; i < m; i++)
     //  counts[i] = 0;
-       
+
     // now sequentially process each bucket
     //parallel_for (size_t i = 0; i < num_buckets; i++) {
     auto bucket_f = [&] (size_t i) {
@@ -210,7 +210,7 @@ namespace pbbs {
 	counts[A[i]] = end-start;
     };
     par_for(0, num_buckets, 1, bucket_f);
-    //t.next("within buckets ");        
+    //t.next("within buckets ");
     return counts;
   }
 }

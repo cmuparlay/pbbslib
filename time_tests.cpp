@@ -14,19 +14,18 @@
 
 #include "parallel.h"
 
-using namespace std;
 
 size_t str_to_int(char* str) {
     return strtol(str, NULL, 10);
 }
 
-void report_time(double t, string name) {
+void report_time(double t, std::string name) {
   cout << name << " : " << t << endl;
 }
 
 template<typename F>
-vector<double> repeat(size_t n, size_t rounds, F test) {
-  vector<double> R;
+std::vector<double> repeat(size_t n, size_t rounds, F test) {
+  std::vector<double> R;
 #ifdef HOMEGROWN
   for (size_t i=0; i < rounds; i++) fj.run([&] () { R.push_back(test(n)); });
 #else
@@ -36,13 +35,13 @@ vector<double> repeat(size_t n, size_t rounds, F test) {
 }
 
 template<typename F>
-double reduce(vector<double> V, F f) {
+double reduce(std::vector<double> V, F f) {
   double x = V[0];
   for (size_t i=1; i < V.size(); i++) x = f(x,V[i]);
   return x;
 }
 
-double median(vector<double> V) {
+double median(std::vector<double> V) {
   std::sort(V.begin(),V.end());
   if (V.size()%2 == 1)
     return V[V.size()/2];
@@ -56,8 +55,8 @@ double maxf(double a, double b) {return (a > b) ? a : b;};
 
 template<typename F>
 bool run_multiple(size_t n, size_t rounds, float bytes_per_elt,
-		  string name, F test, bool half_length=1, string x="bw") {
-  vector<double> t = repeat(n, rounds, test);
+		  std::string name, F test, bool half_length=1, std::string x="bw") {
+  std::vector<double> t = repeat(n, rounds, test);
   
   double mint = reduce(t, minf);
   double maxt = reduce(t, maxf);

@@ -20,7 +20,7 @@ template <class TT>
 struct Max {
   using T = TT;
   static T identity() {
-    return (T) numeric_limits<T>::min();}
+    return (T) std::numeric_limits<T>::min();}
   static T add(T a, T b) {return std::max(a,b);}
 };
 
@@ -28,13 +28,13 @@ template <class TT>
 struct Min {
   using T = TT;
   static T identity() {
-    return (T) numeric_limits<T>::max();}
+    return (T) std::numeric_limits<T>::max();}
   static T add(T a, T b) {return std::min(a,b);}
 };
 
 template <class A1, class A2>
 struct Add_Pair {
-  using T = pair<typename A1::T, typename A2::T>;
+  using T = std::pair<typename A1::T, typename A2::T>;
   static T identity() {return T(A1::identity(), A2::identity());}
   static T add(T a, T b) {
     return T(A1::add(a.first,b.first), A2::add(a.second,b.second));}
@@ -42,8 +42,8 @@ struct Add_Pair {
 
 template <class AT>
 struct Add_Array {
-  using S = tuple_size<AT>;
-  using T = array<typename AT::value_type, S::value>;
+  using S = std::tuple_size<AT>;
+  using T = std::array<typename AT::value_type, S::value>;
   static T identity() {
     T r;
     for (size_t i=0; i < S::value; i++)
@@ -61,8 +61,8 @@ struct Add_Array {
 template <class AT>
 struct Add_Nested_Array {
   using T = AT;
-  using S = tuple_size<T>;
-  using SS = tuple_size<typename AT::value_type>;
+  using S = std::tuple_size<T>;
+  using SS = std::tuple_size<typename AT::value_type>;
   static T identity() {
     T r;
     for (size_t i=0; i < S::value; i++)
