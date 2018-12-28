@@ -392,7 +392,7 @@ static T my_reduce(sequence<T> s, size_t start, size_t end, F f) {
   T r, l;
   auto left = [&] () {r = my_reduce(s, h, end, f);};
   auto right = [&] () {l = my_reduce(s, start, h, f);};
-  par_do(50, left, right);
+  par_do_if(h > 100, left, right);
   return f(l,r);
 }
 

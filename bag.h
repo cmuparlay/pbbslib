@@ -109,7 +109,7 @@ private:
     else if (n > 1) {
       node* x = get_node_ptr();
       size_t nl = x->left.size();
-      par_do(n > 100,
+      par_do_if(n > 100,
            [&] () {(x->left).flatten_rec(start);},
            [&] () {(x->right).flatten_rec(start + nl);});
       node_alloc::free(x);

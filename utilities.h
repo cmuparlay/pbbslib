@@ -17,14 +17,14 @@ void* my_alloc(size_t);
 void my_free(void*);
 
 template <typename Lf, typename Mf, typename Rf >
-static void par_do3(bool do_parallel, Lf left, Mf mid, Rf right) {
-  if (do_parallel) par_do3_(left, mid, right);
+static void par_do3_if(bool do_parallel, Lf left, Mf mid, Rf right) {
+  if (do_parallel) par_do3(left, mid, right);
   else {left(); mid(); right();}
 }
 
 template <typename Lf, typename Rf >
-static void par_do(bool do_parallel, Lf left, Rf right, bool cons=false) {
-  if (do_parallel) par_do_(left, right, cons);
+static void par_do_if(bool do_parallel, Lf left, Rf right, bool cons=false) {
+  if (do_parallel) par_do(left, right, cons);
   else {left(); right();}
 }
 
@@ -35,34 +35,14 @@ namespace pbbs {
   
 template <typename F>
 static void par_for(size_t start, size_t end, size_t granularity, F f) {
-  if ((end - start) <= granularity)
-    for (size_t i=start; i < end; i++) f(i);
-  else 
-    parallel_for(start, end, f, granularity);
+  parallel_for(start, end, f, granularity);
 }
-
-//     // picked so not always split in 1/2 since that causes cache conflicts
-//     // when n is a power of 2
-//     // size_t mid = (((end - start) < 100)
-//     // 		  ? (end+start)/2
-//     // 		  : start + (end-start)/3);
-//     size_t n = end-start;
-//     size_t mid = (//(granularity == 1) || (((size_t) 1) << pbbs::log2_up(n) != n)
-// 		  //(n < 16) || (((size_t) 1) << pbbs::log2_up(n) != n)
-// 		  (((size_t) 1) << pbbs::log2_up(n) != n)
-// 		  ? (end+start)/2
-// 		  : start + (7*(n+1))/16);
-//     par_spawn par_for(start, mid, granularity, f);
-//     par_for(mid, end, granularity, f);
-//     par_sync;
-//   }
-// }
 
 template <typename F>
 static void par_for(size_t start, size_t end, F f) {
   size_t n = end - start;
   size_t granularity = (n > 100) ? ceil(sqrt(n)) : 100;
-  par_for(start, end, granularity, f);
+  parallel_for(start, end, f, granularity);
 }
 
 template <class T>

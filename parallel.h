@@ -18,24 +18,35 @@ void set_num_workers(int n) {
   }
 }
 
-template <class F>
-inline void parallel_for(size_t start, size_t end, F f,
-			 size_t granularity=0,
-			 bool conservative=false) {
-  cilk_for(size_t i=start; i<end; i++) {
-    f(i);
+template <typename F>
+static void parallel_for(size_t start, size_t end, F f,
+			 size_t granularity = 0,
+			 bool conservative = false) {
+  if (granularity == 0)
+    cilk_for(size_t i=start; i<end; i++) f(i);
+  else if ((end - start) <= granularity)
+    for (size_t i=start; i < end; i++) f(i);
+  else {
+    size_t n = end-start;
+    size_t mid = (start + (9*(n+1))/16);
+    //size_t mid = ((((size_t) 1) << pbbs::log2_up(n) != n)
+    //		  ? (end+start)/2
+    //		  : start + (7*(n+1))/16);
+    cilk_spawn parallel_for(start, mid, f, granularity);
+    parallel_for(mid, end, f, granularity);
+    cilk_sync;
   }
 }
 
 template <typename Lf, typename Rf>
-inline void par_do_(Lf left, Rf right, bool cons=false) {
+inline void par_do(Lf left, Rf right, bool cons=false) {
     cilk_spawn right();
     left();
     cilk_sync;
 }
 
 template <typename Lf, typename Mf, typename Rf >
-inline void par_do3_(Lf left, Mf mid, Rf right) {
+inline void par_do3(Lf left, Mf mid, Rf right) {
     cilk_spawn mid();
     cilk_spawn right();
     left();
@@ -60,7 +71,7 @@ inline void parallel_for(size_t start, size_t end, F f,
 }
 
 template <typename Lf, typename Rf>
-static void par_do_(Lf left, Rf right, bool cons=false) {
+static void par_do(Lf left, Rf right, bool cons=false) {
 #pragma omp task
     left();
 #pragma omp task
@@ -69,7 +80,7 @@ static void par_do_(Lf left, Rf right, bool cons=false) {
 }
 
 template <typename Lf, typename Mf, typename Rf>
-static void par_do3_(Lf left, Mf mid, Rf right) {
+static void par_do3(Lf left, Mf mid, Rf right) {
 #pragma omp task
     left();
 #pragma omp task
@@ -106,12 +117,12 @@ inline void parallel_for(size_t start, size_t end, F f,
 }
 
 template <typename Lf, typename Rf>
-static void par_do_(Lf left, Rf right, bool cons=false) {
+static void par_do(Lf left, Rf right, bool cons=false) {
   return fj.pardo(left, right, cons);
 }
 
 template <typename Lf, typename Mf, typename Rf>
-static void par_do3_(Lf left, Mf mid, Rf right) {
+static void par_do3(Lf left, Mf mid, Rf right) {
 //  return fj.pardo(left, [&] () { fj.pardo(mid, right); });
   return fj.pardo([&] () { fj.pardo(left, mid); }, right);
 }
@@ -139,12 +150,12 @@ inline void parallel_for(size_t start, size_t end, F f,
 }
 
 template <typename Lf, typename Rf>
-static void par_do_(Lf left, Rf right, bool cons=false) {
+static void par_do(Lf left, Rf right, bool cons=false) {
   left(); right();
 }
 
 template <typename Lf, typename Mf, typename Rf>
-static void par_do3_(Lf left, Mf mid, Rf right) {
+static void par_do3(Lf left, Mf mid, Rf right) {
   left(); mid(); right();
 }
 #endif

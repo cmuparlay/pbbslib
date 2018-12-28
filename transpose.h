@@ -51,7 +51,7 @@ namespace pbbs {
 	    transR(rStart,rCount,rLength,cStart,l1,cLength);};
 	  auto right = [&] () {
 	    transR(rStart,rCount,rLength,cStart + l1,l2,cLength);};
-	  par_do(true, left, right);
+	  par_do(left, right);
 	} else {
 	  //size_t l1 = rCount/2;
 	  size_t l1 = split(cCount);
@@ -60,7 +60,7 @@ namespace pbbs {
 	    transR(rStart,l1,rLength,cStart,cCount,cLength);};
 	  auto right = [&] () {
 	    transR(rStart + l1,l2,rLength,cStart,cCount,cLength);};
-	  par_do(true, left, right);
+	  par_do(left, right);
 	}	
       }
 
@@ -102,7 +102,7 @@ namespace pbbs {
 	    transR(rStart,rCount,rLength,cStart,l1,cLength);};
 	  auto right = [&] () {
 	    transR(rStart,rCount,rLength,cStart + l1,l2,cLength);};
-	  par_do(true, left, right);
+	  par_do(left, right);
 	} else {
 	  //size_t l1 = rCount/2;
 	  size_t l1 = split(cCount);
@@ -111,7 +111,7 @@ namespace pbbs {
 	    transR(rStart,l1,rLength,cStart,cCount,cLength);};
 	  auto right = [&] () {
 	    transR(rStart + l1,l2,rLength,cStart,cCount,cLength);};
-	  par_do(true, left, right);
+	  par_do(left, right);
 	}	
       }
  

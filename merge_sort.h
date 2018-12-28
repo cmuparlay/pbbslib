@@ -14,7 +14,7 @@ namespace pbbs {
       return;
     }
     size_t m = n/2;
-    par_do(n > 64,
+    par_do_if(n > 64,
 	   [&] () {merge_sort(Out.slice(0,m), In.slice(0,m), f, !swap);},
 	   [&] () {merge_sort(Out.slice(m,n), In.slice(m,n), f, !swap);},
 	   true);

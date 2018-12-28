@@ -101,8 +101,8 @@ void quicksort(E* A, size_t n, const BinPred& f) {
     auto mid = [&] () {quicksort(L, M - L, f);};
     auto right = [&] () {quicksort(M, A+n-M, f);};
 
-    if (!mid_eq) par_do3(true, left, mid, right);
-    else par_do(true, left, right);
+    if (!mid_eq) par_do3(left, mid, right);
+    else par_do(left, right);
   }
 }
 
@@ -135,7 +135,7 @@ void p_quicksort(SeqA In, SeqA Out, const F& f, bool swap=0, long cut_size=-1) {
   } else {
     size_t l, m; bool mid_eq;
     std::tie(l, m, mid_eq) = p_split3(In, Out, f);
-    par_do3(true,
+    par_do3(
       [&] () {p_quicksort(Out.slice(0,l), In.slice(0,l), f, !swap, cut_size);},
       [&] () {
 	auto copy_in = [&] (size_t i) {In[i] = Out[i];};

@@ -48,7 +48,7 @@ namespace pbbs {
 				    R.slice(0, mR), f, cons);};
       auto right = [&] () {par_merge(A.slice(mA, nA), B.slice(mB, nB), 
 				     R.slice(mR, nR), f, cons);};
-      par_do(true, left, right, cons);
+      par_do(left, right, cons);
     }
   }
 
