@@ -73,7 +73,7 @@ struct Deque {
     deq[local_bot].job = job; // shared store
     local_bot += 1;
     if (local_bot == q_size) {
-      cout << "internal error: scheduler queue overflow" << endl;
+      std::cout << "internal error: scheduler queue overflow" << std::endl;
       abort();
     }
     bot = local_bot; // shared store
@@ -306,7 +306,7 @@ public:
     size_t size = 1;
     int ticks;
     do {
-      size = min(size,end-(start+done));
+      size = std::min(size,end-(start+done));
       auto tstart = std::chrono::high_resolution_clock::now();
       for (size_t i=0; i < size; i++) f(start+done+i);
       auto tstop = std::chrono::high_resolution_clock::now();
@@ -323,7 +323,7 @@ public:
 	      bool conservative = false) {
     if (granularity == 0) {
       size_t done = get_granularity(start,end, f);
-      granularity = max(done, (end-start)/(128*sched->num_threads));
+      granularity = std::max(done, (end-start)/(128*sched->num_threads));
       //cout << done << endl;
       parfor_(start+done, end, f, granularity, conservative);
     } else parfor_(start, end, f, granularity, conservative);

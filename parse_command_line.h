@@ -41,7 +41,7 @@ struct commandLine {
     : argc(_c), argv(_v), comLine("bad arguments") { }
 
   void badArgument() {
-    cout << "usage: " << argv[0] << " " << comLine << endl;
+    std::cout << "usage: " << argv[0] << " " << comLine << std::endl;
     exit(0);
   }
 

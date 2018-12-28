@@ -29,9 +29,6 @@ static void parallel_for(size_t start, size_t end, F f,
   else {
     size_t n = end-start;
     size_t mid = (start + (9*(n+1))/16);
-    //size_t mid = ((((size_t) 1) << pbbs::log2_up(n) != n)
-    //		  ? (end+start)/2
-    //		  : start + (7*(n+1))/16);
     cilk_spawn parallel_for(start, mid, f, granularity);
     parallel_for(mid, end, f, granularity);
     cilk_sync;
