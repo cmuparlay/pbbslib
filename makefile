@@ -28,11 +28,8 @@ AllFiles = allocator.h alloc.h bag.h binary_search.h block_allocator.h collect_r
 time_tests:	$(AllFiles) time_tests.cpp time_operations.h
 	$(CC) $(CFLAGS) time_tests.cpp -o time_tests
 
-test:	test.cpp scheduler.h
-	$(CC) $(OMPCFLAGS) test.cpp -o test
-
-test2:	test2.cpp
-	$(CC) $(CFLAGS) test2.cpp -o test2
+test_scheduler:	test_scheduler.cpp scheduler.h
+	$(CC) $(CFLAGS) test_scheduler.cpp -o test
 
 all:	time_tests 
 

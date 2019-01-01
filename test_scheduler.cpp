@@ -1,17 +1,13 @@
-#include "scheduler.h"
 #include "get_time.h"
 #include "parse_command_line.h"
 #include "utilities.h"
-
-fork_join_scheduler fj;
-//fork_join_scheduler fj2;
 
 long fib(long i) {
   if (i <= 1) return 1;
   else if (i < 18) return fib(i-1) + fib(i-2);
   long l,r;
-  fj.pardo([&] () { l = fib(i-1);},
-	   [&] () { r = fib(i-2);});
+  par_do([&] () { l = fib(i-1);},
+	 [&] () { r = fib(i-2);});
   return l + r;
 }
 
@@ -27,54 +23,33 @@ int main (int argc, char *argv[]) {
     t.next("fib");
     cout << "result: " << r << endl;
   };
-  fj.run(job,p);
-
+  parallel_run(job,p);
 
   auto job2 = [&] () {
     long* a = new long[m];
     auto ident = [&] (int i) {a[i] = i;};
-    fj.parfor(0,m,ident);
+    parallel_for(0,m,ident);
     timer t2;
     for (int i=0; i < 100; i++) {
-      fj.parfor(0,m,ident);
+      parallel_for(0,m,ident);
     }
     t2.next("tabulate");
   };
-  fj.run(job2,p);
+  parallel_run(job2,p);
 
   auto spin = [&] (int i) {
     for (volatile int j=0; j < 1000; j++);
   };
 
   auto job3 = [&] () {
-    fj.parfor(0,m/200,spin);
+    parallel_for(0,m/200,spin);
     timer t2;
     for (int i=0; i < 100; i++) {
-      fj.parfor(0,m/200,spin);
+      parallel_for(0,m/200,spin);
     }
     t2.next("map spin");
   };
-  fj.run(job3,p);
-
-  {
-  long* a = new long[m];
-  for (size_t k=0 ; k < m; k++) a[k] = k;
-  timer t1;
-  for (int i=0; i < 100; i++) {
-#pragma omp parallel for
-    for (size_t k=0 ; k < m; k++) a[k] = k;
-  }
-  t1.next("tabulate omp");
-  }
-
-  {
-  timer t2;
-  for (int i=0; i < 100; i++) {
-#pragma omp parallel for
-    for (size_t k=0 ; k < m/200; k++) spin(k);
-  }
-  t2.next("map spin omp");
-  }
+  parallel_run(job3,p);
 }
   
   

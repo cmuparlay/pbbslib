@@ -1,3 +1,5 @@
+#pragma once
+
 #include <omp.h>
 #include <chrono>
 #include <thread>
