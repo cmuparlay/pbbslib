@@ -13,7 +13,7 @@ long fib(long i) {
 
 int main (int argc, char *argv[]) {
   commandLine P(argc, argv, "[-n <size>] [-p <threads>]");
-  size_t n = P.getOptionLongValue("-n", 40);
+  size_t n = P.getOptionLongValue("-n", 45);
   size_t m = P.getOptionLongValue("-m", 100000000);
   size_t p = P.getOptionLongValue("-p", 0);
 
@@ -23,6 +23,11 @@ int main (int argc, char *argv[]) {
     t.next("fib");
     cout << "result: " << r << endl;
   };
+
+#if defined(OPENMP)
+#pragma omp parallel
+#pragma omp single
+#endif
   parallel_run(job,p);
 
   auto job2 = [&] () {
