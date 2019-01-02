@@ -24,24 +24,25 @@
 
 #include <iostream>
 #include <fstream>
+#include <string>
 #include "get_time.h"
 #include "sequence_ops.h"
 
 namespace pbbs {
 
-  sequence<char> read_string_from_file(string fileName,
-					  size_t start, size_t end) {
-    ifstream file (fileName, ios::in | ios::binary | ios::ate);
+  sequence<char> read_string_from_file(std::string fileName,
+				       size_t start, size_t end) {
+    std::ifstream file (fileName, std::ios::in | std::ios::binary | std::ios::ate);
     if (!file.is_open()) {
       std::cout << "Unable to open file: " << fileName << std::endl;
       exit(1);
     }
     size_t length = file.tellg();
-    start = min(start,length);
+    start = std::min(start,length);
     if (end == 0) end = length;
-    else end = min(end,length);
+    else end = std::min(end,length);
     size_t n = end - start;
-    file.seekg (start, ios::beg);
+    file.seekg (start, std::ios::beg);
     char* bytes = new_array<char>(n+1);
     //char* bytes = new_array_no_init<char>(n+1);
     file.read (bytes,n);
@@ -59,7 +60,7 @@ namespace pbbs {
     words(sequence<char>, Func);
 
     template<typename Func>
-    words(string filename, Func is_separator, size_t begin=0, size_t end=0);
+    words(std::string filename, Func is_separator, size_t begin=0, size_t end=0);
 
     ~words() { //if (n > 0) { free(Chars); free(Strings);}
 	//cout << "destructing words" << endl;
@@ -122,7 +123,7 @@ namespace pbbs {
   }
 
   template <typename Func>
-  words::words(string filename, Func is_separator, size_t start, size_t end) {
+  words::words(std::string filename, Func is_separator, size_t start, size_t end) {
     sequence<char> S = read_string_from_file(filename, start, end);
     words(S, is_separator);
   }
