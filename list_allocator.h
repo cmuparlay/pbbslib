@@ -200,9 +200,9 @@ void list_allocator<T>::reserve(size_t n,
   max_blocks = _max_blocks;
   size_t num_lists = thread_count + ceil(n / (double)list_length);
   block_p start = allocate_blocks(list_length*num_lists);
-  par_for(0, num_lists, [&] (size_t i) {
+  parallel_for(0, num_lists, [&] (size_t i) {
     global_stack.push(initialize_list(start + i*list_length));
-  });
+    }, 1);
   if (randomize) rand_shuffle();
 }
 
