@@ -5,6 +5,7 @@
 #include <thread>
 #include <cstdint>
 #include <iostream>
+#include <functional>
 
 // EXAMPLE USE 1:
 //
