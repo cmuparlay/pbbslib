@@ -294,7 +294,7 @@ double t_collect_reduce_pair(size_t n) {
 }
 
 template<typename T>
-double t_collect_reduce_8_n(size_t n) {
+double t_collect_reduce_8(size_t n) {
   pbbs::random r(0);
   size_t num_buckets = (1<<8);
   size_t mask = num_buckets - 1;
@@ -307,13 +307,12 @@ double t_collect_reduce_8_n(size_t n) {
 }
 
 template<typename T>
-double t_collect_reduce_8(size_t n) {
+double t_collect_reduce_8_tuple(size_t n) {
   pbbs::random r(0);
   size_t num_buckets = (1<<8);
   size_t mask = num_buckets - 1;
   using sums = std::tuple<float,float,float,float>;
 
-  sequence<sums> in(n, [&] (size_t i) -> sums {return sums(1.0,1.0,1.0,1.0);});
   auto bucket = [&] (size_t i) -> uchar { return r.ith_rand(i) & mask; };
   auto keys = make_sequence<unsigned char>(n, bucket);
 
@@ -322,13 +321,15 @@ double t_collect_reduce_8(size_t n) {
 		std::get<2>(a)+std::get<2>(b), std::get<3>(a)+std::get<3>(b));
   };
 
+  sequence<sums> in(n, [&] (size_t i) -> sums {
+      return sums(1.0,1.0,1.0,1.0);});
+
   time(t,
        pbbs::collect_reduce<sums>(in,
-				   //make_sequence<uchar>(n,key),
-				   keys,
-				   num_buckets,
-				   sums(0.0,0.0,0.0,0.0),
-				   sum););
+				  keys,
+				  num_buckets,
+				  sums(0.0,0.0,0.0,0.0),
+				  sum););
   return t;
 }
 

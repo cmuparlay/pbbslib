@@ -39,21 +39,31 @@ namespace pbbs {
     for (size_t i = 0; i < num_buckets; i++) Out[i] = I;
     for (size_t j = 0; j < n; j++) {
       size_t k = Keys[j];
-      Out[k] = f(Out[k],In[k]);
+      Out[k] = f(Out[k],In[j]);
     }
   }
 
   template<class OutVal, class InSeq, class KeySeq, class Identity, class F>
-  sequence<OutVal> seq_collect_reduce(InSeq In, KeySeq Keys, size_t num_buckets, Identity I, F f) {
+  sequence<OutVal> seq_collect_reduce(InSeq In, KeySeq Keys,
+				      size_t num_buckets, Identity I, F f) {
     OutVal* Out = new_array<OutVal>(num_buckets);
     _seq_collect_reduce(In, Keys, Out, num_buckets, I, f);
     return sequence<OutVal>(Out,num_buckets);
   }
 
+  // this one is for few buckets (e.g. less than 2^16)
+  //  In is the sequence of values to be reduced
+  //  Keys is the sequence of bucket numbers
+  //  num_buckets is the number of buckets (all keys need to be less)
+  //  I is the identity for add
+  //  f is a function that adds two values
   template<class OutVal, class InSeq, class KeySeq, class Identity, class F>
-  sequence<OutVal> collect_reduce(InSeq In, KeySeq Keys, size_t num_buckets, Identity I, F f) {
+  sequence<OutVal> collect_reduce(InSeq In, KeySeq Keys,
+				  size_t num_buckets, Identity I, F f) {
     size_t n = In.size();
-
+    timer t;
+    t.start();
+    
     // pad to 16 buckets to avoid false sharing (does not affect results)
     num_buckets = std::max(num_buckets, (size_t) 16);
 
@@ -62,6 +72,7 @@ namespace pbbs {
     size_t num_blocks = std::min(4*num_threads, n/num_buckets/64);
 
     num_blocks = 1 << log2_up(num_blocks);
+
     OutVal* Out = new_array<OutVal>(num_buckets);
 
     // if insufficient parallelism, sort sequentially
@@ -81,7 +92,7 @@ namespace pbbs {
 				  OutM + i*num_buckets, num_buckets, I, f);
     };
     par_for (0, num_blocks, 1, block_f);
-
+    
     auto sum_buckets = [&] (size_t i) {
       OutVal O = I;
       for (size_t j = 0; j < num_blocks; j++)
@@ -93,7 +104,16 @@ namespace pbbs {
     return sequence<OutVal>(Out,num_buckets);
   }
 
-  template <typename OT, typename Seq, typename F, typename G, typename I, typename H>
+  // this one is for many buckets but no more than len(A) buckets
+  //      (e.g. more than 2^16)
+  //  A is the input sequence
+  //  m is the number of buckets
+  //  get_index is a function that gets the bucket from an element of A
+  //  get_val is a function that gets the value from an element of A
+  //  identity is the identity for add
+  //  add is a function that adds two values
+  template <typename OT, typename Seq, typename F, typename G,
+    typename I, typename H>
   sequence<OT> collect_reduce(Seq A, size_t m,
 			      F get_index, G get_val, I identity, H add) {
     size_t n = A.size();
@@ -121,8 +141,7 @@ namespace pbbs {
     // note that this is cache line alligned
     sequence<OT> sums(m, identity);
        
-    // now sequentially process each bucket
-    //parallel_for(size_t i = 0; i < num_buckets; i++) {
+    // now process each bucket in parallel
     auto bucket_f = [&] (size_t i) {
       size_t start = bucket_offsets[i];
       size_t end = bucket_offsets[i+1];
@@ -145,6 +164,14 @@ namespace pbbs {
     return sums;
   }
 
+  // this one is for more buckets than the length of A
+  //  A is the input sequence
+  //  get_index is a function that gets the bucket from an element of A
+  //  get_val is a function that gets the value from an element of A
+  //  The template parameter R is a reducer that must supply:
+  //      identity and add
+  //  The template parameter P is a pair type:  pair<key_time,val_type>
+  //  The other template parameters should be inferred
   template <typename R, typename P, typename Seq, typename F, typename G>
   sequence<P> collect_reduce_pair(Seq A, F get_index, G get_val) {
     using key_type = typename P::first_type;
