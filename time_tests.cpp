@@ -188,6 +188,3 @@ int main (int argc, char *argv[]) {
   else pick_test(test_num,n,rounds,half_length);
   //my_mem_pool.sizes();
 }
-  
-  
-
