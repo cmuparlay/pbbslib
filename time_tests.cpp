@@ -152,14 +152,18 @@ double pick_test(size_t id, size_t n, size_t rounds,
   case 28:  
     return run_multiple(n,rounds,ebytes(64,0),"strided read, 128 bytes", t_map_reduce_128, half_length);
   case 29:  
-    return run_multiple(n,rounds,1,"collect reduce pair of uint", t_collect_reduce_pair<uint>, half_length, "Gelts/sec");
+    return run_multiple(n,rounds,1,"collect reduce sparse uints", t_collect_reduce_pair_sparse<uint>, half_length, "Gelts/sec");
   case 30:  
     return run_multiple(n,rounds,1,"remove duplicates", t_remove_duplicates<long>, half_length, "Gelts/sec");
   case 31:  
     return run_multiple(n,rounds,1,"add to bag long", t_bag<long>, half_length, "Gelts/sec");
   case 32:  
+    return run_multiple(n,rounds,1,"collect reduce dense uints", t_collect_reduce_pair_dense<uint>, half_length, "Gelts/sec");
+
+    // these are not part of standard suite
+  case 50:  
     return run_multiple(n,rounds,1,"histogram reducer", t_histogram_reducer, half_length, "Gelts/sec");
-  case 33:  
+  case 51:  
     return run_multiple(n,rounds,ebytes(24,8),"scan add long seq", t_scan_add_seq<long>, half_length);
   default: 
     assert(false);
@@ -174,7 +178,7 @@ int main (int argc, char *argv[]) {
   int rounds = P.getOptionIntValue("-r", 5);
   int test_num = P.getOptionIntValue("-t", -1);
   bool half_length = P.getOption("-halflen");
-  int num_tests = 32;
+  int num_tests = 33;
 
   cout << "n = " << n << endl;
   cout << "rounds = " << rounds << endl;

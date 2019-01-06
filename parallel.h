@@ -117,7 +117,7 @@ static void parallel_run(Job job, int num_threads=0) {
 #include "scheduler.h"
 fork_join_scheduler fj;
 
-#define PAR_GRANULARITY 2000
+#define PAR_GRANULARITY 512
 
 int num_workers() {
   return fj.num_workers();

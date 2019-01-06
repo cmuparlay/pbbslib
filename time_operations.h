@@ -280,15 +280,24 @@ double t_count_sort_8(size_t n) {
 }
 
 template<typename T>
-double t_collect_reduce_pair(size_t n) {
+double t_collect_reduce_pair_dense(size_t n) {
   using par = std::pair<T,T>;
   pbbs::random r(0);
   sequence<par> S(n, [&] (size_t i) -> par {
-      return par(r.ith_rand(i)%n,1);});
-  //auto get_index = [] (par e) {return e.first;};
-  //auto get_val = [] (par e) {return e.second;};
-  //auto add = [&] (T a, T b) {return a + b;};
-  //time(t, pbbs::collect_reduce<T>(S, n, get_index, get_val, 0, add););
+      return par(r.ith_rand(i) % n, 1);});
+  auto get_index = [] (par e) {return e.first;};
+  auto get_val = [] (par e) {return e.second;};
+  auto add = [&] (T a, T b) {return a + b;};
+  time(t, pbbs::collect_reduce<T>(S, n, get_index, get_val, (T) 0, add););
+  return t;
+}
+
+template<typename T>
+double t_collect_reduce_pair_sparse(size_t n) {
+  using par = std::pair<T,T>;
+  pbbs::random r(0);
+  sequence<par> S(n, [&] (size_t i) -> par {
+      return par(r.ith_rand(i) % n, 1);});
   time(t, pbbs::collect_reduce_pair<Add<int>>(S););
   return t;
 }

@@ -62,13 +62,18 @@ struct bag {
   };
 
   bag() : root(NULL) {}
-  
+
   bag(T a) {
     T* x = leaf_alloc::alloc();
     *x = a;
     root = (void*) x;
   }
-    
+
+  static void reserve (size_t n) {
+    node_alloc::reserve(n);
+    leaf_alloc::reserve(n);
+  }
+
   static bag append(bag a, bag b) {
     if (a.size() == 0) return b;
     if (b.size() == 0) return a;

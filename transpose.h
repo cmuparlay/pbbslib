@@ -26,14 +26,14 @@
 
 namespace pbbs {
 
-  constexpr const size_t TRANS_THRESHHOLD = PAR_GRANULARITY;
+  constexpr const size_t TRANS_THRESHHOLD = PAR_GRANULARITY/4;
 
   size_t split(size_t n) {
     return n/2;
     //return ((((size_t) 1) << log2_up(n) != n) ? n/2 : (7*(n+1))/16);
   }
 
-  template <class E, class intT>
+  template <class E>
   struct transpose {
     E *A, *B;
     transpose(E *AA, E *BB) : A(AA), B(BB) {}
@@ -84,15 +84,17 @@ namespace pbbs {
 
       void transR(size_t rStart, size_t rCount, size_t rLength,
 		  size_t cStart, size_t cCount, size_t cLength) {
-	if (cCount*rCount < TRANS_THRESHHOLD) {
+	if (cCount*rCount < TRANS_THRESHHOLD/2) {
 	  par_for(rStart, rStart+rCount, [&] (size_t i) {
 	    for (size_t j=cStart; j < cStart + cCount; j++) {
 	      E* pa = A+OA[i*rLength + j];
 	      E* pb = B+OB[j*cLength + i];
 	      size_t l = L[i*rLength + j];
-	      const size_t bytes = l * sizeof(E);
-	      for (size_t k=0; k < bytes; k++)
-		((char*) pb)[k] = ((char *) pa)[k];
+	      for (size_t k =0; k < l; k++)
+		move_uninitialized(pb[k], pa[k]);
+	      //const size_t bytes = l * sizeof(E);
+	      //for (size_t k=0; k < bytes; k++)
+	      //((char*) pb)[k] = ((char *) pa)[k];
 	    }
           });
 	} else if (cCount > rCount) {
@@ -178,8 +180,8 @@ namespace pbbs {
       //t.next("trans head");
       
       scan_add(seq_counts, source_offsets);
-      transpose<s_size_t,s_size_t>(counts, dest_offsets.as_array()).trans(num_blocks,
-									  num_buckets);
+      transpose<s_size_t>(counts, dest_offsets.as_array()).trans(num_blocks,
+								 num_buckets);
       //t.next("trans");
       scan_add(dest_offsets, dest_offsets);
       blockTrans<E,s_size_t>(From, To, source_offsets.as_array(),
