@@ -433,3 +433,4 @@ double t_mat_vec_mult(size_t n) {
   time(t, mat_vec_mult(starts, columns, values, in, out, mult, add););
   return t;
 }
+
