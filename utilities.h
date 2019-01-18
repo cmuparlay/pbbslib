@@ -37,7 +37,7 @@ namespace pbbs {
   template <class T>
   size_t log2_up(T);
 }
-  
+
 template <typename F>
 static void par_for(size_t start, size_t end, size_t granularity, F f) {
   parallel_for(start, end, f, granularity);
@@ -54,7 +54,7 @@ template <class T>
 struct maybe {
 	T value;
 	bool valid;
-	
+
 	maybe(T v, bool u) : value(v) {
 		valid = u;
 	}
@@ -64,7 +64,7 @@ struct maybe {
 	maybe() {
 		valid = false;
 	}
-	
+
 	bool operator !() const {
 		return !valid;
 	}
@@ -79,12 +79,14 @@ struct maybe {
 #include <malloc.h>
 struct malloc_init {
   static int i;
-  static int j; 
+  static int j;
 };
 int malloc_init::i = mallopt(M_MMAP_MAX,0);
 int malloc_init::j = mallopt(M_TRIM_THRESHOLD,-1);
 
 namespace pbbs {
+
+  struct empty {};
 
   typedef uint32_t flags;
   const flags no_flag = 0;
@@ -149,7 +151,7 @@ namespace pbbs {
     //parallel_for (size_t i = 0; i < bytes; i = i + (1 << 21)) ((bool*) r)[i] = 0;
     return r;
   }
-  
+
   // Initializes in parallel
   template<typename E>
   E* new_array(size_t n) {
@@ -171,13 +173,13 @@ namespace pbbs {
     //free(A);
     my_free(a);
   }
-  
-  // Destructs in parallel 
+
+  // Destructs in parallel
   template<typename E>
   void delete_array(E* A, size_t n) {
     // C++14 -- suppored by gnu C++11
     if (!std::is_trivially_destructible<E>::value) {
-      //if (!std::is_destructible<E>::value) {  
+      //if (!std::is_destructible<E>::value) {
       if (n > 2048) {
 	auto f = [&] (size_t i) {A[i].~E();};
 	par_for(0, n, f);
@@ -209,10 +211,10 @@ namespace pbbs {
 					*reinterpret_cast<const uint32_t*>(&oldval),
 					*reinterpret_cast<const uint32_t*>(&newval));
   };
-      
+
   template <typename E, typename EV>
   inline E fetch_and_add(E *a, EV b) {
-    volatile E newV, oldV; 
+    volatile E newV, oldV;
     do {oldV = *a; newV = oldV + b;}
     while (!CAS_GCC(a, oldV, newV));
     return oldV;
@@ -221,7 +223,7 @@ namespace pbbs {
   template <typename E, typename EV>
   inline void write_add(E *a, EV b) {
     //volatile E newV, oldV;
-    E newV, oldV; 
+    E newV, oldV;
     do {oldV = *a; newV = oldV + b;}
     while (!atomic_compare_and_swap(a, oldV, newV));
   }
@@ -229,7 +231,7 @@ namespace pbbs {
   template <typename ET, typename F>
   inline bool write_min(ET *a, ET b, F less) {
     ET c; bool r=0;
-    do c = *a; 
+    do c = *a;
     while (less(b,c) && !(r=CAS_GCC(a,c,b)));
     return r;
   }
