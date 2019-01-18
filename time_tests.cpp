@@ -26,11 +26,7 @@ void report_time(double t, std::string name) {
 template<typename F>
 std::vector<double> repeat(size_t n, size_t rounds, F test) {
   std::vector<double> R;
-#ifdef HOMEGROWN
-  for (size_t i=0; i < rounds; i++) fj.run([&] () { R.push_back(test(n)); });
-#else
   for (size_t i=0; i < rounds; i++) R.push_back(test(n));
-#endif
   return R;
 }
 
@@ -57,7 +53,7 @@ template<typename F>
 bool run_multiple(size_t n, size_t rounds, float bytes_per_elt,
 		  std::string name, F test, bool half_length=1, std::string x="bw") {
   std::vector<double> t = repeat(n, rounds, test);
-  
+
   double mint = reduce(t, minf);
   double maxt = reduce(t, maxf);
   double med = median(t);
@@ -76,7 +72,7 @@ bool run_multiple(size_t n, size_t rounds, float bytes_per_elt,
        << ": r=" << rounds
        << ", med=" << med
        << " (" << mint << "," << maxt << "), "
-       << "hlen=" << round(l) << ", " 
+       << "hlen=" << round(l) << ", "
        << x << " = " << bandwidth
        << endl;
   return 1;
@@ -93,79 +89,79 @@ float ebytes(int reads, int write_backs) {
 double pick_test(size_t id, size_t n, size_t rounds,
 		 bool half_length) {
   switch (id) {
-  case 0:  
+  case 0:
     return run_multiple(n,rounds,ebytes(16,8),"map long", t_map<long>, half_length);
-  case 1:  
+  case 1:
     return run_multiple(n,rounds,ebytes(8,8),"tabulate long",t_tabulate<long>, half_length);
-  case 2:  
+  case 2:
     return run_multiple(n,rounds,ebytes(8,0),"reduce add long", t_reduce_add<long>, half_length);
-  case 3:  
+  case 3:
     return run_multiple(n,rounds,ebytes(24,8),"scan add long", t_scan_add<long>, half_length);
-  case 4:  
+  case 4:
     return run_multiple(n,rounds,ebytes(14,4),"pack long", t_pack<long>, half_length);
-  case 5:  
+  case 5:
     return run_multiple(n,rounds,ebytes(80,8),"gather long", t_gather<long>, half_length);
-  case 6:  
+  case 6:
     return run_multiple(n,rounds,ebytes(72,64),"scatter long", t_scatter<long>, half_length);
-  case 7:  
+  case 7:
     return run_multiple(n,rounds,ebytes(72,64),"write add long", t_write_add<long>, half_length);
-  case 8:  
+  case 8:
     return run_multiple(n,rounds,ebytes(72,64),"write min long", t_write_min<long>, half_length);
-  case 9: 
+  case 9:
     return run_multiple(n,rounds,1,"count sort 8bit long", t_count_sort_8<long>, half_length, "Gelts/sec");
-  case 10:  
+  case 10:
     return run_multiple(n,rounds,1,"random shuffle long", t_shuffle<long>, half_length, "Gelts/sec");
-  case 11: 
+  case 11:
     return run_multiple(n,rounds,1,"histogram int", t_histogram<int>, half_length, "Gelts/sec");
-  case 12: 
+  case 12:
     return run_multiple(n,rounds,1,"histogram same int", t_histogram_same<int>, half_length, "Gelts/sec");
-  case 13: 
+  case 13:
     return run_multiple(n,rounds,1,"histogram few int", t_histogram_few<int>, half_length, "Gelts/sec");
-  case 14: 
+  case 14:
     return run_multiple(n,rounds,1,"integer sort<int,int>", t_integer_sort_pair<uint>, half_length, "Gelts/sec");
-  case 15: 
+  case 15:
     return run_multiple(n,rounds,1,"integer sort int", t_integer_sort<uint>, half_length, "Gelts/sec");
-  case 16: 
+  case 16:
     return run_multiple(n,rounds,1,"integer sort 128 bits", t_integer_sort_128, half_length, "Gelts/sec");
-  case 17: 
+  case 17:
     return run_multiple(n,rounds,1,"sort long", t_sort<long>, half_length, "Gelts/sec");
-  case 18: 
+  case 18:
     return run_multiple(n,rounds,1,"sort int", t_sort<int>, half_length, "Gelts/sec");
-  case 19: 
+  case 19:
     return run_multiple(n,rounds,1,"sort 128 bits", t_sort<__int128>, half_length, "Gelts/sec");
-  case 20: 
+  case 20:
     return run_multiple(n,rounds,ebytes(16,8),"merge long", t_merge<long>, half_length);
-  case 21: 
+  case 21:
     return run_multiple(n,rounds,ebytes(16 + 5 * 80, 8),"mat vect mult", t_mat_vec_mult<size_t,double>, half_length);
-  case 22:  
+  case 22:
     return run_multiple(n,rounds,ebytes(68,64),"scatter int", t_scatter<uint>, half_length);
-  case 23:  
+  case 23:
     return run_multiple(n,rounds,1,"merge sort long", t_merge_sort<long>, half_length, "Gelts/sec");
-  case 24: 
+  case 24:
     return run_multiple(n,rounds,1,"count sort 2bit long", t_count_sort_2<long>, half_length, "Gelts/sec");
-  case 25: 
+  case 25:
     return run_multiple(n,rounds,ebytes(24,8),"split3 long", t_split3<long>, half_length);
-  case 26:  
+  case 26:
     return run_multiple(n,rounds,1,"quicksort long", t_quicksort<long>, half_length, "Gelts/sec");
-  case 27:  
+  case 27:
     return run_multiple(n,rounds,1,"collect reduce 8bit long", t_collect_reduce_8<long>, half_length,"Gelts/sec");
-  case 28:  
+  case 28:
     return run_multiple(n,rounds,ebytes(64,0),"strided read, 128 bytes", t_map_reduce_128, half_length);
-  case 29:  
+  case 29:
     return run_multiple(n,rounds,1,"collect reduce sparse uints", t_collect_reduce_pair_sparse<uint>, half_length, "Gelts/sec");
-  case 30:  
+  case 30:
     return run_multiple(n,rounds,1,"remove duplicates", t_remove_duplicates<long>, half_length, "Gelts/sec");
-  case 31:  
+  case 31:
     return run_multiple(n,rounds,1,"add to bag long", t_bag<long>, half_length, "Gelts/sec");
-  case 32:  
+  case 32:
     return run_multiple(n,rounds,1,"collect reduce dense uints", t_collect_reduce_pair_dense<uint>, half_length, "Gelts/sec");
 
     // these are not part of standard suite
-  case 50:  
+  case 50:
     return run_multiple(n,rounds,1,"histogram reducer", t_histogram_reducer, half_length, "Gelts/sec");
-  case 51:  
+  case 51:
     return run_multiple(n,rounds,ebytes(24,8),"scan add long seq", t_scan_add_seq<long>, half_length);
-  default: 
+  default:
     assert(false);
     return 0.0 ;
   }

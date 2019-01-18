@@ -2,10 +2,10 @@ CFLAGS = -mcx16 -O2 -ldl -std=c++11 -march=native
 
 OMPFLAGS = -DOPENMP -fopenmp
 CILKFLAGS = -DCILK -fcilkplus
-HGFLAGS = -DHOMEGROWN -fopenmp
+HGFLAGS = -DHOMEGROWN -pthread
 
 ifdef CLANG
-CC = clang++ 
+CC = clang++
 PFLAGS = $(CILKFLAGS)
 else ifdef CILK
 CC = g++
@@ -18,7 +18,7 @@ CC = g++
 PFLAGS = $(HGFLAGS)
 else ifdef SERIAL
 CC = g++
-PFLAGS = 
+PFLAGS =
 else # default is cilk
 CC = g++
 PFLAGS = $(CILKFLAGS)
@@ -30,14 +30,14 @@ time_tests:	$(AllFiles) time_tests.cpp time_operations.h
 	$(CC) $(CFLAGS) $(PFLAGS) time_tests.cpp -o time_tests
 
 test_scheduler:	test_scheduler.cpp scheduler.h
-	$(CC) $(CFLAGS) $(PFLAGS) 
+	$(CC) $(CFLAGS) $(PFLAGS)
 
 test_scheduler_%:	test_scheduler.cpp scheduler.h
 	$(CC) $($(subst test_scheduler_,,$@)FLAGS) $(CFLAGS) test_scheduler.cpp -o $@
 
 test_schedulers: test_scheduler_OMP test_scheduler_CILK test_scheduler_HG
 
-all:	time_tests 
+all:	time_tests
 
 clean:
 	rm -f time_tests test

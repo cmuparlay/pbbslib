@@ -1,6 +1,5 @@
 #pragma once
 
-#include <omp.h>
 #include <chrono>
 #include <thread>
 #include <cstdint>
@@ -19,19 +18,19 @@
 //   return l + r;
 // }
 //
-// fj.run([] () { cout << fib(40) << endl;});
+// fib(40);
 //
 // EXAMPLE USE 2:
 //
 // void init(long* x, size_t n) {
-//   fj.parfor(0, n, [&] (int i) {a[i] = i;});
+//   parfor(0, n, [&] (int i) {a[i] = i;});
 // }
 //
 // size_t n = 1000000000;
 //
 // long* a = new long[n];
 //
-// fj.run([&] () {init(a, n);});
+// init(a, n);
 
 
 // Deque from Arora, Blumofe, and Plaxton (SPAA, 1998).
@@ -138,6 +137,8 @@ struct Deque {
 
 };
 
+thread_local int thread_id;
+
 template <typename Job>
 struct scheduler {
 
@@ -147,28 +148,35 @@ public:
   int num_threads;
 
   scheduler() {
+    num_threads = num_workers();
     num_deques = 2*num_workers();
     deques = new Deque<Job>[num_deques];
     attempts = new attempt[num_deques];
     finished_flag = 0;
+
+    // Spawn num_workers many threads on startup
+    spawned_threads = new std::thread[num_threads-1];
+    bool ready = false;
+    std::function<bool()> finished = [&] () {  return finished_flag == 1; };
+    thread_id = 0; // thread-local write
+    for (int i=1; i<num_threads; i++) {
+      spawned_threads[i-1] = std::thread([&, i, finished] () {
+        thread_id = i; // thread-local write
+        while (!ready) { std::this_thread::yield(); }
+        start(finished);
+      });
+    }
+    ready=true; // start the other p-1 threads
   }
 
   ~scheduler() {
+    finished_flag = 1;
+    for (int i=1; i<num_threads; i++) {
+      spawned_threads[i-1].join();
+    }
+    delete[] spawned_threads;
     delete[] deques;
     delete[] attempts;
-  }
-
-  // Run the job on specified number of threads.
-  void run(Job* job, int threads = 0) {
-    finished_flag = 0;
-    deques[0].push_bottom(job);
-    auto finished = [&] () {return finished_flag > 0;};
-    num_threads = (threads > 0) ? threads : num_workers();
-    omp_set_num_threads(num_threads);
-    #pragma omp parallel
-    start(finished);
-
-    finished_flag = 0;
   }
 
   // Push onto local stack.
@@ -199,10 +207,15 @@ public:
     return deques[id].pop_bottom();
   }
 
-  // TODO:
-  int num_workers() { return omp_get_max_threads(); }
-  int worker_id() { return omp_get_thread_num(); }
-  void set_num_workers(int n) { omp_set_num_threads(n); }
+  int num_workers() {
+    return std::thread::hardware_concurrency();
+  }
+  int worker_id() {
+    return thread_id;
+  }
+  void set_num_workers(int n) {
+    std::cout << "Unsupported" << std::endl; exit(-1);
+  }
 
 private:
 
@@ -212,6 +225,7 @@ private:
   int num_deques;
   Deque<Job>* deques;
   attempt* attempts;
+  std::thread* spawned_threads;
   int finished_flag;
 
   // Start an individual scheduler task.  Runs until finished().
@@ -272,21 +286,23 @@ public:
   }
 
   ~fork_join_scheduler() {
-    delete sched;
+    if (sched) {
+      delete sched;
+      sched = nullptr;
+    }
+  }
+
+  // Must be called using std::atexit(..) to free resources
+  void destroy() {
+    if (sched) {
+      delete sched;
+      sched = nullptr;
+    }
   }
 
   int num_workers() { return sched->num_workers(); }
   int worker_id() { return sched->worker_id(); }
   void set_num_workers(int n) { sched->set_num_workers(n); }
-
-
-  // Run thunk on given number of threads.
-  // 0 means however many the hardware claims it has.
-  template <typename J>
-  void run(J thunk, int num_threads=0) {
-    Job job = [&] () {thunk(); sched->finish();};
-    sched->run(&job,num_threads);
-  }
 
   // Fork two thunks and wait until they both finish.
   template <typename L, typename R>
@@ -319,7 +335,7 @@ public:
     } while (ticks < 1000 && done < (end-start));
     return done;
   }
-      
+
   template <typename F>
   void parfor(size_t start, size_t end, F f,
 	      size_t granularity = 0,
@@ -327,14 +343,12 @@ public:
     if (granularity == 0) {
       size_t done = get_granularity(start,end, f);
       granularity = std::max(done, (end-start)/(128*sched->num_threads));
-      //cout << done << endl;
       parfor_(start+done, end, f, granularity, conservative);
     } else parfor_(start, end, f, granularity, conservative);
   }
 
 private:
 
-        
   template <typename F>
   void parfor_(size_t start, size_t end, F f,
 	       size_t granularity,

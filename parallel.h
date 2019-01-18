@@ -117,6 +117,12 @@ static void parallel_run(Job job, int num_threads=0) {
 #include "scheduler.h"
 fork_join_scheduler fj;
 
+// Calls fj.destroy() before the program exits
+void destroy_fj() {
+  fj.destroy();
+}
+const int atexit_result = std::atexit(destroy_fj);
+
 #define PAR_GRANULARITY 512
 
 int num_workers() {
@@ -145,7 +151,7 @@ static void par_do(Lf left, Rf right, bool conservative) {
 
 template <typename Job>
 static void parallel_run(Job job, int num_threads=0) {
-  fj.run(job, num_threads);
+  job();
 }
 
 // c++
