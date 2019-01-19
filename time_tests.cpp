@@ -88,6 +88,8 @@ float ebytes(int reads, int write_backs) {
 
 double pick_test(size_t id, size_t n, size_t rounds,
 		 bool half_length) {
+  cout << "mem_size = " << my_mem_pool.mem_size << " used : " << my_mem_pool.used << " allocated : " << my_mem_pool.allocated << endl;
+
   switch (id) {
   case 0:
     return run_multiple(n,rounds,ebytes(16,8),"map long", t_map<long>, half_length);

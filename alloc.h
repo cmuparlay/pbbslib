@@ -1,6 +1,8 @@
 #pragma once
 #include "concurrent_stack.h"
 #include "utilities.h"
+#include <atomic>
+#include "memory_size.h"
 
 struct mem_pool {
   concurrent_stack<void*>* buckets;
@@ -8,6 +10,9 @@ struct mem_pool {
   static constexpr size_t log_base = 20;
   static constexpr size_t num_buckets = 20;
   static constexpr size_t small_size_tag = 100;
+  std::atomic<long> allocated{0};
+  std::atomic<long> used{0};
+  size_t mem_size{getMemorySize()};
   
   mem_pool() {
     buckets = new concurrent_stack<void*>[num_buckets];
@@ -28,12 +33,14 @@ struct mem_pool {
     }
     size_t bucket = log_size - log_base;
     maybe<void*> r = buckets[bucket].pop();
+    size_t n = ((size_t) 1) << log_size;
+    used += n;
     if (r) {
       return add_header(*r);
     }
     else {
-      size_t n = ((size_t) 1) << log_size;
       void* a = (void*) aligned_alloc(header_size, n);
+      allocated += n;
       if (a == NULL) std::cout << "alloc failed" << std::endl;
       // a hack to make sure pages are touched in parallel
       // not the right choice if you want processor local allocations
@@ -53,7 +60,14 @@ struct mem_pool {
       std::cout << "corrupted header in free" << std::endl;
       abort();
     } else {
-      buckets[bucket].push(b);
+      size_t n = ((size_t) 1) << (bucket+log_base);
+      used -= n;
+      if (n > mem_size/64) {
+	free(b);
+	allocated -= n;
+      } else {
+	buckets[bucket].push(b);
+      }
     }
   }
 
@@ -65,10 +79,3 @@ struct mem_pool {
   }
 } my_mem_pool;
 
-void* my_alloc(size_t i) {
-  return my_mem_pool.alloc(i);
-}
-
-void my_free(void* p) {
-  my_mem_pool.afree(p);
-}

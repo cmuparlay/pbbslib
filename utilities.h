@@ -251,5 +251,22 @@ namespace pbbs {
 
 }
 
-
+#ifndef MYALLOC
 #include "alloc.h"
+
+void* my_alloc(size_t i) {
+  return my_mem_pool.alloc(i);
+}
+
+void my_free(void* p) {
+  my_mem_pool.afree(p);
+}
+
+#else
+
+void* my_alloc(size_t i) {return malloc(i);}
+void my_free(void* p) { free(p);}
+
+#endif
+
+
