@@ -71,11 +71,16 @@ struct mem_pool {
     }
   }
 
-  void sizes() {
+  void clear() {
     for (size_t i = 0; i < num_buckets; i++) {
-      std::cout << (((size_t) 1) << (i+log_base)) << " : "
-		<< (buckets[i].size()) << std::endl;
-    };
+      size_t n = ((size_t) 1) << (i+log_base);
+      maybe<void*> r = buckets[i].pop();
+      while (r) {
+	allocated -= n;
+	free(*r);
+	r = buckets[i].pop();
+      }
+    }
   }
 } my_mem_pool;
 
