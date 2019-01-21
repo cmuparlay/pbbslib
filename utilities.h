@@ -77,8 +77,8 @@ struct maybe {
 };
 
 #include <malloc.h>
-static int ____ii =  mallopt(M_MMAP_MAX,0);
-static int ____jj =  mallopt(M_TRIM_THRESHOLD,-1);
+const static int ____mallopt1 = mallopt(M_MMAP_MAX,0);
+const static int ____mallopt2 = mallopt(M_TRIM_THRESHOLD,-1);
 
 namespace pbbs {
 

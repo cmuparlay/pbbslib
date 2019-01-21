@@ -156,7 +156,6 @@ public:
 
     // Spawn num_workers many threads on startup
     spawned_threads = new std::thread[num_threads-1];
-    bool ready = false;
     std::function<bool()> finished = [&] () {  return finished_flag == 1; };
     thread_id = 0; // thread-local write
     for (int i=1; i<num_threads; i++) {
@@ -165,7 +164,6 @@ public:
         start(finished);
       });
     }
-    ready=true; // start the other p-1 threads
   }
 
   ~scheduler() {
