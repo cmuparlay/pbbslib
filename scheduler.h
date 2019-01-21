@@ -162,7 +162,6 @@ public:
     for (int i=1; i<num_threads; i++) {
       spawned_threads[i-1] = std::thread([&, i, finished] () {
         thread_id = i; // thread-local write
-        while (!ready) { std::this_thread::yield(); }
         start(finished);
       });
     }
