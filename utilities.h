@@ -77,12 +77,8 @@ struct maybe {
 };
 
 #include <malloc.h>
-struct malloc_init {
-  static int i;
-  static int j;
-};
-int malloc_init::i = mallopt(M_MMAP_MAX,0);
-int malloc_init::j = mallopt(M_TRIM_THRESHOLD,-1);
+static int ____ii =  mallopt(M_MMAP_MAX,0);
+static int ____jj =  mallopt(M_TRIM_THRESHOLD,-1);
 
 namespace pbbs {
 
@@ -106,7 +102,7 @@ namespace pbbs {
   }
 
   // a 32-bit hash function
-  uint32_t hash32(uint32_t a) {
+  inline uint32_t hash32(uint32_t a) {
     a = (a+0x7ed55d16) + (a<<12);
     a = (a^0xc761c23c) ^ (a>>19);
     a = (a+0x165667b1) + (a<<5);
@@ -117,7 +113,7 @@ namespace pbbs {
   }
 
   // from numerical recipes
-  uint64_t hash64(uint64_t u )
+  static uint64_t hash64(uint64_t u )
   {
     uint64_t v = u * 3935559000370003845ul + 2691343689449507681ul;
     v ^= v >> 21;
@@ -132,7 +128,7 @@ namespace pbbs {
 
   // a slightly cheaper, but possibly not as good version
   // based on splitmix64
-  uint64_t hash64_2(uint64_t x) {
+  static uint64_t hash64_2(uint64_t x) {
     x = (x ^ (x >> 30)) * UINT64_C(0xbf58476d1ce4e5b9);
     x = (x ^ (x >> 27)) * UINT64_C(0x94d049bb133111eb);
     x = x ^ (x >> 31);
@@ -169,7 +165,7 @@ namespace pbbs {
     return r;
   }
 
-  void free_array(void* a) {
+  static void free_array(void* a) {
     //free(A);
     my_free(a);
   }
@@ -245,19 +241,19 @@ namespace pbbs {
     return a;
   }
 
-  size_t granularity(size_t n) {
+  inline size_t granularity(size_t n) {
     return (n > 100) ? ceil(pow(n,0.5)) : 100;
   }
 
 }
 
 #ifdef USEMALLOC
-void* my_alloc(size_t i) {return malloc(i);}
-void my_free(void* p) {free(p);}
+inline void* my_alloc(size_t i) {return malloc(i);}
+inline void my_free(void* p) {free(p);}
 #else
 #include "alloc.h"
-void* my_alloc(size_t i) {return my_mem_pool.alloc(i);}
-void my_free(void* p) {my_mem_pool.afree(p);}
+inline void* my_alloc(size_t i) {return my_mem_pool.alloc(i);}
+inline void my_free(void* p) {my_mem_pool.afree(p);}
 #endif
 
 
