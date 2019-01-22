@@ -63,12 +63,11 @@ namespace pbbs {
 	
     // now sequentially randomly shuffle within each bucket
     
-    //parallel_for(size_t i = 0; i < num_buckets; i++) {
     auto bucket_f = [&] (size_t i) {
       size_t start = bucket_offsets[i];
       size_t end = bucket_offsets[i+1];
       seq_random_shuffle(A.slice(start,end), r.fork(i));
     };
-    par_for(0, num_buckets, 1, bucket_f);
+    parallel_for(0, num_buckets, bucket_f, 1);
   }
 }

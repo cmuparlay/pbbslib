@@ -123,7 +123,6 @@ namespace pbbs {
     //t.next("head");
     
     // sort each block
-    // parallel_for (size_t i = 0; i < num_blocks; ++i) {
     auto block_f = [&] (size_t i) {
       s_size_t start = std::min(i * block_size, n);
       s_size_t end =  std::min(start + block_size, n);
@@ -131,7 +130,7 @@ namespace pbbs {
 					 Keys.slice(start,end),
 					 counts + i*num_buckets, num_buckets);
     };
-    par_for(0, num_blocks, 1, block_f);
+    parallel_for(0, num_blocks, block_f, 1);
     //t.next("count");
     OutS C = Out;
     size_t* bucket_offsets = transpose_buckets(B, Out.as_array(),

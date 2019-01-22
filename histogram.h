@@ -66,14 +66,13 @@ namespace pbbs {
     sequence<s_size_t> block_counts(m);
 
     // count each block
-    //parallel_for (size_t i = 0; i < num_blocks; ++i) {
     auto block_f = [&] (size_t i) {
       size_t start = std::min(i * block_size, n);
       size_t end = std::min((i+1) * block_size, n);
       auto bc = block_counts.slice(i*num_buckets,(i+1)*num_buckets);
       _seq_count(In.slice(start,end), bc);
     };
-    par_for(0, num_blocks, 1, block_f);
+    parallel_for(0, num_blocks, block_f, 1);
 
 
     auto bucket_f = [&] (size_t j) {
@@ -82,8 +81,8 @@ namespace pbbs {
 	sum += block_counts[i*num_buckets+j];
       counts[j] = sum;
     };
-    //parallel_for (size_t j = 0; j < num_buckets; j++)
-    if (m >= (1 << 14)) par_for(0, num_buckets, 1, bucket_f);
+    if (m >= (1 << 14))
+      parallel_for(0, num_buckets, bucket_f, 1);
     else
       for (size_t j = 0; j < num_buckets; j++) bucket_f(j);
     return counts;
@@ -191,11 +190,8 @@ namespace pbbs {
 
     // note that this is cache line alligned
     sequence<s_size_t> counts(m, 0);
-    //parallel_for (size_t i = 0; i < m; i++)
-    //  counts[i] = 0;
 
     // now sequentially process each bucket
-    //parallel_for (size_t i = 0; i < num_buckets; i++) {
     auto bucket_f = [&] (size_t i) {
       size_t start = bucket_offsets[i];
       size_t end = bucket_offsets[i+1];
@@ -209,7 +205,7 @@ namespace pbbs {
       else if (end > start)
 	counts[A[i]] = end-start;
     };
-    par_for(0, num_buckets, 1, bucket_f);
+    parallel_for(0, num_buckets, bucket_f, 1);
     //t.next("within buckets ");
     return counts;
   }

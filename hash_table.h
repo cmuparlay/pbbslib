@@ -49,10 +49,9 @@ namespace pbbs {
     using index = long;
 
     static void clear(eType* A, size_t n, eType v) {
-      //parallel_for (size_t i=0; i < n; i++)
       auto f = [&] (size_t i) {
 	assign_uninitialized(A[i], v);};
-      par_for(0, n, granularity(n), f);
+      parallel_for(0, n, f, granularity(n));
     }
 
     struct notEmptyF {
@@ -300,9 +299,8 @@ namespace pbbs {
   sequence<ET> remove_duplicates(sequence<ET> S, H hash, size_t m=0) {
     if (m==0) m = S.size();
     Table<H> T(m, hash, 1.5);
-    //parallel_for(size_t i = 0; i < S.size(); i++)
     auto f = [&] (size_t i) { T.insert(S[i]);};
-    par_for(0, S.size(), granularity(S.size()), f);
+    parallel_for(0, S.size(), f, granularity(S.size()));
     sequence<ET> r = T.entries();
     return r;
   }

@@ -46,9 +46,7 @@ public:
     : s(pbbs::new_array_no_init<E>(n, true)), allocated(true) {
     e = s + n;
     auto f = [=] (size_t i) {new ((void*) (s+i)) T(v);};
-    //par_for(0, n, pbbs::granularity(n), f);
     parallel_for(0, n, f, 0);
-    //parallel_for (size_t i=0; i < n; i++) f(i);
   };
 
   template <typename Func>
@@ -58,7 +56,6 @@ public:
     auto g = [&] (size_t i) {
       T x = f(i);
       new ((void*) (s+i)) T(x);};
-    //par_for(0, n, pbbs::granularity(n), g);
     parallel_for(0, n, g, 0);
   }
 
@@ -70,23 +67,13 @@ public:
 
   ~sequence() { clear();}
 
-  // template <typename X, typename F>
-  // static sequence<X> tabulateo(size_t n, F f) {
-  //   X* r = pbbs::new_array_no_init<X>(n);
-  //   parallel_for (size_t i = 0; i < n; i++)
-  //     new ((void*) (r+i)) X(f(i));
-  //   sequence<X> y(r,n);
-  //   y.allocated = true;
-  //   return y;
-  // }
 
   template <typename F>
   static sequence<T> tabulate(size_t n, F f) {
     T* r = pbbs::new_array_no_init<T>(n);
-    //parallel_for (size_t i = 0; i < n; i++)
     auto g = [&] (size_t i) {
       new ((void*) (r+i)) T(f(i));};
-    par_for(0, n, pbbs::granularity(n), g);
+    parallel_for(0, n, g, pbbs::granularity(n));
     sequence<T> y(r,n);
     y.allocated = true;
     return y;
@@ -115,12 +102,16 @@ public:
   T* as_array() {return s;}
   T* start() {return s;}
   T* end() {return e;}
+  bool is_allocated() {return allocated;}
+  void set_allocated(bool a) {allocated = a;}
 
-  //private:
   void clear() {
     if (allocated) pbbs::delete_array<E>(s,e-s);
+    allocated = false;
     s = e = NULL;
   }
+
+private:
   E *s; // = NULL;
   E *e; // = NULL;
   bool allocated = false;

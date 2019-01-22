@@ -38,11 +38,6 @@ namespace pbbs {
   template <class F>
   void sliced_for(size_t n, size_t block_size, const F& f, flags fl = no_flag) {
     size_t l = num_blocks(n, block_size);
-    //parallel_for_1 (size_t i = 0; i < l; i++) {
-    //  size_t s = i * block_size;
-    //  size_t e = min(s + block_size, n);
-    //  f(i, s, e);
-    //}
     auto body = [&] (size_t i) {
       size_t s = i * block_size;
       size_t e = std::min(s + block_size, n);

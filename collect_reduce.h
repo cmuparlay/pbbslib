@@ -91,7 +91,7 @@ namespace pbbs {
       _seq_collect_reduce<OutVal>(In.slice(start,end), Keys.slice(start,end),
 				  OutM + i*num_buckets, num_buckets, I, f);
     };
-    par_for (0, num_blocks, 1, block_f);
+    parallel_for (0, num_blocks, block_f, 1);
     
     auto sum_buckets = [&] (size_t i) {
       OutVal O = I;
@@ -99,7 +99,7 @@ namespace pbbs {
 	O = f(O, OutM[i + j*num_buckets]);
       Out[i] = O;
     };
-    par_for(0, num_buckets, 1, sum_buckets);
+    parallel_for(0, num_buckets, sum_buckets, 1);
     delete_array(OutM, m);
     return sequence<OutVal>(Out,num_buckets);
   }
@@ -160,7 +160,7 @@ namespace pbbs {
 	sums[get_index(A[i])] = reduce(vals, add);
       }
     };
-    par_for(0, num_buckets, 1, bucket_f);
+    parallel_for(0, num_buckets, bucket_f, 1);
     return sums;
   }
 
@@ -221,12 +221,10 @@ namespace pbbs {
     
     // note that this is cache line alligned
     size_t num_tables = num_buckets/2;
-    //size_t table_size = ((size_t) 1) << table_bits;
     size_t sz = n / num_tables;
     float factor = 1.2;
     if (sz < 128000) factor += (17 - log2_up(sz))*.15;
     uint table_size = (factor * sz);
-    //size_t mask = table_size-1;
     size_t total_table_size = table_size * num_tables;
     sequence<P> table
       = sequence<P>::alloc_no_init(total_table_size);
@@ -245,7 +243,8 @@ namespace pbbs {
       size_t start = bucket_offsets[i];
       size_t end = bucket_offsets[i+1];
       if ((end-start) > table_size)
-	cout << "yikes: " << (end-start) << ", " << table_size << ", " << total_table_size << ", " << n << endl;
+	cout << "error in collect_reduce: " << (end-start) << ", " << table_size
+	     << ", " << total_table_size << ", " << n << endl;
       for (size_t i = start; i < end; i++) {
 	size_t idx = get_index(A[i]);
 	size_t j = ((uint) hash64_2(idx)) % table_size;
@@ -275,7 +274,7 @@ namespace pbbs {
       sizes[i] = j;
 
     };
-    par_for(0, num_tables, 1, hash_f);
+    parallel_for(0, num_tables, hash_f, 1);
     //t.next("hash");
 
     sizes[num_tables] = 0;
@@ -291,7 +290,7 @@ namespace pbbs {
       for (size_t j = 0; j < len; j++)
 	move_uninitialized(result[d_offset+j], table[s_offset+j]);
     };
-    par_for(0, num_tables, 1, copy_f);
+    parallel_for(0, num_tables, copy_f, 1);
     //t.next("copy");
     return result;
   }

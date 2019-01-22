@@ -59,9 +59,10 @@ std::tuple<E*,E*,bool> split3(E* A, size_t n, const BinPred& f) {
   if (!f(A[0],A[1])) p1 = p2; // if few elements less than p1, then set to p2
   if (!f(A[3],A[4])) p2 = p1; // if few elements greater than p2, then set to p1
   E* L = A;   
-  E* R = A+n-1; 
-  while (f(*L, p1)) L++; // set up initial invariant
-  while (f(p2, *R)) R--; // set up initial invariant
+  E* R = A+n-1;
+  // set up initial invariants
+  while (f(*L, p1)) L++; 
+  while (f(p2, *R)) R--; 
   E* M = L;
   // invariants:
   //  below L is less than p1,
@@ -144,7 +145,7 @@ void p_quicksort(SeqA In, SeqA Out, const F& f,
   if (n < (size_t) cut_size) {
     quicksort(In.as_array(), n, f);
     auto copy_out = [&] (size_t i) {Out[i] = In[i];};
-    if (!inplace) par_for(0, n, 2000, copy_out);
+    if (!inplace) parallel_for(0, n, copy_out, 2000);
   } else {
     size_t l, m; bool mid_eq;
     std::tie(l, m, mid_eq) = p_split3(In, Out, f);
@@ -155,7 +156,7 @@ void p_quicksort(SeqA In, SeqA Out, const F& f,
 	auto copy_in = [&] (size_t i) {In[i] = Out[i];};
 	if (!mid_eq) p_quicksort(Out.slice(l,m), In.slice(l,m), f,
 				 !inplace, cut_size);
-	else if (inplace) par_for(l, m, 2000, copy_in);
+	else if (inplace) parallel_for(l, m, copy_in, 2000);
 	},
       [&] () {p_quicksort(Out.slice(m,n), In.slice(m,n), f,
 			  !inplace, cut_size);});

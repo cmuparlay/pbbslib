@@ -43,7 +43,6 @@ namespace pbbs {
     if (n < (1 << 12) || depth > 2) {
       auto cmp = [&] (T a, T b) {return g(a) < g(b);};
       quicksort(In.start(),n,cmp);
-      //std::sort(In.start(),In.end(),cmp);
       return;
     }
     size_t bits;  // 2^bits = number of buckets for first round
@@ -72,12 +71,11 @@ namespace pbbs {
 
     // recurse on each bucket
     if (shift_bits > 0) {
-      //parallel_for(size_t i = 0; i < num_buckets; i++) {
       auto f = [&] (size_t i) {
 	auto out_slice = Out.slice(bucket_offsets[i],bucket_offsets[i+1]);
 	integer_sort<KT>(out_slice, out_slice, g, shift_bits, depth+1);
       };
-      par_for(0, num_buckets, 1, f);
+      parallel_for(0, num_buckets, f, 1);
     }
   }
 }
