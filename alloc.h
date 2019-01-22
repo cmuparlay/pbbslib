@@ -46,7 +46,7 @@ struct mem_pool {
       // not the right choice if you want processor local allocations
       size_t stride = (1 << 21); // 2 Mbytes in a huge page
       auto touch_f = [&] (size_t i) {((bool*) a)[i*stride] = 0;};
-      par_for(0, n/stride, 1, touch_f);
+      parallel_for(0, n/stride, touch_f, 1);
       *((size_t*) a) = bucket;
       return add_header(a);
     }

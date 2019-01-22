@@ -119,7 +119,7 @@ double t_histogram_reducer(size_t n) {
   using aa = std::array<size_t,8>;
   sequence<aa> In(n, [&] (size_t i) {aa x; x[0] = r.ith_rand(i) % count; return x;});
   auto f = [&] (size_t i) { red->add_value(In[i][0]);};
-  time(t, par_for(0, n, 0, f););
+  time(t, parallel_for(0, n, f););
   //cout << red.get_value()[0] << endl;
   return t;
 }
@@ -134,8 +134,6 @@ double t_gather(size_t n) {
   pbbs::random r(0);
   sequence<T> in(n, [&] (size_t i) {return i;});
   sequence<T> idx(n, [&] (size_t i) {return r.ith_rand(i)%n;});
-  //sequence<T> out(n);
-  //time(t, parallel_for(size_t i=0; i<n; i++) {out[i] = in[idx[i]];});
   auto f = [&] (size_t i) {
     // prefetching helps significantly
     __builtin_prefetch (&in[idx[i+4]], 0, 1);
@@ -153,8 +151,7 @@ double t_scatter(size_t n) {
   auto f = [&] (size_t i) {
       __builtin_prefetch (&out[idx[i+4]], 1, 1);
       out[idx[i]] = i;};
-  time(t, par_for(0, n-4, 0, f););
-  //time(t, parallel_for(size_t i=0; i < n; i++) {out[idx[i]] = i;});
+  time(t, parallel_for(0, n-4, f););
   return t;
 }
 
@@ -167,9 +164,7 @@ double t_write_add(size_t n) {
     // putting write prefetch in slows it down
     //__builtin_prefetch (&out[idx[i+4]], 0, 1);
     pbbs::write_add(&out[idx[i]],1);};
-  time(t, par_for(0, n-4, 0, f););
-  //time(t, parallel_for(size_t i=0; i<n-3; i++) {
-  //pbbs::write_add(&out[idx[i]],1);});
+  time(t, parallel_for(0, n-4, f););
   return t;
 }
 
@@ -182,9 +177,7 @@ double t_write_min(size_t n) {
     // putting write prefetch in slows it down
     //__builtin_prefetch (&out[idx[i+4]], 1, 1);
     pbbs::write_min(&out[idx[i]], (T) i, std::less<T>());};
-  time(t, par_for(0, n-4, 0, f););
-  //time(t, parallel_for(size_t i=0; i<n-3; i++) {
-  //pbbs::write_min(&out[idx[i]], (T) i, pbbs::less<T>());});
+  time(t, parallel_for(0, n-4, f););
   return t;
 }
 

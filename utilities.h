@@ -38,18 +38,6 @@ namespace pbbs {
   size_t log2_up(T);
 }
 
-template <typename F>
-static void par_for(size_t start, size_t end, size_t granularity, F f) {
-  parallel_for(start, end, f, granularity);
-}
-
-template <typename F>
-static void par_for(size_t start, size_t end, F f) {
-  size_t n = end - start;
-  size_t granularity = (n > 100) ? ceil(sqrt(n)) : 100;
-  parallel_for(start, end, f, granularity);
-}
-
 template <class T>
 struct maybe {
 	T value;
@@ -137,7 +125,7 @@ namespace pbbs {
 
   // Does not initialize the array
   template<typename E>
-    E* new_array_no_init(size_t n, bool touch_pages=false) { //true) {
+  E* new_array_no_init(size_t n, bool touch_pages=false) { //true) {
     // pads in case user wants to allign with cache lines
     size_t line_size = 64;
     size_t bytes = ((n * sizeof(E))/line_size + 1)*line_size;
@@ -156,8 +144,7 @@ namespace pbbs {
     //if (!std::is_default_constructible<E>::value) {
       if (n > 2048) {
 	auto f = [&] (size_t i) { new ((void*) (r+i)) E;};
-	par_for(0, n, f);
-	//parallel_for (size_t i = 0; i < n; i++) new ((void*) (r+i)) E;
+	parallel_for(0, n, f);
       }
       else
 	for (size_t i = 0; i < n; i++) new ((void*) (r+i)) E;
@@ -166,7 +153,6 @@ namespace pbbs {
   }
 
   static void free_array(void* a) {
-    //free(A);
     my_free(a);
   }
 
@@ -178,11 +164,9 @@ namespace pbbs {
       //if (!std::is_destructible<E>::value) {
       if (n > 2048) {
 	auto f = [&] (size_t i) {A[i].~E();};
-	par_for(0, n, f);
-	//parallel_for (size_t i = 0; i < n; i++) A[i].~E();
+	parallel_for(0, n, f);
       } else for (size_t i = 0; i < n; i++) A[i].~E();
     }
-    //free(A);
     my_free(A);
   }
 
