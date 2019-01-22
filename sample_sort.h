@@ -148,6 +148,7 @@ namespace pbbs {
       //std::cout << "first part: " << t.get_next() << std::endl;
 
       // move data from blocks to buckets
+      
       E *C = new_array_no_init<E>(n,1);
       size_t* bucket_offsets = transpose_buckets(B, C, counts, n, block_size,
 						 num_blocks, num_buckets);

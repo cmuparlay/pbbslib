@@ -39,6 +39,7 @@ static void par_do(Lf left, Rf right, bool conservative=false);
 #if defined(CILK)
 #include <cilk/cilk.h>
 #include <cilk/cilk_api.h>
+#include <iostream>
 #include <sstream>
 #define PAR_GRANULARITY 2000
 

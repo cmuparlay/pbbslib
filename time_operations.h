@@ -237,7 +237,7 @@ double t_merge_sort(size_t n) {
   pbbs::random r(0);
   sequence<T> in(n, [&] (size_t i) {return r.ith_rand(i)%n;});
   sequence<T> out(n);
-  time(t, pbbs::merge_sort(out, in, std::less<T>()););
+  time(t, pbbs::merge_sort(in, out, std::less<T>()););
   //for (size_t i = 1; i < n; i++)
   //  if (std::less<T>()(in[i],in[i-1])) {cout << i << endl; abort();}
   return t;

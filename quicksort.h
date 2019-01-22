@@ -24,6 +24,7 @@
 
 #include <algorithm>
 #include "utilities.h"
+#include "sequence_ops.h"
 
 namespace pbbs {
 
@@ -37,14 +38,12 @@ void insertion_sort(E* A, size_t n, const BinPred& f) {
   }
 }
 
-// sorts 5 elements and puts them at the front
+// sorts 5 elements taken at even stride and puts them at the front
 template <class E, class BinPred>
 void sort5(E* A, size_t n, const BinPred& f) {
-  //E B[5];
   size_t size = 5;
   size_t m = n/(size+1);
   for (size_t l = 0; l < size; l++) 
-    //B[l] = A[m*(l+1)];
     std::swap(A[l],A[m*(l+1)]);
   insertion_sort(A, size, f);
 }
@@ -59,18 +58,25 @@ std::tuple<E*,E*,bool> split3(E* A, size_t n, const BinPred& f) {
   E p2 = A[3];
   if (!f(A[0],A[1])) p1 = p2; // if few elements less than p1, then set to p2
   if (!f(A[3],A[4])) p2 = p1; // if few elements greater than p2, then set to p1
-  E* L = A;   // below L are less than p1
-  E* R = A+n-1; // above R are greater than p2
+  E* L = A;   
+  E* R = A+n-1; 
   while (f(*L, p1)) L++; // set up initial invariant
   while (f(p2, *R)) R--; // set up initial invariant
-  E* M = L;  // between L and M are between p1 and p2 inclusive
+  E* M = L;
+  // invariants:
+  //  below L is less than p1,
+  //  above R is greatert than p2
+  //  between L and M are between p1 and p2 inclusive
+  //  between M and R are unprocessed
   while (M <= R) {
-    E mid = *M;
-    if (f(mid,p1)) {std::swap(*M,*L); L++;}
-    else if (f(p2,mid)) {
-      if (f(*R,p1)) {*M = *L; *L = *R; L++;}
-      else {*M = *R;}
-      *R = mid;
+    //E mid = *M;
+    if (f(*M,p1)) {std::swap(*M,*L); L++;}
+    else if (f(p2,*M)) {
+      std::swap(*M,*R);
+      if (f(*M,p1)) {std::swap(*L,*M); L++;}
+      //if (f(*R,p1)) {*M = *L; *L = *R; L++;}
+      //else {*M = *R;}
+      //*R = mid;
       R--;
       while (f(p2,*R)) R--;
     }
@@ -115,34 +121,44 @@ std::tuple<size_t,size_t,bool> p_split3(SeqA A, SeqA B, const BinPred& f) {
   sort5(A.as_array(),n,f);
   E p1 = A[1];
   E p2 = A[3];
-  //  cout << p1 << ", " << p2 << ", " << endl;
   if (!f(A[0],A[1])) p1 = p2; // if few elements less than p1, then set to p2
   if (!f(A[3],A[4])) p2 = p1; // if few elements greater than p2, then set to p1
-  auto flag = [&] (size_t i) {return (A[i] < p1) ? 0 : (A[i] > p2) ? 2 : 1;};
+  auto flag = [&] (size_t i) {return f(A[i], p1) ? 0 : f(p2, A[i]) ? 2 : 1;};
   auto r = split_three(A, B, make_sequence<unsigned char>(n, flag), fl_conservative);
   return std::make_tuple(r.first, r.first + r.second, !f(p1,p2));
 }
 
+// The fully parallel version copies back and forth between two arrays
+// inplace: if true then result is put back in In
+//     and Out is just used as temp space
+//     otherwise result is in Out
+//     In and Out cannot be the same (Out is needed as temp space)
+// cut_size: is when to revert to  quicksort.
+//    If -1 then it uses a default based on number of threads
 template <class SeqA, class F> 
-void p_quicksort(SeqA In, SeqA Out, const F& f, bool swap=0, long cut_size=-1) {
+void p_quicksort(SeqA In, SeqA Out, const F& f,
+		 bool inplace = 0, long cut_size = -1) {
   size_t n = In.size();
   if (cut_size == -1)
     cut_size = std::max<long>((3*n)/num_workers(), (1 << 14));
   if (n < (size_t) cut_size) {
     quicksort(In.as_array(), n, f);
     auto copy_out = [&] (size_t i) {Out[i] = In[i];};
-    if (!swap) par_for(0, n, 2000, copy_out);
+    if (!inplace) par_for(0, n, 2000, copy_out);
   } else {
     size_t l, m; bool mid_eq;
     std::tie(l, m, mid_eq) = p_split3(In, Out, f);
     par_do3(
-      [&] () {p_quicksort(Out.slice(0,l), In.slice(0,l), f, !swap, cut_size);},
+      [&] () {p_quicksort(Out.slice(0,l), In.slice(0,l), f,
+			  !inplace, cut_size);},
       [&] () {
 	auto copy_in = [&] (size_t i) {In[i] = Out[i];};
-	if (!mid_eq) p_quicksort(Out.slice(l,m), In.slice(l,m), f, !swap, cut_size);
-	else if (swap) par_for(l, m, 2000, copy_in);
+	if (!mid_eq) p_quicksort(Out.slice(l,m), In.slice(l,m), f,
+				 !inplace, cut_size);
+	else if (inplace) par_for(l, m, 2000, copy_in);
 	},
-      [&] () {p_quicksort(Out.slice(m,n), In.slice(m,n), f, !swap, cut_size);});
+      [&] () {p_quicksort(Out.slice(m,n), In.slice(m,n), f,
+			  !inplace, cut_size);});
   }
 }
 
