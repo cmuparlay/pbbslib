@@ -41,8 +41,9 @@ namespace pbbs {
 
     // for small inputs call a comparison sort
     if (n < (1 << 12) || depth > 2) {
+      parallel_for(0,n,[&] (size_t i) {Out[i] = In[i];};
       auto cmp = [&] (T a, T b) {return g(a) < g(b);};
-      quicksort(In.start(),n,cmp);
+      quicksort(Out.start(),n,cmp);
       return;
     }
     size_t bits;  // 2^bits = number of buckets for first round
