@@ -132,7 +132,7 @@ namespace pbbs {
   // val_bits specifies how many bits there are in the key
   //    if set to 0, then a max is taken over the keys to determine
   template <typename T, typename Get_Key>
-  void integer_sort_(sequence<T> In, sequence<T> Out, Get_Key& g, 
+  void integer_sort(sequence<T> In, sequence<T> Out, Get_Key& g, 
 		    size_t key_bits=0, bool inplace=false) {
     if (In.start() == Out.start()) {
       cout << "in integer_sort : input and output must be different locations" << endl;
@@ -151,6 +151,6 @@ namespace pbbs {
   template <typename T, typename Get_Key>
   void integer_sort(sequence<T> In, Get_Key& g, size_t key_bits=0) {
     sequence<T> Tmp = sequence<T>::alloc_no_init(In.size());
-    integer_sort_(In, Tmp, g, key_bits, true);
+    integer_sort(In, Tmp, g, key_bits, true);
   }
 }

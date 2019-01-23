@@ -118,7 +118,9 @@ fork_join_scheduler fj;
 void destroy_fj() {
   fj.destroy();
 }
-const int atexit_result = std::atexit(destroy_fj);
+
+struct __atexit {__atexit() {std::atexit(destroy_fj);}};
+static __atexit __atexit_var;
 
 #define PAR_GRANULARITY 512
 
