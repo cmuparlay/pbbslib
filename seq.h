@@ -111,7 +111,7 @@ public:
     s = e = NULL;
   }
 
-private:
+  //private:
   E *s; // = NULL;
   E *e; // = NULL;
   bool allocated = false;

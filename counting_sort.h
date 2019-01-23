@@ -70,6 +70,8 @@ namespace pbbs {
     }
   }
 
+  //
+
   // Sequential version
   template <typename b_size_t, typename InS, typename OutS, typename KeyS>
   sequence<size_t> seq_count_sort(InS In, OutS Out, KeyS Keys, size_t num_buckets) {
@@ -95,21 +97,28 @@ namespace pbbs {
   // Parallel internal version
   template <typename b_size_t, typename s_size_t, 
     typename InS, typename OutS, typename KeyS>
-  sequence<size_t> _count_sort(InS In, OutS Out, KeyS Keys, size_t num_buckets) {
+  sequence<size_t> _count_sort(InS In, OutS Out, KeyS Keys,
+			       size_t num_buckets, bool inplace,
+			       size_t max_num_blocks) {
     timer t;
     t.start();
     using T = typename InS::T;
     size_t n = In.size();
+    size_t num_threads = num_workers();
+
     // pad to 16 buckets to avoid false sharing (does not affect results)
     num_buckets = std::max(num_buckets, (size_t) 16);
 
-    //s_size_t num_blocks = (n/(num_buckets*BUCKET_FACTOR) + 1);
+    // if not given, then use heuristic to choose num_blocks
     size_t sqrt = (size_t) ceil(pow(n,0.5));
     size_t num_blocks = 
-      (size_t) (n < (1 << 24)) ? (sqrt/16) : ((n < (1 << 28)) ? sqrt/2 : sqrt);
-    s_size_t num_threads = num_workers();
-    num_blocks = 1 << log2_up(num_blocks);
+      (size_t) (n < (1<<24)) ? (sqrt/16) : ((n < (1<<28)) ? sqrt/2 : sqrt);
     if (2*num_blocks < num_threads) num_blocks *= 2;
+
+    if (max_num_blocks != 0)
+      num_blocks = std::min(num_blocks,max_num_blocks);
+
+    num_blocks = 1 << log2_up(num_blocks);
 
     // if insufficient parallelism, sort sequentially
     if (n < SEQ_THRESHOLD || num_blocks == 1 || num_threads == 1)
@@ -118,7 +127,7 @@ namespace pbbs {
     size_t block_size = ((n-1)/num_blocks) + 1;
     size_t m = num_blocks * num_buckets;
 
-    T *B = new_array_no_init<T>(n);
+    T *B = !inplace ? new_array_no_init<T>(n) : Out.start();
     s_size_t *counts = new_array_no_init<s_size_t>(m,1);
     //t.next("head");
     
@@ -132,33 +141,42 @@ namespace pbbs {
     };
     parallel_for(0, num_blocks, block_f, 1);
     //t.next("count");
-    OutS C = Out;
-    size_t* bucket_offsets = transpose_buckets(B, Out.as_array(),
+    T* C = !inplace ? Out.start() : In.start();
+    size_t* bucket_offsets = transpose_buckets(B, C,
 					       counts, n, block_size,
 					       num_blocks, num_buckets);
     //t.next("transpose");
-    free_array(counts); free_array(B);
+    free_array(counts);
+    if (!inplace) free_array(B);
     return sequence<size_t>(bucket_offsets,num_buckets+1);
   }
 
   template <typename s_size_t, typename InS, typename OutS, typename KeyS>
-  sequence<size_t> _count_sort_size(InS In, OutS Out, KeyS Keys, size_t num_buckets) {
+  sequence<size_t> _count_sort_size(InS In, OutS Out, KeyS Keys, size_t num_buckets,
+				    bool inplace, size_t num_blocks) {
     if (num_buckets <= 256)
-      return _count_sort<uint8_t,s_size_t>(In, Out, Keys, num_buckets); 
+      return _count_sort<uint8_t,s_size_t>(In, Out, Keys, num_buckets,
+					   inplace, num_blocks); 
     else if  (num_buckets <= (1 << 16))
-      return _count_sort<uint16_t,s_size_t>(In, Out, Keys, num_buckets);
+      return _count_sort<uint16_t,s_size_t>(In, Out, Keys, num_buckets,
+					    inplace, num_blocks);
     else
-      return _count_sort<s_size_t,s_size_t>(In, Out, Keys, num_buckets);  
+      return _count_sort<s_size_t,s_size_t>(In, Out, Keys, num_buckets,
+					    inplace, num_blocks);  
   }
 
   // Parallel version
   template <typename InS, typename OutS, typename KeyS>
-  sequence<size_t> count_sort(InS In, OutS Out, KeyS Keys, size_t num_buckets) {
+  sequence<size_t> count_sort(InS In, OutS Out, KeyS Keys,
+			      size_t num_buckets,
+			      bool inplace = false, size_t max_blocks = 0) {
     size_t n = In.size();
     size_t max32 = ((size_t) 1) << 32;
     if (n < max32 && num_buckets < max32)
       // use 4-byte counters when larger ones not needed
-      return _count_sort_size<uint32_t>(In, Out, Keys, num_buckets);
-    return _count_sort_size<size_t>(In, Out, Keys, num_buckets);
+      return _count_sort_size<uint32_t>(In, Out, Keys,
+					num_buckets, inplace, max_blocks);
+    return _count_sort_size<size_t>(In, Out, Keys, num_buckets,
+				    inplace, max_blocks);
   }
 }
