@@ -1,3 +1,5 @@
+#pragma once
+
 #include "utilities.h"
 
 template <typename E>
@@ -8,7 +10,7 @@ public:
   sequence() {}
 
   // copy constructor
-  sequence(sequence& a) : s(a.s), e(a.e), allocated(false) {}
+  sequence(const sequence& a) : s(a.s), e(a.e), allocated(false) {}
 
   // move constructor
   sequence(sequence&& b)
@@ -84,6 +86,7 @@ public:
   }
 
   E& operator[] (const size_t i) const {return s[i];}
+  E& operator() (const size_t i) const {return s[i];}
 
   sequence slice(size_t ss, size_t ee) {
     return sequence(s + ss, s + ee);
@@ -104,6 +107,10 @@ public:
   T* end() {return e;}
   bool is_allocated() {return allocated;}
   void set_allocated(bool a) {allocated = a;}
+  T* get_array() {
+    set_allocated(false);
+    return s;
+  }
 
   void clear() {
     if (allocated) pbbs::delete_array<E>(s,e-s);
@@ -123,6 +130,7 @@ struct func_sequence {
   func_sequence(size_t n, F& _f) : f(&_f), s(0), e(n) {};
   func_sequence(size_t s, size_t e, F& _f) : f(&_f), s(s), e(e) {};
   T operator[] (const size_t i) {return (*f)(i+s);}
+  T operator() (const size_t i) {return (*f)(i+s);}
   func_sequence<T,F> slice(size_t ss, size_t ee) {
     return func_sequence<T,F>(s+ss,s+ee,*f); }
   size_t size() { return e - s;}
@@ -138,4 +146,9 @@ private:
 template <class E, class F>
 func_sequence<E,F> make_sequence (size_t n, F& f) {
   return func_sequence<E,F>(n,f);
+}
+
+template <class E>
+inline sequence<E> make_sequence(E* A, size_t n) {
+  return sequence<E>(A, n);
 }

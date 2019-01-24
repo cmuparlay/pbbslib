@@ -38,7 +38,7 @@ namespace pbbs {
     for (size_t i=n-1; i > 0; i--)
       std::swap(A[i],A[r.ith_rand(i)%(i+1)]);
   }
-  
+
   template <typename Seq>
   void random_shuffle(Seq A, random r = default_random) {
     size_t n = A.size();
@@ -60,14 +60,21 @@ namespace pbbs {
 
     // first randomly sorts based on random values [0,num_buckets)
     sequence<size_t> bucket_offsets = count_sort(A, A, get_pos, num_buckets);
-	
+
     // now sequentially randomly shuffle within each bucket
-    
     auto bucket_f = [&] (size_t i) {
       size_t start = bucket_offsets[i];
       size_t end = bucket_offsets[i+1];
       seq_random_shuffle(A.slice(start,end), r.fork(i));
     };
     parallel_for(0, num_buckets, bucket_f, 1);
+  }
+
+  template <class intT>
+  inline sequence<intT> random_permutation(size_t n,
+                                           random r = default_random) {
+    sequence<intT> id = sequence<intT>::tabulate(n, [&] (intT i) { return i; });
+    pbbs::random_shuffle(id, r);
+    return id;
   }
 }
