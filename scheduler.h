@@ -205,6 +205,9 @@ public:
   }
 
   int num_workers() {
+    if (const char* env_p = std::getenv("NUM_THREADS")) {
+      return std::stoi(env_p);
+    }
     return std::thread::hardware_concurrency();
   }
   int worker_id() {
