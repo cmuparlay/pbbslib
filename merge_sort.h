@@ -5,6 +5,8 @@
 
 namespace pbbs {
 
+  // Parallel mergesort
+  // This sort is stable
   // if inplace is true then the output is placed in In and Out is just used
   // as temp space.
   template <class SeqA, class SeqB, class F> 

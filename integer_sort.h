@@ -85,24 +85,22 @@ namespace pbbs {
   // num_sets is an indication of parallalelism to be used 
   template <typename T, typename Get_Key>
   void integer_sort_r(sequence<T> In,  sequence<T> Out, Get_Key& g, 
-		      size_t key_bits, size_t num_sets,
-		      bool inplace) {
+		      size_t key_bits, bool inplace) {
     size_t n = In.size();
     timer t;
 
     // ran out of bucket sets, use sequential radix sort
-    if (num_sets <= 1) {
+    if (n < (1 << 15)) {
       seq_radix_sort<T>(In, Out, g, key_bits, inplace);
 
     // few bits, just do a single parallel count sort
     } else if (key_bits <= radix) {
-      //t.start();
+      t.start();
       size_t num_buckets = (1 << key_bits);
       size_t mask = num_buckets - 1;
       auto f = [&] (size_t i) {return g(In[i]) & mask;};
       auto get_bits = make_sequence<size_t>(n, f); 
-      count_sort(In, Out, get_bits, num_buckets, inplace, num_sets);
-      //t.next("sort");
+      count_sort(In, Out, get_bits, num_buckets, inplace);
 
     // recursive case  
     } else {
@@ -113,13 +111,12 @@ namespace pbbs {
       auto f = [&] (size_t i) {return (g(In[i]) >> shift_bits) & mask;};
       auto get_bits = make_sequence<size_t>(n, f);
       sequence<size_t> bucket_offsets =
-	count_sort(In, Out, get_bits, buckets, false, num_sets);
+	count_sort(In, Out, get_bits, buckets, false); 
       auto recf = [&] (size_t i) {
 	size_t start = bucket_offsets[i];
 	size_t end = bucket_offsets[i+1];
-	size_t nsets = floor((((double) num_sets) * (end-start)) / n);
 	integer_sort_r(Out.slice(start, end), In.slice(start, end),
-		       g, shift_bits, nsets, !inplace);
+		       g, shift_bits, !inplace);
       };
       parallel_for(0, buckets, recf, 1);
     }
@@ -144,8 +141,7 @@ namespace pbbs {
       size_t max_val = reduce(keys, max);
       key_bits = log2_up(max_val);
     }
-    size_t num_sets = In.size() / (max_buckets * 16);
-    integer_sort_r(In, Out, g, key_bits, num_sets, inplace);
+    integer_sort_r(In, Out, g, key_bits, inplace);
   }
 
   template <typename T, typename Get_Key>

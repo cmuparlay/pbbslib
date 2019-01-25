@@ -23,26 +23,34 @@ namespace pbbs {
 	break; }
       T a = A[i];
       T b = B[j];
-      if (f(a, b)) {
-	R.update(i+j, a); 
-	i++;
-      } else {
+      if (f(b, a)) {
 	R.update(i+j, b); 
 	j++;
+      } else {
+	R.update(i+j, a); 
+	i++;
       }
     }
   }
-    
+
+  // this merge is stable
   template <class SeqA, class SeqB, class SeqR, class F> 
   void par_merge(SeqA A, SeqB B, SeqR R, const F& f, bool cons=false) {
     size_t nA = A.size();
     size_t nB = B.size();
     size_t nR = nA + nB;
-    if (nR < _merge_base) seq_merge(A, B, R, f);
-    else if (nB > nA) par_merge(B, A, R, f); 
+    if (nR < _merge_base)
+      seq_merge(A, B, R, f);
+    else if (nA == 0)
+      parallel_for(0, nB, [&] (size_t i) {R.update(i,B[i]);});
+    else if (nB == 0)
+      parallel_for(0, nA, [&] (size_t i) {R.update(i,A[i]);});
     else {
       size_t mA = nA/2;
+      // important for stability that binary search identifies
+      // first element in B greater or equal to A[mA]
       size_t mB = binary_search(B, A[mA], f);
+      if (mB == 0) mA++; // ensures at least one on each side
       size_t mR = mA + mB;
       auto left = [&] () {par_merge(A.slice(0, mA), B.slice(0, mB), 
 				    R.slice(0, mR), f, cons);};
