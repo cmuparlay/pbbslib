@@ -55,12 +55,14 @@ namespace pbbs {
 
   template <class T, class GetKey>
   void seq_radix_sort(sequence<T> In, sequence<T> Out, GetKey g,
-		      size_t bits, bool inplace=true, size_t bit_offset=0) {
-    size_t counts[max_buckets+1];
+		      size_t bits, bool inplace=true) {
     size_t n = In.size();
+    if (n == 0) return;
+    size_t counts[max_buckets+1];
     T* InA = In.as_array();
     T* OutA = Out.as_array();
     bool swapped = false;
+    int bit_offset = 0;
     while (bits > 0) {
       size_t round_bits = std::min(radix, bits);
       size_t num_buckets = (1 << round_bits);
@@ -75,33 +77,39 @@ namespace pbbs {
     }
     if ((inplace && swapped) || (!inplace && !swapped)) {
       for (size_t i=0; i < n; i++) 
-	move_uninitialized(In[i], Out[i]);
+	move_uninitialized(OutA[i], InA[i]);
     }
   }
   
   // a top down recursive radix sort
   // g extracts the integer keys from In
   // key_bits specifies how many bits there are left
-  // num_sets is an indication of parallalelism to be used 
+  // if inplace is true, then result will be in In, otherwise in Out
+  // In and Out cannot be the same
   template <typename T, typename Get_Key>
   void integer_sort_r(sequence<T> In,  sequence<T> Out, Get_Key& g, 
 		      size_t key_bits, bool inplace) {
     size_t n = In.size();
     timer t;
-
-    // ran out of bucket sets, use sequential radix sort
+    
+    // for small inputs use sequential radix sort
     if (n < (1 << 15)) {
+      //cout << "hello " << ", " << inplace << key_bits << endl;
+      //for (int i=0; i < n; i++) cout << g(In[i]) << endl;
       seq_radix_sort<T>(In, Out, g, key_bits, inplace);
+      //for (int i=0; i < n; i++) cout << g(In[i]) << endl;
 
     // few bits, just do a single parallel count sort
     } else if (key_bits <= radix) {
+      if (key_bits == 7) cout << "hello: " << inplace << ", " << n << endl;
       t.start();
       size_t num_buckets = (1 << key_bits);
       size_t mask = num_buckets - 1;
       auto f = [&] (size_t i) {return g(In[i]) & mask;};
-      auto get_bits = make_sequence<size_t>(n, f); 
-      count_sort(In, Out, get_bits, num_buckets, inplace);
-
+      auto get_bits = make_sequence<size_t>(n, f);
+      if (inplace) count_sort(In, In, get_bits, num_buckets);
+      else count_sort(In, Out, get_bits, num_buckets);
+      
     // recursive case  
     } else {
       size_t bits = 8;
@@ -110,15 +118,17 @@ namespace pbbs {
       size_t mask = buckets - 1;
       auto f = [&] (size_t i) {return (g(In[i]) >> shift_bits) & mask;};
       auto get_bits = make_sequence<size_t>(n, f);
-      sequence<size_t> bucket_offsets =
-	count_sort(In, Out, get_bits, buckets, false); 
-      auto recf = [&] (size_t i) {
-	size_t start = bucket_offsets[i];
-	size_t end = bucket_offsets[i+1];
+
+      // divide into buckets
+      sequence<size_t> offsets = count_sort(In, Out, get_bits, buckets);
+
+      // recursively sort each bucket
+      parallel_for(0, buckets, [&] (size_t i) {
+	size_t start = offsets[i];
+	size_t end = offsets[i+1];
 	integer_sort_r(Out.slice(start, end), In.slice(start, end),
 		       g, shift_bits, !inplace);
-      };
-      parallel_for(0, buckets, recf, 1);
+	}, 1);
     }
   }
 
@@ -139,7 +149,7 @@ namespace pbbs {
       auto get_key = [&] (size_t i) {return g(In[i]);};
       auto keys = make_sequence<size_t>(In.size(), get_key);
       size_t max_val = reduce(keys, max);
-      key_bits = log2_up(max_val);
+      key_bits = log2_up(max_val+1);
     }
     integer_sort_r(In, Out, g, key_bits, inplace);
   }
