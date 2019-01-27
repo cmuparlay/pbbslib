@@ -148,8 +148,8 @@ public:
   int num_threads;
 
   scheduler() {
-    num_threads = num_workers();
-    num_deques = 2*num_workers();
+    init_num_workers();
+    num_deques = 2*num_threads;
     deques = new Deque<Job>[num_deques];
     attempts = new attempt[num_deques];
     finished_flag = 0;
@@ -204,11 +204,16 @@ public:
     return deques[id].pop_bottom();
   }
 
-  int num_workers() {
+  void init_num_workers() {
     if (const char* env_p = std::getenv("NUM_THREADS")) {
-      return std::stoi(env_p);
+      num_threads = std::stoi(env_p);
+    } else {
+      num_threads = std::thread::hardware_concurrency();
     }
-    return std::thread::hardware_concurrency();
+  }
+
+  int num_workers() {
+    return num_threads;
   }
   int worker_id() {
     return thread_id;
