@@ -187,13 +187,13 @@ namespace pbbs {
   auto sample_sort (Seq A, const BinPred& f, bool inplace = false, bool stable = false)
     -> sequence<typename Seq::T> {
     if (A.size() < ((size_t) 1) << 32)
-      return sample_sort_<unsigned int>(A,f, inplace);
-    else return sample_sort_<size_t>(A,f, inplace);
+      return sample_sort_<unsigned int>(A,f, inplace, stable);
+    else return sample_sort_<size_t>(A,f, inplace, stable);
   }
     
   template<typename E, typename BinPred, typename s_size_t>
   void sample_sort (E* A, s_size_t n, const BinPred& f, bool stable = false) {
     sequence<E> B(A,A+n);
-    sample_sort_<s_size_t>(B, f, true);
+    sample_sort_<s_size_t>(B, f, true, stable);
   }
 }
