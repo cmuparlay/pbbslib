@@ -52,7 +52,7 @@ public:
   };
 
   template <typename Func>
-  sequence(const size_t n, const Func& f)
+  sequence(const size_t n, Func f)
     : s(pbbs::new_array_no_init<E>(n)), allocated(true) {
     e = s + n;
     auto g = [&] (size_t i) {
@@ -88,7 +88,7 @@ public:
   E& operator[] (const size_t i) const {return s[i];}
   E& operator() (const size_t i) const {return s[i];}
 
-  sequence slice(size_t ss, size_t ee) {
+  sequence slice(size_t ss, size_t ee) const {
     return sequence(s + ss, s + ee);
   }
 
@@ -96,16 +96,15 @@ public:
     s[i] = v;
   }
 
-  size_t size() { return e - s;}
+  size_t size() const { return e - s;}
 
   sequence as_sequence() {
     return sequence(s, e);
   }
 
-  T* as_array() {return s;}
-  T* start() {return s;}
-  T* end() {return e;}
-  bool is_allocated() {return allocated;}
+  T* begin() const {return s;}
+  T* end() const {return e;}
+  bool is_allocated() const {return allocated;}
   void set_allocated(bool a) {allocated = a;}
   T* get_array() {
     set_allocated(false);
@@ -127,24 +126,24 @@ public:
 template <typename E, typename F>
 struct func_sequence {
   using T = E;
-  func_sequence(size_t n, F& _f) : f(&_f), s(0), e(n) {};
-  func_sequence(size_t s, size_t e, F& _f) : f(&_f), s(s), e(e) {};
-  T operator[] (const size_t i) {return (*f)(i+s);}
-  T operator() (const size_t i) {return (*f)(i+s);}
-  func_sequence<T,F> slice(size_t ss, size_t ee) {
-    return func_sequence<T,F>(s+ss,s+ee,*f); }
-  size_t size() { return e - s;}
-  sequence<T> as_sequence() {
-    return sequence<T>::tabulate(e-s, [&] (size_t i) {return (*f)(i+s);});
+  func_sequence(size_t n, F _f) : f(_f), s(0), e(n) {};
+  func_sequence(size_t s, size_t e, F _f) : f(_f), s(s), e(e) {};
+  const T operator[] (size_t i) const {return (f)(i+s);}
+  //const T operator() (size_t i) const {return (f)(i+s);}
+  func_sequence<T,F> slice(size_t ss, size_t ee) const {
+    return func_sequence<T,F>(s+ss,s+ee,f); }
+  size_t size() const { return e - s;}
+  sequence<T> as_sequence() const {
+    return sequence<T>::tabulate(e-s, [&] (size_t i) {return (f)(i+s);});
   }
 private:
-  F *f;
-  size_t s, e;
+  const F f;
+  const size_t s, e;
 };
 
 // used so second template argument can be inferred
 template <class E, class F>
-func_sequence<E,F> make_sequence (size_t n, F& f) {
+func_sequence<E,F> make_sequence (size_t n, F f) {
   return func_sequence<E,F>(n,f);
 }
 

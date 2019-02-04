@@ -119,7 +119,7 @@ template <class SeqA, class BinPred>
 std::tuple<size_t,size_t,bool> p_split3(SeqA A, SeqA B, const BinPred& f) {
   using E = typename SeqA::T;
   size_t n = A.size();
-  sort5(A.as_array(),n,f);
+  sort5(A.begin(),n,f);
   E p1 = A[1];
   E p2 = A[3];
   if (!f(A[0],A[1])) p1 = p2; // if few elements less than p1, then set to p2
@@ -143,7 +143,7 @@ void p_quicksort(SeqA In, SeqA Out, const F& f,
   if (cut_size == -1)
     cut_size = std::max<long>((3*n)/num_workers(), (1 << 14));
   if (n < (size_t) cut_size) {
-    quicksort(In.as_array(), n, f);
+    quicksort(In.begin(), n, f);
     auto copy_out = [&] (size_t i) {Out[i] = In[i];};
     if (!inplace) parallel_for(0, n, copy_out, 2000);
   } else {

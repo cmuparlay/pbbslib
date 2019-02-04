@@ -46,8 +46,9 @@ double t_map(size_t n) {
 template<typename T>
 double t_reduce_add(size_t n) {
   sequence<T> S(n, (T) 1);
-  //time(t, sum(S.as_array(), S.size()););
-  time(t, pbbs::reduce_add(S););
+  //time(t, sum(S.begin(), S.size()););
+  //time(t, pbbs::reduce_add(S););
+  time(t, pbbs::reduce(S, addm<T>()));
   return t;
 }
 
@@ -66,8 +67,9 @@ double t_map_reduce_128(size_t n) {
 template<typename T>
 double t_scan_add(size_t n) {
   sequence<T> In(n, (T) 1);
-  sequence<T> Out(n, (T) 0);
-  time(t, pbbs::scan_add(In,Out););
+  sequence<T> Out;
+  T sum;
+  time(t, std::tie(Out,sum) = pbbs::scan(In, addm<T>()););
   return t;
 }
 
@@ -280,8 +282,7 @@ double t_collect_reduce_pair_dense(size_t n) {
       return par(r.ith_rand(i) % n, 1);});
   auto get_index = [] (par e) {return e.first;};
   auto get_val = [] (par e) {return e.second;};
-  auto add = [&] (T a, T b) {return a + b;};
-  time(t, pbbs::collect_reduce<T>(S, n, get_index, get_val, (T) 0, add););
+  time(t, pbbs::collect_reduce<T>(S, n, get_index, get_val, addm<T>()););
   return t;
 }
 
@@ -291,7 +292,7 @@ double t_collect_reduce_pair_sparse(size_t n) {
   pbbs::random r(0);
   sequence<par> S(n, [&] (size_t i) -> par {
       return par(r.ith_rand(i) % n, 1);});
-  time(t, pbbs::collect_reduce_pair<Add<int>>(S););
+  time(t, pbbs::collect_reduce_pair(S, addm<T>()););
   return t;
 }
 
@@ -302,9 +303,8 @@ double t_collect_reduce_8(size_t n) {
   size_t mask = num_buckets - 1;
   sequence<T> in(n, [&] (size_t i) {return r.ith_rand(i);});
   auto bucket = [&] (size_t i) {return in[i] & mask;};
-  auto add = [&] (T a, T b) {return a + b;};
   auto keys = make_sequence<unsigned char>(n, bucket);
-  time(t, pbbs::collect_reduce<T>(in, keys, num_buckets, 0, add););
+  time(t, pbbs::collect_reduce<T>(in, keys, num_buckets, addm<T>()););
   return t;
 }
 
@@ -326,12 +326,10 @@ double t_collect_reduce_8_tuple(size_t n) {
   sequence<sums> in(n, [&] (size_t i) -> sums {
       return sums(1.0,1.0,1.0,1.0);});
 
+  auto monoid = make_monoid(sum, sums(0.0,0.0,0.0,0.0));
+
   time(t,
-       pbbs::collect_reduce<sums>(in,
-				  keys,
-				  num_buckets,
-				  sums(0.0,0.0,0.0,0.0),
-				  sum););
+       pbbs::collect_reduce<sums>(in, keys, num_buckets, monoid););
   return t;
 }
 

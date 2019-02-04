@@ -84,6 +84,7 @@ namespace pbbs {
   const flags fl_debug = 2;
   const flags fl_time = 4;
   const flags fl_conservative = 8;
+  const flags fl_inplace = 16;
 
   template<typename T>
   inline void assign_uninitialized(T& a, const T& b) {

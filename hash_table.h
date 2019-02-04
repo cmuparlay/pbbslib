@@ -274,9 +274,9 @@ namespace pbbs {
 
     sequence<index> get_index() {
       auto is_full = [&] (const size_t i) -> int {
-	   if (TA[i] != empty) return 1; else return 0;};
-	  sequence<index> x(m, is_full);
-      scan_add(x, x);
+	if (TA[i] != empty) return 1; else return 0;};
+      sequence<index> x(m, is_full);
+      scan_inplace(x, addm<index>());
       return x;
     }
 

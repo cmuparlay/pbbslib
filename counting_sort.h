@@ -74,7 +74,7 @@ namespace pbbs {
 
   // Sequential version
   template <typename b_size_t, typename InS, typename OutS, typename KeyS>
-  sequence<size_t> seq_count_sort(InS In, OutS Out, KeyS Keys, size_t num_buckets) {
+  sequence<size_t> seq_count_sort(InS& In, OutS& Out, KeyS& Keys, size_t num_buckets) {
     using T = typename InS::T;
     size_t n = In.size();
 
@@ -91,18 +91,13 @@ namespace pbbs {
       c = c + x;
     }
     counts[num_buckets] = n;
-    /* for (int i=0; i < num_buckets; i++) { */
-    /*   int start = counts[i]; */
-    /*   int end = counts[i+1]; */
-    /*   for (int j= start; j < end; j++) { */
-    /* 	if (j  */
     return sequence<size_t>(counts,num_buckets+1);
   }
 
   // Parallel internal version
   template <typename b_size_t, typename s_size_t, 
     typename InS, typename OutS, typename KeyS>
-  sequence<size_t> _count_sort(InS In, OutS Out, KeyS Keys,
+  sequence<size_t> _count_sort(InS& In, OutS& Out, KeyS& Keys,
 			       size_t num_buckets) {
     timer t;
     t.start();
@@ -122,16 +117,16 @@ namespace pbbs {
     num_blocks = 1 << log2_up(num_blocks);
 
     // if insufficient parallelism, sort sequentially
-    if (n < SEQ_THRESHOLD || num_blocks == 1 || num_threads == 1)
-      return seq_count_sort<b_size_t>(In,Out,Keys,num_buckets);
+    if (n < SEQ_THRESHOLD || num_blocks == 1 || num_threads == 1) {
+      return seq_count_sort<b_size_t>(In,Out,Keys,num_buckets);}
 
     size_t block_size = ((n-1)/num_blocks) + 1;
     size_t m = num_blocks * num_buckets;
-
+    
     T *B = new_array_no_init<T>(n);
     s_size_t *counts = new_array_no_init<s_size_t>(m,1);
     //t.next("head");
-    
+
     // sort each block
     auto block_f = [&] (size_t i) {
       s_size_t start = std::min(i * block_size, n);
@@ -142,7 +137,7 @@ namespace pbbs {
     };
     parallel_for(0, num_blocks, block_f, 1);
     //t.next("count");
-    T* C = Out.start();
+    T* C = Out.begin();
     size_t* bucket_offsets = transpose_buckets(B, C,
 					       counts, n, block_size,
 					       num_blocks, num_buckets);
@@ -153,7 +148,7 @@ namespace pbbs {
   }
 
   template <typename s_size_t, typename InS, typename OutS, typename KeyS>
-  sequence<size_t> _count_sort_size(InS In, OutS Out, KeyS Keys, size_t num_buckets) {
+  sequence<size_t> _count_sort_size(InS& In, OutS& Out, KeyS& Keys, size_t num_buckets) {
     if (num_buckets <= 256)
       return _count_sort<uint8_t,s_size_t>(In, Out, Keys, num_buckets);
     else if  (num_buckets <= (1 << 16))
@@ -164,7 +159,7 @@ namespace pbbs {
 
   // Parallel version
   template <typename InS, typename OutS, typename KeyS>
-  sequence<size_t> count_sort(InS In, OutS Out, KeyS Keys, size_t num_buckets) {
+  sequence<size_t> count_sort(InS& In, OutS& Out, KeyS& Keys, size_t num_buckets) {
     size_t n = In.size();
     size_t max32 = ((size_t) 1) << 32;
     if (n < max32 && num_buckets < max32)

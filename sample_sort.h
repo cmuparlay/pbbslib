@@ -83,7 +83,7 @@ namespace pbbs {
       auto y = [&] (size_t i) -> E {return A[i];};
       if (inplace) B = A.as_sequence();
       else B = sequence<E>(n, y);
-      quicksort(B.start(), n, f);
+      quicksort(B.begin(), n, f);
       return B;
     } else {
       timer t;
@@ -123,7 +123,7 @@ namespace pbbs {
       sequence<E> Bs;
       if (inplace) Bs = A.as_sequence();
       else Bs = sequence<E>(new_array_no_init<E>(n,1), n);
-      E* B = Bs.start();
+      E* B = Bs.begin();
       E *C = new_array_no_init<E>(n,1);
       
       // sort each block and merge with samples to get counts for each bucket

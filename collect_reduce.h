@@ -33,21 +33,21 @@ namespace pbbs {
   // the following parameters can be tuned
   constexpr const size_t CR_SEQ_THRESHOLD = 8192;
 
-  template<class OutVal, class InSeq, class KeySeq, class Identity, class F>
-  void _seq_collect_reduce(InSeq In, KeySeq Keys, OutVal* Out, size_t num_buckets, Identity I, F f) {
+  template<class OutVal, class InSeq, class KeySeq, class M>
+  void _seq_collect_reduce(InSeq In, KeySeq Keys, OutVal* Out, size_t num_buckets, M monoid) {
     size_t n = In.size();
-    for (size_t i = 0; i < num_buckets; i++) Out[i] = I;
+    for (size_t i = 0; i < num_buckets; i++) Out[i] = monoid.identity;
     for (size_t j = 0; j < n; j++) {
       size_t k = Keys[j];
-      Out[k] = f(Out[k],In[j]);
+      Out[k] = monoid.f(Out[k],In[j]);
     }
   }
 
-  template<class OutVal, class InSeq, class KeySeq, class Identity, class F>
+  template<class OutVal, class InSeq, class KeySeq, class M>
   sequence<OutVal> seq_collect_reduce(InSeq In, KeySeq Keys,
-				      size_t num_buckets, Identity I, F f) {
+				      size_t num_buckets, M monoid) {
     OutVal* Out = new_array<OutVal>(num_buckets);
-    _seq_collect_reduce(In, Keys, Out, num_buckets, I, f);
+    _seq_collect_reduce(In, Keys, Out, num_buckets, monoid);
     return sequence<OutVal>(Out,num_buckets);
   }
 
@@ -55,11 +55,10 @@ namespace pbbs {
   //  In is the sequence of values to be reduced
   //  Keys is the sequence of bucket numbers
   //  num_buckets is the number of buckets (all keys need to be less)
-  //  I is the identity for add
-  //  f is a function that adds two values
-  template<class OutVal, class InSeq, class KeySeq, class Identity, class F>
+  //  monoid has fields m.identity and m.f (a binary associative function)
+  template<class OutVal, class InSeq, class KeySeq, class M>
   sequence<OutVal> collect_reduce(InSeq In, KeySeq Keys,
-				  size_t num_buckets, Identity I, F f) {
+				  size_t num_buckets, M monoid) {
     size_t n = In.size();
     timer t;
     t.start();
@@ -77,7 +76,7 @@ namespace pbbs {
 
     // if insufficient parallelism, sort sequentially
     if (n < CR_SEQ_THRESHOLD || num_blocks == 1 || num_threads == 1)
-      return seq_collect_reduce<OutVal>(In,Keys,num_buckets, I, f);
+      return seq_collect_reduce<OutVal>(In,Keys,num_buckets, monoid);
 
     size_t block_size = ((n-1)/num_blocks) + 1;
     size_t m = num_blocks * num_buckets;
@@ -89,14 +88,14 @@ namespace pbbs {
       size_t start = std::min(i * block_size, n);
       size_t end =  std::min(start + block_size, n);
       _seq_collect_reduce<OutVal>(In.slice(start,end), Keys.slice(start,end),
-				  OutM + i*num_buckets, num_buckets, I, f);
+				  OutM + i*num_buckets, num_buckets, monoid);
     };
     parallel_for (0, num_blocks, block_f, 1);
     
     auto sum_buckets = [&] (size_t i) {
-      OutVal O = I;
+      OutVal O = monoid.identity;
       for (size_t j = 0; j < num_blocks; j++)
-	O = f(O, OutM[i + j*num_buckets]);
+	O = monoid.f(O, OutM[i + j*num_buckets]);
       Out[i] = O;
     };
     parallel_for(0, num_buckets, sum_buckets, 1);
@@ -110,12 +109,10 @@ namespace pbbs {
   //  m is the number of buckets
   //  get_index is a function that gets the bucket from an element of A
   //  get_val is a function that gets the value from an element of A
-  //  identity is the identity for add
-  //  add is a function that adds two values
-  template <typename OT, typename Seq, typename F, typename G,
-    typename I, typename H>
+  //  monoid has fields m.identity and m.f (a binary associative function)
+  template <typename OT, typename Seq, typename F, typename G, typename M>
   sequence<OT> collect_reduce(Seq A, size_t m,
-			      F get_index, G get_val, I identity, H add) {
+			      F get_index, G get_val, M monoid) {
     size_t n = A.size();
     size_t bits;
 
@@ -133,13 +130,14 @@ namespace pbbs {
     auto s = make_sequence<size_t>(n,get_i);
     get_bucket<decltype(s)> x(s, bits-1);
     auto get_buckets = make_sequence<size_t>(n, x);
+    //sequence<size_t> get_buckets(n, [&] (size_t i) {return 0;});
 
     // first buckets based on hash using a counting sort
     sequence<size_t> bucket_offsets 
       = count_sort(A, A, get_buckets, num_buckets);
 
     // note that this is cache line alligned
-    sequence<OT> sums(m, identity);
+    sequence<OT> sums(m, monoid.identity);
        
     // now process each bucket in parallel
     auto bucket_f = [&] (size_t i) {
@@ -150,14 +148,14 @@ namespace pbbs {
       if (i < num_buckets/2)
 	for (size_t i = start; i < end; i++) {
 	  size_t j = get_index(A[i]);
-	  sums[j] = add(sums[j], get_val(A[i]));
+	  sums[j] = monoid.f(sums[j], get_val(A[i]));
 	}
 
       // large buckets have indices in top half
       else if (end > start) {
 	auto x = [&] (size_t i) {return get_val(A[i]);};
 	auto vals = make_sequence<size_t>(n, x);
-	sums[get_index(A[i])] = reduce(vals, add);
+	sums[get_index(A[i])] = reduce(vals, monoid);
       }
     };
     parallel_for(0, num_buckets, bucket_f, 1);
@@ -166,18 +164,17 @@ namespace pbbs {
 
   // this one is for more buckets than the length of A
   //  A is the input sequence
-  //  get_index is a function that gets the bucket from an element of A
+  //  get_index is a function that gets the key from an element of A
   //  get_val is a function that gets the value from an element of A
-  //  The template parameter R is a reducer that must supply:
-  //      identity and add
-  //  The template parameter P is a pair type:  pair<key_time,val_type>
+  //  The template parameter P is a pair type:  pair<key_type,val_type>
   //  The other template parameters should be inferred
-  template <typename R, typename P, typename Seq, typename F, typename G>
-  sequence<P> collect_reduce_pair(Seq A, F get_index, G get_val) {
+  //  monoid has fields m.identity and m.f (a binary associative function)
+  template <typename P, typename Seq, typename F, typename G, typename M>
+  sequence<P> collect_reduce_pair(Seq A, F get_index, G get_val, M monoid) {
     using key_type = typename P::first_type;
     using val_type = typename P::second_type;
     key_type empty = (key_type) -1;
-    val_type identity = R::identity();
+    val_type identity = monoid.identity;
     
     timer t;
     t.start();
@@ -190,7 +187,7 @@ namespace pbbs {
       size_t j = 0;
       for (size_t i = 1; i < n; i++) {
 	if (A[i].first == A[j].first)
-	  A[j].second = R::add(A[j].second, A[i].second);
+	  A[j].second = monoid.f(A[j].second, A[i].second);
 	else A[j++] = A[i];
       };
       return sequence<P>(j, [&] (size_t i) {return A[i];});
@@ -213,7 +210,8 @@ namespace pbbs {
     auto s = make_sequence<size_t>(n,get_i);
     get_bucket<decltype(s)> x(s, bits-1);
     auto get_buckets = make_sequence<size_t>(n, x);
-
+    //sequence<size_t> get_buckets(n, [&] (size_t i) {return 0;});
+    
     // first buckets based on hash using a counting sort
     sequence<size_t> bucket_offsets 
       = count_sort(A, A, get_buckets, num_buckets);
@@ -233,7 +231,7 @@ namespace pbbs {
 	
     // now in parallel process each bucket sequentially
     auto hash_f = [&] (size_t i) {
-      P* my_table = table.as_array() + i * table_size;
+      P* my_table = table.begin() + i * table_size;
 
       // clear tables
       for (size_t i = 0; i < table_size; i++)
@@ -252,7 +250,7 @@ namespace pbbs {
 	       my_table[j].first != idx)
 	  j = (j + 1 == table_size) ? 0 : j + 1;
 	val_type v = my_table[j].second;
-	my_table[j] = P(idx, R::add(v, get_val(A[i])));
+	my_table[j] = P(idx, monoid.f(v, get_val(A[i])));
       }
 
       // now insert large bucket (ones with single item)
@@ -260,7 +258,8 @@ namespace pbbs {
       size_t len = bucket_offsets[num_tables + i + 1] - start_l;
       if (len > 0) {
 	auto f = [&] (size_t i) -> val_type {return get_val(A[i+start_l]);};
-	val_type x = reduce(make_sequence<val_type>(len, f), R::add);
+	auto s = make_sequence<val_type>(len, f);
+	val_type x = reduce(s, monoid);
 	size_t k = 0;
 	while (my_table[k].first != empty) k++;
 	my_table[k] = P(get_index(A[start_l]), x);
@@ -278,7 +277,7 @@ namespace pbbs {
     //t.next("hash");
 
     sizes[num_tables] = 0;
-    size_t total = scan_add(sizes, sizes);
+    size_t total = scan_inplace(sizes, addm<size_t>());
     //t.next("scan");
 
     // copy packed tables into contiguous result
@@ -295,19 +294,19 @@ namespace pbbs {
     return result;
   }
 
-  template <typename R, typename Seq>
-  Seq collect_reduce_pair(Seq A) {
+  template <typename Seq, typename M>
+  Seq collect_reduce_pair(Seq A, M monoid) {
     using P = typename Seq::T;
     auto get_index = [] (P v) {return v.first;};
     auto get_val = [] (P v) {return v.second;};
-    return collect_reduce_pair<R,P>(A, get_index, get_val);
+    return collect_reduce_pair<P>(A, get_index, get_val, monoid);
   }
     
-  template <typename K, typename V, typename I, typename H>
-  sequence<V> collect_reduce(sequence<std::pair<K,V>> A, size_t m, I identity, H add) {
+  template <typename K, typename V, typename M>
+  sequence<V> collect_reduce(sequence<std::pair<K,V>> A, size_t m, M monoid) {
     using P = std::pair<K,V>;
     auto get_index = [] (P v) {return v.first;};
     auto get_val = [] (P v) {return v.second;};
-    return collect_reduce<V>(A, m, get_index, get_val, identity, add);
+    return collect_reduce<V>(A, m, get_index, get_val, monoid);
   }
 }

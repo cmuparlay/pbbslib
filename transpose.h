@@ -134,7 +134,8 @@ namespace pbbs {
     timer t;
     t.start();
     size_t m = num_buckets * num_blocks;
-    sequence<s_size_t> dest_offsets(m);
+    sequence<s_size_t> dest_offsets; //(m);
+    auto add = addm<s_size_t>();
 
     // for smaller input do non-cache oblivious version
     if (n < (1 << 22) || num_buckets <= 512 || num_blocks <= 512) {
@@ -149,7 +150,8 @@ namespace pbbs {
       // determine the destination offsets
       auto get = [&] (size_t i) {
 	return counts[(i>>block_bits) + num_buckets*(i&block_mask)];};
-      s_size_t sum = scan_add(make_sequence<s_size_t>(m, get), dest_offsets);
+      size_t sum;
+      std::tie(dest_offsets,sum) = scan(make_sequence<s_size_t>(m, get), add);
       if (sum != n) abort();
 
       // send each key to correct location within its bucket
@@ -164,18 +166,20 @@ namespace pbbs {
       };
       parallel_for(0, num_blocks, f, 1);
     } else { // for larger input do cache efficient transpose
-      sequence<s_size_t> source_offsets(m);
+      sequence<s_size_t> source_offsets;
+      dest_offsets = sequence<s_size_t>(m);
       sequence<s_size_t> seq_counts(counts,m);
+      size_t total;
       //t.next("trans head");
       
-      scan_add(seq_counts, source_offsets);
-      transpose<s_size_t>(counts, dest_offsets.as_array()).trans(num_blocks,
-								 num_buckets);
+      std::tie(source_offsets,total) = scan(seq_counts, add);
+      transpose<s_size_t>(counts, dest_offsets.begin()).trans(num_blocks,
+							      num_buckets);
       //t.next("trans");
-      scan_add(dest_offsets, dest_offsets);
-      blockTrans<E,s_size_t>(From, To, source_offsets.as_array(),
-			     dest_offsets.as_array(), counts).trans(num_blocks,
-								    num_buckets);
+      scan_inplace(dest_offsets, add);
+      blockTrans<E,s_size_t>(From, To, source_offsets.begin(),
+			     dest_offsets.begin(), counts).trans(num_blocks,
+								 num_buckets);
       //t.next("block trans");
     }
 

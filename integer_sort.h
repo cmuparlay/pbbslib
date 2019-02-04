@@ -59,8 +59,8 @@ namespace pbbs {
     size_t n = In.size();
     if (n == 0) return;
     size_t counts[max_buckets+1];
-    T* InA = In.as_array();
-    T* OutA = Out.as_array();
+    T* InA = In.begin();
+    T* OutA = Out.begin();
     bool swapped = false;
     int bit_offset = 0;
     while (bits > 0) {
@@ -91,17 +91,13 @@ namespace pbbs {
 		      size_t key_bits, bool inplace) {
     size_t n = In.size();
     timer t;
-    
+
     // for small inputs use sequential radix sort
     if (n < (1 << 15)) {
-      //cout << "hello " << ", " << inplace << key_bits << endl;
-      //for (int i=0; i < n; i++) cout << g(In[i]) << endl;
       seq_radix_sort<T>(In, Out, g, key_bits, inplace);
-      //for (int i=0; i < n; i++) cout << g(In[i]) << endl;
-
+    
     // few bits, just do a single parallel count sort
     } else if (key_bits <= radix) {
-      if (key_bits == 7) cout << "hello: " << inplace << ", " << n << endl;
       t.start();
       size_t num_buckets = (1 << key_bits);
       size_t mask = num_buckets - 1;
@@ -141,14 +137,13 @@ namespace pbbs {
   template <typename T, typename Get_Key>
   void integer_sort(sequence<T> In, sequence<T> Out, Get_Key& g, 
 		    size_t key_bits=0, bool inplace=false) {
-    if (In.start() == Out.start()) {
+    if (In.begin() == Out.begin()) {
       cout << "in integer_sort : input and output must be different locations" << endl;
       abort();}
     if (key_bits == 0) {
-      auto max = [&] (size_t a, size_t b) {return std::max(a,b);};
       auto get_key = [&] (size_t i) {return g(In[i]);};
       auto keys = make_sequence<size_t>(In.size(), get_key);
-      size_t max_val = reduce(keys, max);
+      size_t max_val = reduce(keys, maxm<size_t>());
       key_bits = log2_up(max_val+1);
     }
     integer_sort_r(In, Out, g, key_bits, inplace);

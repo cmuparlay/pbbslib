@@ -13,7 +13,7 @@ namespace pbbs {
   void merge_sort(SeqA In, SeqB Out, const F& f, bool inplace=0) {
     size_t n = In.size();
     if (n < 24) {
-      pbbs::insertion_sort(In.as_array(), n, f);
+      pbbs::insertion_sort(In.begin(), n, f);
       if (!inplace)
 	for (size_t i=0; i < n; i++) Out[i] = In[i];
       return;

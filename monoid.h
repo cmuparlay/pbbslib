@@ -9,6 +9,35 @@
 //   static T identity() : returns identity for the monoid
 //   static T add(T, T) : adds two elements, must be associative
 
+template <class F, class TT>
+struct monoid {
+  using T = TT;
+  F f;
+  TT identity;
+  monoid(F f, TT id) : f(f), identity(id) {}
+};
+
+template <class F, class T>
+monoid<T,F> make_monoid (F f, T id) {
+  return monoid<F,T>(f, id);
+}
+
+template <class TT>
+struct addm {
+  using T = TT;
+  addm() : identity(0) {}
+  T identity;
+  static T f(T a, T b) {return a + b;}
+};
+
+template <class TT>
+struct maxm {
+  using T = TT;
+  maxm() : identity(std::numeric_limits<TT>::lowest()) {}
+  T identity;
+  static T f(T a, T b) {return a + b;}
+};
+
 template <class TT>
 struct Add {
   using T = TT;

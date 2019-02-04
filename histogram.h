@@ -92,20 +92,23 @@ namespace pbbs {
   template <typename Seq>
   struct get_bucket {
     using E = typename Seq::T;
-    std::pair<E,int>* hash_table;
+    using HE = std::pair<E,int>;
+    std::vector<HE> hash_table;
     size_t table_mask;
     size_t low_mask;
     size_t bucket_mask;
     int num_buckets;
     int k;
-    Seq I;
+    Seq& I;
 
-    std::pair<E*,int> heavy_hitters(Seq A, size_t count) {
+    get_bucket() {}
+
+    std::pair<std::vector<E>,int> heavy_hitters(Seq A, size_t count) {
       size_t n = A.size();
-      E* sample = new E[count];
+      std::vector<E> sample(count);
       for (size_t i = 0; i < count; i++)
 	sample[i] = A[hash64(i)%n];
-      std::sort(sample,sample+count);
+      std::sort(sample.begin(), sample.end());
 
       // only keep those with at least two copies
       int k = 0;
@@ -117,19 +120,17 @@ namespace pbbs {
       return std::make_pair(sample,k);
     }
 
-    std::pair<E,int>* make_hash_table(E* entries, size_t n,
-				 size_t table_size, size_t table_mask) {
-      auto table = new std::pair<E,int>[table_size];
+    void make_hash_table(std::vector<E> &entries, size_t n,
+			 size_t table_size, size_t table_mask) {
+      hash_table = std::vector<HE>(table_size);
       for (size_t i=0; i < table_size; i++)
-	table[i] = std::make_pair(0,-1);
+	hash_table[i] = std::make_pair(0,-1);
 
       for (size_t i = 0; i < n; i++)
-	table[hash64(entries[i])&table_mask] = std::make_pair(entries[i],i);
-
-      return table;
+	hash_table[hash64(entries[i])&table_mask] = std::make_pair(entries[i],i);
     }
 
-    get_bucket(Seq A, size_t bits) : I(A) {
+    get_bucket(Seq& A, size_t bits) : I(A) {
       num_buckets = 1 << bits;
       bucket_mask = num_buckets-1;
       low_mask = ~((size_t) 15);
@@ -137,18 +138,14 @@ namespace pbbs {
       int table_size = 4 * count;
       table_mask = table_size-1;
 
-      std::pair<E*,int> heavy = heavy_hitters(A, count);
-      k = heavy.second;
-      E* sample = heavy.first;
+      std::vector<E> sample;
+      std::tie(sample,k) = heavy_hitters(A, count);
 
-      hash_table = make_hash_table(heavy.first,k, table_size, table_mask);
-      delete[] sample;
+      if (k > 0)
+	make_hash_table(sample, k, table_size, table_mask);
     }
 
-    ~get_bucket() {
-      free(hash_table); }
-
-    size_t operator() (size_t i) {
+    size_t operator() (size_t i) const {
       if (k > 0) {
         std::pair<E,int> h = hash_table[hash64(I[i])&table_mask];
 	if (h.first == I[i] && h.second != -1)
@@ -159,6 +156,7 @@ namespace pbbs {
 
   };
 
+  
   template <typename s_size_t, typename Seq>
   sequence<s_size_t> histogram(Seq A, size_t m) {
     size_t n = A.size();
@@ -187,7 +185,7 @@ namespace pbbs {
     sequence<size_t> bucket_offsets
       = count_sort(A, A, get_buckets, num_buckets);
     //t.next("send to buckets");
-
+    
     // note that this is cache line alligned
     sequence<s_size_t> counts(m, 0);
 
