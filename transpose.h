@@ -75,10 +75,10 @@ namespace pbbs {
   template <class E, class int_t>
     struct blockTrans {
       E *A, *B;
-      int_t *OA, *OB, *L;
+      int_t *OA, *OB;
 
-    blockTrans(E *AA, E *BB, int_t *OOA, int_t *OOB, int_t *LL) 
-    : A(AA), B(BB), OA(OOA), OB(OOB), L(LL) {}
+    blockTrans(E *AA, E *BB, int_t *OOA, int_t *OOB) 
+    : A(AA), B(BB), OA(OOA), OB(OOB) {}
 
       void transR(size_t rStart, size_t rCount, size_t rLength,
 		  size_t cStart, size_t cCount, size_t cLength) {
@@ -87,7 +87,7 @@ namespace pbbs {
 	    for (size_t j=cStart; j < cStart + cCount; j++) {
 	      E* pa = A+OA[i*rLength + j];
 	      E* pb = B+OB[j*cLength + i];
-	      size_t l = L[i*rLength + j];
+	      size_t l = OA[i*rLength + j + 1] - OA[i*rLength + j];
 	      for (size_t k =0; k < l; k++)
 		move_uninitialized(pb[k], pa[k]);
 	    }
@@ -151,7 +151,7 @@ namespace pbbs {
       auto get = [&] (size_t i) {
 	return counts[(i>>block_bits) + num_buckets*(i&block_mask)];};
       size_t sum;
-      std::tie(dest_offsets,sum) = scan(make_sequence<s_size_t>(m, get), add);
+      std::tie(dest_offsets,sum) = scan(sequence<s_size_t>(m, get), add);
       if (sum != n) abort();
 
       // send each key to correct location within its bucket
@@ -166,21 +166,20 @@ namespace pbbs {
       };
       parallel_for(0, num_blocks, f, 1);
     } else { // for larger input do cache efficient transpose
-      sequence<s_size_t> source_offsets;
+      sequence<s_size_t> source_offsets(counts,m);
       dest_offsets = sequence<s_size_t>(m);
-      sequence<s_size_t> seq_counts(counts,m);
       size_t total;
-      //t.next("trans head");
-      
-      std::tie(source_offsets,total) = scan(seq_counts, add);
       transpose<s_size_t>(counts, dest_offsets.begin()).trans(num_blocks,
 							      num_buckets);
-      //t.next("trans");
-      scan_inplace(dest_offsets, add);
+      // do both scans inplace
+      std::tie(dest_offsets, total) = scan(std::move(dest_offsets), add);
+      if (total != n) abort();
+      std::tie(source_offsets,total) = scan(std::move(source_offsets), add);
+      if (total != n) abort();
+      source_offsets[m] = n;
+
       blockTrans<E,s_size_t>(From, To, source_offsets.begin(),
-			     dest_offsets.begin(), counts).trans(num_blocks,
-								 num_buckets);
-      //t.next("block trans");
+			     dest_offsets.begin()).trans(num_blocks, num_buckets);
     }
 
     size_t *bucket_offsets = new_array_no_init<size_t>(num_buckets+1);

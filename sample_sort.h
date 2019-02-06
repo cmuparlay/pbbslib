@@ -42,12 +42,6 @@ namespace pbbs {
   constexpr const size_t QUICKSORT_THRESHOLD = 16384;
   constexpr const size_t OVER_SAMPLE = 8;
 
-  // use different parameters for pointer and non-pointer types
-  // and depending on size
-  template<typename E> bool is_pointer(E x) {return 0;}
-  template<typename E> bool is_pointer(E* x) {return 1;}
-  //template<typename E, typename V> bool is_pointer(std::pair<E*,V> x) {return 1;}
-  
   // generates counts in Sc for the number of keys in Sa between consecutive
   // values of Sb
   // Sa and Sb must be sorted
@@ -127,7 +121,8 @@ namespace pbbs {
       E *C = new_array_no_init<E>(n,1);
       
       // sort each block and merge with samples to get counts for each bucket
-      s_size_t *counts = new_array_no_init<s_size_t>(m,1);
+      s_size_t *counts = new_array_no_init<s_size_t>(m+1,1);
+      counts[m] = 0;
       parallel_for (0, num_blocks,  [&] (size_t i) {
 	  size_t start = i * block_size;
 	  size_t l = (i < num_blocks - 1) ? block_size : n - start;
@@ -135,7 +130,7 @@ namespace pbbs {
 	    for (size_t j = start;  j < start + l; j++) 
 	      assign_uninitialized(B[j], A[j]);
 	  if (stable) // if stable then use mergesort
-	    merge_sort(sequence<E>(B+start, l), sequence<E>(C+start,l), f, 1);
+	    merge_sort_(sequence<E>(B+start, l), sequence<E>(C+start,l), f, 1);
 	  else {
 #if defined(OPENMP)
 	    quicksort_serial(B+start, l, f);
@@ -162,7 +157,7 @@ namespace pbbs {
 	// are equal
 	if (i == 0 || i == num_buckets - 1 || f(pivots[i-1],pivots[i])) {
 	  if (stable)
-	    merge_sort(sequence<E>(C+start,l), sequence<E>(B+start,l), f, 1);
+	    merge_sort_(sequence<E>(C+start,l), sequence<E>(B+start,l), f, 1);
 	  else {
 #if defined(OPENMP)
 	    quicksort_serial(C+start, l, f);

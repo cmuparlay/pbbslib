@@ -210,6 +210,15 @@ namespace pbbs {
     return std::make_pair(std::move(Out), scan_(In, Out, m, fl));
   }
 
+  // do in place if rvalue reference to a sequence<T>
+  template <class T, class Monoid>
+  auto scan(sequence<T> &&In, Monoid m, flags fl = no_flag)
+    ->  std::pair<sequence<T>, T> {
+    sequence<T> Out = std::move(In);
+    T total = scan_(Out, Out, m, fl);
+    return std::make_pair(std::move(Out), total);
+  }
+
   template <class Seq>
   size_t sum_bools_serial(Seq const &I) {
     size_t r = 0;
@@ -253,7 +262,7 @@ namespace pbbs {
     sliced_for(n, _block_size, [&](size_t i, size_t s, size_t e) {
       Sums[i] = sum_bools_serial(Fl.slice(s, e));
     });
-    size_t m = scan_inplace(Sums, addm<T>());
+    size_t m = scan_inplace(Sums, addm<size_t>());
     T* Out = (_Out) ? _Out : new_array_no_init<T>(m);
     sliced_for(n, _block_size, [&](size_t i, size_t s, size_t e) {
 	pack_serial(In.slice(s, e),  Fl.slice(s, e), Out + Sums[i]);
@@ -277,7 +286,8 @@ namespace pbbs {
 		  for (size_t j=s; j < e; j++)
 		    r += (Fl[j] = f(In[j]));
 		  Sums[i] = r;});
-    size_t m = scan_inplace(Sums, addm<T>());
+    size_t m;
+    std::tie(Sums,m) = scan(std::move(Sums), addm<size_t>());
     T* Out = (_Out != nullptr) ? _Out : new_array_no_init<T>(m);
     sliced_for (n, _block_size,
 		[&] (size_t i, size_t s, size_t e)
@@ -314,8 +324,8 @@ namespace pbbs {
 		  Sums0[i] = c0;
 		  Sums1[i] = c1;
 		}, fl);
-    size_t m0 = scan_inplace(Sums0, addm<T>());
-    size_t m1 = scan_inplace(Sums1, addm<T>());
+    size_t m0 = scan_inplace(Sums0, addm<size_t>());
+    size_t m1 = scan_inplace(Sums1, addm<size_t>());
     sliced_for (n, _block_size,
 		[&] (size_t i, size_t s, size_t e)
 		{

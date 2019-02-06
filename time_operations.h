@@ -35,6 +35,28 @@ double t_tabulate(size_t n) {
   return t;
 }
 
+// template<typename T>
+// double t_map(size_t n) {
+//   size_t l = 1 << 14;
+//   size_t ll = 1 << 10;
+//   sequence<T> In(l*l, (T) 1);
+//   sequence<T> Out(l*l, (T) 1);
+//   auto f = [&] (size_t i) {
+//     size_t r = ll*(i/16);
+//     size_t c = ll*(i%16);
+//     for (size_t j=r+1; j < r + ll -1; j++) {
+//       for (size_t k=c+1; k < c+ ll -1; k++) {
+// 	Out[j + k*l] = In[j + k*l - 1 - ll] + In[j + k*l - ll] + In[j + k*l + 1 - ll] +
+// 	  In[j + k*l - 1] + In[j + k*l] + In[j + k*l + 1] +
+// 	  In[j + k*l - 1 + ll] + In[j + k*l + ll] + In[j + k*l + 1 + ll];
+//       }
+//     }
+//   };
+//   time(t, parallel_for(0, 256, f););
+//   return t;
+// }
+
+
 template<typename T>
 double t_map(size_t n) {
   sequence<T> In(n, (T) 1);
@@ -231,8 +253,8 @@ template<typename T>
 double t_merge_sort(size_t n) {
   pbbs::random r(0);
   sequence<T> in(n, [&] (size_t i) {return r.ith_rand(i)%n;});
-  sequence<T> out(n);
-  time(t, pbbs::merge_sort(in, out, std::less<T>()););
+  sequence<T> out;
+  time(t, out = pbbs::merge_sort(std::move(in), std::less<T>()););
   //for (size_t i = 1; i < n; i++)
   //  if (std::less<T>()(in[i],in[i-1])) {cout << i << endl; abort();}
   return t;
@@ -372,9 +394,8 @@ template<typename T>
 double t_merge(size_t n) {
   sequence<T> in1(n/2, [&] (size_t i) {return 2*i;});
   sequence<T> in2(n-n/2, [&] (size_t i) {return 2*i+1;});
-  sequence<T> out(n, (T) 0);
-  time(t,
-       pbbs::merge(in1, in2, out, std::less<T>()););
+  sequence<T> out;
+  time(t, out = pbbs::merge(in1, in2, std::less<T>()););
   return t;
 }
 

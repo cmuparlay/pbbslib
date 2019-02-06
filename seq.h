@@ -92,6 +92,10 @@ public:
     return sequence(s + ss, s + ee);
   }
 
+  sequence slice() const {
+    return sequence(s, e);
+  }
+
   void update(const size_t i, T& v) {
     s[i] = v;
   }
@@ -132,6 +136,8 @@ struct func_sequence {
   //const T operator() (size_t i) const {return (f)(i+s);}
   func_sequence<T,F> slice(size_t ss, size_t ee) const {
     return func_sequence<T,F>(s+ss,s+ee,f); }
+  func_sequence<T,F> slice() const {
+    return func_sequence<T,F>(s,e,f); }
   size_t size() const { return e - s;}
   sequence<T> as_sequence() const {
     return sequence<T>::tabulate(e-s, [&] (size_t i) {return (f)(i+s);});

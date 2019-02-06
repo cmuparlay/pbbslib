@@ -95,13 +95,26 @@ inline void parallel_for(long start, long end, F f,
     for(long i=start; i<end; i++) f(i);
 }
 
+bool in_par_do = false;
+
 template <typename Lf, typename Rf>
 inline void par_do(Lf left, Rf right, bool conservative) {
+  if (!in_par_do) {
+    in_par_do = true;  // at top level start up tasking
+#pragma omp parallel
+#pragma omp single
 #pragma omp task
     left();
 #pragma omp task
     right();
 #pragma omp taskwait
+    in_par_do = false;
+  } else {   // already started
+#pragma omp task
+    left();
+#pragma omp task
+    right();
+  }
 }
 
 template <typename Job>

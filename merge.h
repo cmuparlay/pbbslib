@@ -1,14 +1,16 @@
 #pragma once
 #include "utilities.h"
+#include "seq.h"
 #include "binary_search.h"
 
 namespace pbbs {
+  // not yet optimized to use moves instead of copies.
 
   // the following parameter can be tuned
   constexpr const size_t _merge_base = PAR_GRANULARITY; 
 
   template <class SeqA, class SeqB, class SeqR, class F> 
-  void seq_merge(SeqA A, SeqB B, SeqR R, const F& f) {
+  void seq_merge(SeqA const &A, SeqB const &B, SeqR &R, const F& f) {
     using T = typename SeqA::T;
     size_t nA = A.size();
     size_t nB = B.size();
@@ -16,18 +18,18 @@ namespace pbbs {
     size_t j = 0;
     while (true) {
       if (i == nA) {
-	while (j < nB) {R.update(i+j, B[j]); j++;}
+	while (j < nB) {R[i+j] = B[j]; j++;}
 	break; }
       if (j == nB) {
-	while (i < nA) {R.update(i+j, A[i]); i++;}
+	while (i < nA) {R[i+j] = A[i]; i++;}
 	break; }
       T a = A[i];
       T b = B[j];
       if (f(b, a)) {
-	R.update(i+j, b); 
+	R[i+j] = b;
 	j++;
       } else {
-	R.update(i+j, a); 
+	R[i+j] = a;
 	i++;
       }
     }
@@ -35,7 +37,7 @@ namespace pbbs {
 
   // this merge is stable
   template <class SeqA, class SeqB, class SeqR, class F> 
-  void par_merge(SeqA A, SeqB B, SeqR R, const F& f, bool cons=false) {
+  void merge_(const SeqA &A, const SeqB &B, SeqR R, const F& f, bool cons=false) {
     size_t nA = A.size();
     size_t nB = B.size();
     size_t nR = nA + nB;
@@ -52,20 +54,20 @@ namespace pbbs {
       size_t mB = binary_search(B, A[mA], f);
       if (mB == 0) mA++; // ensures at least one on each side
       size_t mR = mA + mB;
-      auto left = [&] () {par_merge(A.slice(0, mA), B.slice(0, mB), 
-				    R.slice(0, mR), f, cons);};
-      auto right = [&] () {par_merge(A.slice(mA, nA), B.slice(mB, nB), 
-				     R.slice(mR, nR), f, cons);};
+      auto left = [&] () {merge_(A.slice(0, mA), B.slice(0, mB), 
+				 R.slice(0, mR), f, cons);};
+      auto right = [&] () {merge_(A.slice(mA, nA), B.slice(mB, nB), 
+				  R.slice(mR, nR), f, cons);};
       par_do(left, right, cons);
     }
   }
 
-  template <class SeqA, class SeqB, class SeqR, class F> 
-  void merge(SeqA A, SeqB B, SeqR R, const F& f, bool cons=false) {
-#if defined(OPENMP)
-#pragma omp parallel
-#pragma omp single
-#endif
-    par_merge(A, B, R, f, cons);
+  template <class SeqA, class SeqB, class F> 
+  sequence<typename SeqA::T>
+  merge(const SeqA &A, const SeqB &B, const F& f, bool cons=false) {
+    using T = typename SeqA::T;
+    sequence<T> R(A.size() + B.size());
+    merge_(A, B, R.slice(), f, cons);
+    return R;
   }
 }
