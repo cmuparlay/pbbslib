@@ -306,8 +306,11 @@ namespace pbbs {
   template <class In_Seq, class Out_Seq, class Char_Seq>
   std::pair<size_t,size_t> split_three(In_Seq const &In, Out_Seq &Out, Char_Seq const &Fl,
 				       flags fl = no_flag) {
-    using T = typename In_Seq::T;
     size_t n = In.size();
+    if (In.begin() == Out.begin()) {
+      std::cout << "In and Out cannot be the same in split_tree" << std::endl;
+      return std::pair<size_t,size_t>(0,0);
+    }
     size_t l = num_blocks(n,_block_size);
     sequence<size_t> Sums0(l);
     sequence<size_t> Sums1(l);

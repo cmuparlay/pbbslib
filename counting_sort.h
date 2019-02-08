@@ -27,6 +27,9 @@
 #include "sequence_ops.h"
 #include "transpose.h"
 
+// TODO
+// Make sure works for inplace or not with regards to move_uninitialized
+
 namespace pbbs {
 
   // the following parameters can be tuned

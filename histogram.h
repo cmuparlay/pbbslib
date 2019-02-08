@@ -31,7 +31,7 @@
 namespace pbbs {
 
   template <typename s_size_t, typename Seq>
-  sequence<s_size_t> seq_histogram(Seq A, size_t m) {
+  sequence<s_size_t> seq_histogram(Seq const &A, size_t m) {
     sequence<s_size_t> counts(m);
     for (size_t i = 0; i < m; i++)
       counts[i] = 0;
@@ -42,13 +42,13 @@ namespace pbbs {
   }
 
   template <typename Seq, typename CSeq>
-  void _seq_count(Seq In, CSeq counts) {
+  void _seq_count(Seq const &In, CSeq &counts) {
     for (size_t i = 0; i < counts.size(); i++) counts[i] = 0;
     for (size_t j = 0; j < In.size(); j++) counts[In[j]]++;
   }
 
   template <typename s_size_t, typename Seq>
-  sequence<s_size_t> _count(Seq In, size_t num_buckets) {
+  sequence<s_size_t> _count(Seq const &In, size_t num_buckets) {
     sequence<s_size_t> counts(num_buckets);
     size_t n = In.size();
 
@@ -74,7 +74,6 @@ namespace pbbs {
     };
     parallel_for(0, num_blocks, block_f, 1);
 
-
     auto bucket_f = [&] (size_t j) {
       size_t sum = 0;
       for (size_t i = 0; i < num_blocks; i++)
@@ -88,7 +87,6 @@ namespace pbbs {
     return counts;
   }
 
-
   template <typename Seq>
   struct get_bucket {
     using E = typename Seq::T;
@@ -99,11 +97,11 @@ namespace pbbs {
     size_t bucket_mask;
     int num_buckets;
     int k;
-    Seq& I;
+    const Seq& I;
 
     get_bucket() {}
 
-    std::pair<std::vector<E>,int> heavy_hitters(Seq A, size_t count) {
+    std::pair<std::vector<E>,int> heavy_hitters(const Seq &A, size_t count) {
       size_t n = A.size();
       std::vector<E> sample(count);
       for (size_t i = 0; i < count; i++)
@@ -130,7 +128,7 @@ namespace pbbs {
 	hash_table[hash64(entries[i])&table_mask] = std::make_pair(entries[i],i);
     }
 
-    get_bucket(Seq& A, size_t bits) : I(A) {
+    get_bucket(Seq const &A, size_t bits) : I(A) {
       num_buckets = 1 << bits;
       bucket_mask = num_buckets-1;
       low_mask = ~((size_t) 15);
@@ -158,10 +156,11 @@ namespace pbbs {
 
   
   template <typename s_size_t, typename Seq>
-  sequence<s_size_t> histogram(Seq A, size_t m) {
+  sequence<s_size_t> histogram(Seq const &A, size_t m) {
     size_t n = A.size();
     size_t bits;
-
+    using T = typename Seq::T;
+    
     if (n < (1 << 27)) bits = (log2_up(n) - 7)/2;
     // for large n selected so each bucket fits into cache
     else bits = (log2_up(n) - 17);
@@ -180,15 +179,16 @@ namespace pbbs {
     // This is to avoid false sharing.
     get_bucket<Seq> x(A, bits-1);
     auto get_buckets = make_sequence<size_t>(n, x);
+    sequence<T> B(n);
 
     // first buckets based on hash using a counting sort
     sequence<size_t> bucket_offsets
-      = count_sort(A, A, get_buckets, num_buckets);
+      = count_sort(A, B, get_buckets, num_buckets);
     //t.next("send to buckets");
     
     // note that this is cache line alligned
     sequence<s_size_t> counts(m, 0);
-
+    
     // now sequentially process each bucket
     auto bucket_f = [&] (size_t i) {
       size_t start = bucket_offsets[i];
@@ -197,11 +197,11 @@ namespace pbbs {
       // small buckets have indices in bottom half
       if (i < num_buckets/2)
 	for (size_t i = start; i < end; i++)
-	  counts[A[i]]++;
+	  counts[B[i]]++;
 
       // large buckets have indices in top half
       else if (end > start)
-	counts[A[i]] = end-start;
+	counts[B[i]] = end-start;
     };
     parallel_for(0, num_buckets, bucket_f, 1);
     //t.next("within buckets ");

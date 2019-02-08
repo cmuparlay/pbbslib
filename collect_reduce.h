@@ -28,6 +28,9 @@
 #include "transpose.h"
 #include "histogram.h"
 
+// TODO
+//  few buckets special case of many buckets
+
 namespace pbbs {
 
   // the following parameters can be tuned
@@ -162,17 +165,14 @@ namespace pbbs {
     return sums;
   }
 
-  // this one is for more buckets than the length of A
-  //  A is the input sequence
-  //  get_index is a function that gets the key from an element of A
-  //  get_val is a function that gets the value from an element of A
-  //  The template parameter P is a pair type:  pair<key_type,val_type>
-  //  The other template parameters should be inferred
+  // this one is for more buckets than the length of A (i.e. sparse)
+  //  A is a sequence of key-value pairs
   //  monoid has fields m.identity and m.f (a binary associative function)
-  template <typename P, typename Seq, typename F, typename G, typename M>
-  sequence<P> collect_reduce_pair(Seq A, F get_index, G get_val, M monoid) {
-    using key_type = typename P::first_type;
-    using val_type = typename P::second_type;
+  template <typename Seq, typename M>
+  sequence<typename Seq::T> collect_reduce_pair(Seq const &A, M const &monoid) {
+    using T = typename Seq::T;
+    using key_type = typename T::first_type;
+    using val_type = typename T::second_type;
     key_type empty = (key_type) -1;
     val_type identity = monoid.identity;
     
@@ -181,16 +181,15 @@ namespace pbbs {
     size_t n = A.size();
 
     if (n < 1000) {
-      sequence<P> x(n, [&] (size_t i) {return P(get_index(A[i]), get_val(A[i]));});
-      auto cmp = [] (P a, P b) {return a.first < b.first;};
-      sequence<P> y = sample_sort(x, cmp);
+      auto cmp = [] (T a, T b) {return a.first < b.first;};
+      sequence<T> B = sample_sort(A, cmp);
       size_t j = 0;
       for (size_t i = 1; i < n; i++) {
-	if (A[i].first == A[j].first)
-	  A[j].second = monoid.f(A[j].second, A[i].second);
-	else A[j++] = A[i];
+	if (B[i].first == B[j].first)
+	  B[j].second = monoid.f(B[j].second, B[i].second);
+	else B[j++] = B[i];
       };
-      return sequence<P>(j, [&] (size_t i) {return A[i];});
+      return sequence<T>(j, [&] (size_t i) {return B[i];});
     }
       
     size_t bits;
@@ -206,15 +205,15 @@ namespace pbbs {
     // others share a bucket.
     // Keys that share low 4 bits get same bucket unless big.
     // This is to avoid false sharing.
-    auto get_i = [&] (size_t i) -> size_t {return get_index(A[i]);};
+    auto get_i = [&] (size_t i) -> size_t {return A[i].first;};
     auto s = make_sequence<size_t>(n,get_i);
     get_bucket<decltype(s)> x(s, bits-1);
     auto get_buckets = make_sequence<size_t>(n, x);
-    //sequence<size_t> get_buckets(n, [&] (size_t i) {return 0;});
+    sequence<T> B = std::move(sequence<T>::alloc_no_init(n));
     
     // first buckets based on hash using a counting sort
     sequence<size_t> bucket_offsets 
-      = count_sort(A, A, get_buckets, num_buckets);
+      = count_sort(A, B, get_buckets, num_buckets);
     //t.next("sort");
     
     // note that this is cache line alligned
@@ -224,18 +223,18 @@ namespace pbbs {
     if (sz < 128000) factor += (17 - log2_up(sz))*.15;
     uint table_size = (factor * sz);
     size_t total_table_size = table_size * num_tables;
-    sequence<P> table
-      = sequence<P>::alloc_no_init(total_table_size);
+    sequence<T> table
+      = sequence<T>::alloc_no_init(total_table_size);
     sequence<size_t> sizes(num_tables + 1);
     //t.next("alloc");
 	
     // now in parallel process each bucket sequentially
     auto hash_f = [&] (size_t i) {
-      P* my_table = table.begin() + i * table_size;
+      T* my_table = table.begin() + i * table_size;
 
       // clear tables
       for (size_t i = 0; i < table_size; i++)
-	assign_uninitialized(my_table[i], P(empty, identity));
+	assign_uninitialized(my_table[i], T(empty, identity));
 
       // insert small bucket (ones with multiple different items)
       size_t start = bucket_offsets[i];
@@ -244,25 +243,25 @@ namespace pbbs {
 	cout << "error in collect_reduce: " << (end-start) << ", " << table_size
 	     << ", " << total_table_size << ", " << n << endl;
       for (size_t i = start; i < end; i++) {
-	size_t idx = get_index(A[i]);
+	size_t idx = B[i].first;
 	size_t j = ((uint) hash64_2(idx)) % table_size;
 	while (my_table[j].first != empty &&
 	       my_table[j].first != idx)
 	  j = (j + 1 == table_size) ? 0 : j + 1;
 	val_type v = my_table[j].second;
-	my_table[j] = P(idx, monoid.f(v, get_val(A[i])));
+	my_table[j] = T(idx, monoid.f(v, B[i].second));
       }
 
       // now insert large bucket (ones with single item)
       size_t start_l = bucket_offsets[num_tables + i];
       size_t len = bucket_offsets[num_tables + i + 1] - start_l;
       if (len > 0) {
-	auto f = [&] (size_t i) -> val_type {return get_val(A[i+start_l]);};
+	auto f = [&] (size_t i) -> val_type {return B[i+start_l].second;};
 	auto s = make_sequence<val_type>(len, f);
 	val_type x = reduce(s, monoid);
 	size_t k = 0;
 	while (my_table[k].first != empty) k++;
-	my_table[k] = P(get_index(A[start_l]), x);
+	my_table[k] = T(B[start_l].first, x);
       }
 
       // pack tables down to bottom
@@ -281,7 +280,7 @@ namespace pbbs {
     //t.next("scan");
 
     // copy packed tables into contiguous result
-    sequence<P> result = sequence<P>::alloc_no_init(total);
+    sequence<T> result = sequence<T>::alloc_no_init(total);
     auto copy_f = [&] (size_t i) {
       size_t d_offset = sizes[i];
       size_t s_offset = i * table_size;
@@ -294,14 +293,6 @@ namespace pbbs {
     return result;
   }
 
-  template <typename Seq, typename M>
-  Seq collect_reduce_pair(Seq A, M monoid) {
-    using P = typename Seq::T;
-    auto get_index = [] (P v) {return v.first;};
-    auto get_val = [] (P v) {return v.second;};
-    return collect_reduce_pair<P>(A, get_index, get_val, monoid);
-  }
-    
   template <typename K, typename V, typename M>
   sequence<V> collect_reduce(sequence<std::pair<K,V>> A, size_t m, M monoid) {
     using P = std::pair<K,V>;

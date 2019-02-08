@@ -234,6 +234,7 @@ template<typename T>
 double t_histogram_same(size_t n) {
   sequence<T> in(n, (T) 10311);
   sequence<T> out;
+  cout << "hello" << endl;
   time(t, out = pbbs::histogram<T>(in,n););
   return t;
 }

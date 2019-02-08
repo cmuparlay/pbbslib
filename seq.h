@@ -10,7 +10,9 @@ public:
   sequence() {}
 
   // copy constructor
-  sequence(const sequence& a) : s(a.s), e(a.e), allocated(false) {}
+  sequence(const sequence& a) : s(a.s), e(a.e), allocated(false) {
+    //if (e-s > 10000000) cout << "copy constructor: " << e-s << endl;
+  }
 
   // move constructor
   sequence(sequence&& b)
@@ -19,7 +21,10 @@ public:
 
   // copy assignment
   sequence& operator = (const sequence& b) {
-    if (this != &b) {clear(); s = b.s; e = b.e; allocated = false;}
+    if (this != &b) {
+      clear(); s = b.s; e = b.e; allocated = false;
+      cout << "copy assignment: " << e-s << endl;
+    }
     return *this;
   }
 
@@ -102,7 +107,7 @@ public:
 
   size_t size() const { return e - s;}
 
-  sequence as_sequence() {
+  sequence as_sequence() const {
     return sequence(s, e);
   }
 

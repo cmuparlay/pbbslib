@@ -54,7 +54,8 @@ namespace pbbs {
   }
 
   template <class T, class GetKey>
-  void seq_radix_sort(sequence<T> In, sequence<T> Out, GetKey g,
+  void seq_radix_sort(sequence<T> const &In, sequence<T> &Out,
+		      GetKey const &g,
 		      size_t bits, bool inplace=true) {
     size_t n = In.size();
     if (n == 0) return;
@@ -87,13 +88,18 @@ namespace pbbs {
   // if inplace is true, then result will be in In, otherwise in Out
   // In and Out cannot be the same
   template <typename T, typename Get_Key>
-  void integer_sort_r(sequence<T> In,  sequence<T> Out, Get_Key& g, 
+  void integer_sort_r(sequence<T> &In,  sequence<T> &Out,
+		      Get_Key const &g, 
 		      size_t key_bits, bool inplace) {
     size_t n = In.size();
     timer t;
 
+    if (key_bits == 0) {
+      if (!inplace)
+	parallel_for(0, In.size(), [&] (size_t i) {Out[i] = In[i];});
+      
     // for small inputs use sequential radix sort
-    if (n < (1 << 15)) {
+	  } else if (n < (1 << 15)) {
       seq_radix_sort<T>(In, Out, g, key_bits, inplace);
     
     // few bits, just do a single parallel count sort
@@ -122,8 +128,9 @@ namespace pbbs {
       parallel_for(0, buckets, [&] (size_t i) {
 	size_t start = offsets[i];
 	size_t end = offsets[i+1];
-	integer_sort_r(Out.slice(start, end), In.slice(start, end),
-		       g, shift_bits, !inplace);
+	auto a = Out.slice(start, end);
+	auto b = In.slice(start, end);
+	integer_sort_r(a, b, g, shift_bits, !inplace);
 	}, 1);
     }
   }
@@ -135,22 +142,35 @@ namespace pbbs {
   // val_bits specifies how many bits there are in the key
   //    if set to 0, then a max is taken over the keys to determine
   template <typename T, typename Get_Key>
-  void integer_sort(sequence<T> In, sequence<T> Out, Get_Key& g, 
+  void integer_sort(sequence<T> &In, sequence<T> &Out,
+		    Get_Key const &g, 
 		    size_t key_bits=0, bool inplace=false) {
     if (In.begin() == Out.begin()) {
       cout << "in integer_sort : input and output must be different locations" << endl;
       abort();}
     if (key_bits == 0) {
-      auto get_key = [&] (size_t i) {return g(In[i]);};
-      auto keys = make_sequence<size_t>(In.size(), get_key);
-      size_t max_val = reduce(keys, maxm<size_t>());
-      key_bits = log2_up(max_val+1);
+      using P = std::pair<size_t,size_t>;
+      auto get_key = [&] (size_t i) -> P {
+	size_t k =g(In[i]);
+	return P(k,k);};
+      auto keys = make_sequence<P>(In.size(), get_key);
+      size_t min_val, max_val;
+      std::tie(min_val,max_val) = reduce(keys, minmaxm<size_t>());
+      key_bits = log2_up(max_val - min_val + 1);
+      cout << key_bits << endl;
+      if (min_val > max_val / 4) {
+	auto h = [&] (T a) {return g(a) - min_val;};
+	integer_sort_r(In, Out, h, key_bits, inplace);
+	return;
+      }
     }
     integer_sort_r(In, Out, g, key_bits, inplace);
   }
 
   template <typename T, typename Get_Key>
-  void integer_sort(sequence<T> In, Get_Key& g, size_t key_bits=0) {
+  void integer_sort(sequence<T> &In,
+		    Get_Key const &g,
+		    size_t key_bits=0) {
     sequence<T> Tmp = sequence<T>::alloc_no_init(In.size());
     integer_sort(In, Tmp, g, key_bits, true);
   }

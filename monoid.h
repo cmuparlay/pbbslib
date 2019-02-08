@@ -35,7 +35,25 @@ struct maxm {
   using T = TT;
   maxm() : identity(std::numeric_limits<TT>::lowest()) {}
   T identity;
-  static T f(T a, T b) {return a + b;}
+  static T f(T a, T b) {return std::max(a,b);}
+};
+
+template <class TT>
+struct minm {
+  using T = TT;
+  minm() : identity(std::numeric_limits<TT>::max()) {}
+  T identity;
+  static T f(T a, T b) {return std::min(a,b);}
+};
+
+template <class TT>
+struct minmaxm {
+  using T = std::pair<TT,TT>;
+  minmaxm() : identity(T(std::numeric_limits<TT>::max(),
+			 std::numeric_limits<TT>::lowest())) {}
+  T identity;
+  static T f(T a, T b) {return T(std::min(a.first,b.first),
+				 std::max(a.second,b.second));}
 };
 
 template <class TT>
