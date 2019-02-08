@@ -296,13 +296,12 @@ namespace pbbs {
   };
 
   template <class ET, class H>
-  sequence<ET> remove_duplicates(sequence<ET> S, H hash, size_t m=0) {
+  sequence<ET> remove_duplicates(sequence<ET> const &S, H const &hash, size_t m=0) {
     if (m==0) m = S.size();
     Table<H> T(m, hash, 1.5);
     auto f = [&] (size_t i) { T.insert(S[i]);};
-    parallel_for(0, S.size(), f, granularity(S.size()));
-    sequence<ET> r = T.entries();
-    return r;
+    parallel_for(0, S.size(), f);
+    return T.entries();
   }
 
   // T must be some integer type
@@ -321,7 +320,7 @@ namespace pbbs {
 
   // works for non-negative integers (uses -1 to mark cell as empty)
   template <class T>
-  sequence<T> remove_duplicates(sequence<T> A) {
+  sequence<T> remove_duplicates(sequence<T> const &A) {
     return remove_duplicates(A, hashInt<T>());
   }
 

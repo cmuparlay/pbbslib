@@ -11,7 +11,6 @@ public:
 
   // copy constructor
   sequence(const sequence& a) : s(a.s), e(a.e), allocated(false) {
-    //if (e-s > 10000000) cout << "copy constructor: " << e-s << endl;
   }
 
   // move constructor
@@ -23,7 +22,6 @@ public:
   sequence& operator = (const sequence& b) {
     if (this != &b) {
       clear(); s = b.s; e = b.e; allocated = false;
-      cout << "copy assignment: " << e-s << endl;
     }
     return *this;
   }
@@ -74,24 +72,11 @@ public:
 
   ~sequence() { clear();}
 
-
-  template <typename F>
-  static sequence<T> tabulate(size_t n, F f) {
-    T* r = pbbs::new_array_no_init<T>(n);
-    auto g = [&] (size_t i) {
-      new ((void*) (r+i)) T(f(i));};
-    parallel_for(0, n, g, pbbs::granularity(n));
-    sequence<T> y(r,n);
-    y.allocated = true;
-    return y;
-  }
-
   sequence copy(sequence& a) {
-    return tabulate(e-s, [&] (size_t i) {return a[i];});
+    return sequence<E>(e-s, [&] (size_t i) {return a[i];});
   }
 
   E& operator[] (const size_t i) const {return s[i];}
-  E& operator() (const size_t i) const {return s[i];}
 
   sequence slice(size_t ss, size_t ee) const {
     return sequence(s + ss, s + ee);
@@ -115,10 +100,6 @@ public:
   T* end() const {return e;}
   bool is_allocated() const {return allocated;}
   void set_allocated(bool a) {allocated = a;}
-  T* get_array() {
-    set_allocated(false);
-    return s;
-  }
 
   void clear() {
     if (allocated) pbbs::delete_array<E>(s,e-s);
@@ -138,7 +119,6 @@ struct func_sequence {
   func_sequence(size_t n, F _f) : f(_f), s(0), e(n) {};
   func_sequence(size_t s, size_t e, F _f) : f(_f), s(s), e(e) {};
   const T operator[] (size_t i) const {return (f)(i+s);}
-  //const T operator() (size_t i) const {return (f)(i+s);}
   func_sequence<T,F> slice(size_t ss, size_t ee) const {
     return func_sequence<T,F>(s+ss,s+ee,f); }
   func_sequence<T,F> slice() const {

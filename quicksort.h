@@ -33,13 +33,13 @@ namespace pbbs {
   template<typename E> bool is_pointer(E x) {return 0;}
   template<typename E> bool is_pointer(E* x) {return 1;}
   //template<typename E, typename V> bool is_pointer(std::pair<E*,V> x) {return 1;}
-  
+
   template <class T>
   bool base_case(T* x, size_t n) {
-    bool large = is_pointer(x) || (sizeof(x) > 8);
+    bool large = is_pointer(x[0]) || (sizeof(x) > 8);
     return large ? (n < 16) : (n < 24);
   }
-    
+
   template <class E, class BinPred>
   void insertion_sort(E* A, size_t n, const BinPred& f) {
     for (size_t i=0; i < n; i++) {
@@ -128,7 +128,7 @@ namespace pbbs {
   //// Fully Parallel version below here
  
   template <class SeqA, class BinPred>
-  std::tuple<size_t,size_t,bool> p_split3(SeqA A, SeqA B, const BinPred& f) {
+  std::tuple<size_t,size_t,bool> p_split3(SeqA const &A, SeqA &B, const BinPred& f) {
     using E = typename SeqA::T;
     size_t n = A.size();
     sort5(A.begin(),n,f);
@@ -149,8 +149,8 @@ namespace pbbs {
   // cut_size: is when to revert to  quicksort.
   //    If -1 then it uses a default based on number of threads
   template <class SeqA, class F> 
-  void p_quicksort(SeqA In, SeqA Out, const F& f,
-		   bool inplace = 0, long cut_size = -1) {
+  void p_quicksort_(SeqA In, SeqA Out, const F& f,
+		    bool inplace = 0, long cut_size = -1) {
     size_t n = In.size();
     if (cut_size == -1)
       cut_size = std::max<long>((3*n)/num_workers(), (1 << 14));
@@ -162,18 +162,25 @@ namespace pbbs {
       size_t l, m; bool mid_eq;
       std::tie(l, m, mid_eq) = p_split3(In, Out, f);
       par_do3(
-	      [&] () {p_quicksort(Out.slice(0,l), In.slice(0,l), f,
+	      [&] () {p_quicksort_(Out.slice(0,l), In.slice(0,l), f,
 				  !inplace, cut_size);},
 	      [&] () {
 		auto copy_in = [&] (size_t i) {In[i] = Out[i];};
-		if (!mid_eq) p_quicksort(Out.slice(l,m), In.slice(l,m), f,
+		if (!mid_eq) p_quicksort_(Out.slice(l,m), In.slice(l,m), f,
 					 !inplace, cut_size);
 		else if (inplace) parallel_for(l, m, copy_in, 2000);
 	      },
-	      [&] () {p_quicksort(Out.slice(m,n), In.slice(m,n), f,
+	      [&] () {p_quicksort_(Out.slice(m,n), In.slice(m,n), f,
 				  !inplace, cut_size);});
     }
   }
 
+  template <class SeqA, class F> 
+  sequence<typename SeqA::T> p_quicksort(SeqA const &In, const F& f) {
+    using T = typename SeqA::T;
+    sequence<T> Out(In.size());
+    p_quicksort_(In.slice(), Out.slice(), f);
+    return Out;
+  }
 }
 

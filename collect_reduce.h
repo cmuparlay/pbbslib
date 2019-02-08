@@ -29,7 +29,8 @@
 #include "histogram.h"
 
 // TODO
-//  few buckets special case of many buckets
+//  make few buckets special case of many buckets
+//  collect_reduce mutates inputs
 
 namespace pbbs {
 
@@ -60,7 +61,7 @@ namespace pbbs {
   //  num_buckets is the number of buckets (all keys need to be less)
   //  monoid has fields m.identity and m.f (a binary associative function)
   template<class OutVal, class InSeq, class KeySeq, class M>
-  sequence<OutVal> collect_reduce(InSeq In, KeySeq Keys,
+  sequence<OutVal> collect_reduce(InSeq const &In, KeySeq const &Keys,
 				  size_t num_buckets, M monoid) {
     size_t n = In.size();
     timer t;
@@ -86,7 +87,6 @@ namespace pbbs {
 
     OutVal *OutM = new_array<OutVal>(m);
     
-    //parallel_for (size_t i = 0; i < num_blocks; ++i) {
     auto block_f = [&] (size_t i) {
       size_t start = std::min(i * block_size, n);
       size_t end =  std::min(start + block_size, n);
@@ -114,7 +114,7 @@ namespace pbbs {
   //  get_val is a function that gets the value from an element of A
   //  monoid has fields m.identity and m.f (a binary associative function)
   template <typename OT, typename Seq, typename F, typename G, typename M>
-  sequence<OT> collect_reduce(Seq A, size_t m,
+  sequence<OT> collect_reduce(Seq &A, size_t m,
 			      F get_index, G get_val, M monoid) {
     size_t n = A.size();
     size_t bits;
@@ -294,7 +294,7 @@ namespace pbbs {
   }
 
   template <typename K, typename V, typename M>
-  sequence<V> collect_reduce(sequence<std::pair<K,V>> A, size_t m, M monoid) {
+  sequence<V> collect_reduce(sequence<std::pair<K,V>> &A, size_t m, M monoid) {
     using P = std::pair<K,V>;
     auto get_index = [] (P v) {return v.first;};
     auto get_val = [] (P v) {return v.second;};

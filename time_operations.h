@@ -234,7 +234,6 @@ template<typename T>
 double t_histogram_same(size_t n) {
   sequence<T> in(n, (T) 10311);
   sequence<T> out;
-  cout << "hello" << endl;
   time(t, out = pbbs::histogram<T>(in,n););
   return t;
 }
@@ -265,8 +264,8 @@ template<typename T>
 double t_quicksort(size_t n) {
   pbbs::random r(0);
   sequence<T> in(n, [&] (size_t i) {return r.ith_rand(i)%n;});
-  sequence<T> out(n);
-  time(t, pbbs::p_quicksort(in, out, std::less<T>()););
+  sequence<T> out;
+  time(t, out = pbbs::p_quicksort(in, std::less<T>()););
   //for (size_t i = 1; i < n; i++)
   //  if (std::less<T>()(in[i],in[i-1])) {cout << i << endl; abort();}
   return t;
@@ -409,7 +408,7 @@ double t_remove_duplicates(size_t n) {
 }
 
 template <typename T, typename F>
-static T my_reduce(sequence<T> s, size_t start, size_t end, F f) {
+static T my_reduce(sequence<T> const &s, size_t start, size_t end, F f) {
   if (end - start == 1) return s[start];
   size_t h = (end + start)/2;
   T r, l;

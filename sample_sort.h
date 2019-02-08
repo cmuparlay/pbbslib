@@ -33,7 +33,7 @@
 #include "utilities.h"
 #include "sequence_ops.h"
 #include "quicksort.h"
-#include "merge_sort.h"
+//#include "merge_sort.h"
 #include "transpose.h"
 
 namespace pbbs {
@@ -130,7 +130,7 @@ namespace pbbs {
 	    for (size_t j = start;  j < start + l; j++) 
 	      assign_uninitialized(B[j], A[j]);
 	  if (stable) // if stable then use mergesort
-	    merge_sort_(sequence<E>(B+start, l), sequence<E>(C+start,l), f, 1);
+	    {} //merge_sort_(sequence<E>(B+start, l), sequence<E>(C+start,l), f, 1);
 	  else {
 #if defined(OPENMP)
 	    quicksort_serial(B+start, l, f);
@@ -157,7 +157,7 @@ namespace pbbs {
 	// are equal
 	if (i == 0 || i == num_buckets - 1 || f(pivots[i-1],pivots[i])) {
 	  if (stable)
-	    merge_sort_(sequence<E>(C+start,l), sequence<E>(B+start,l), f, 1);
+	    {} //merge_sort_(sequence<E>(C+start,l), sequence<E>(B+start,l), f, 1);
 	  else {
 #if defined(OPENMP)
 	    quicksort_serial(C+start, l, f);
@@ -179,11 +179,11 @@ namespace pbbs {
   }
 
   template<class Seq, typename BinPred>
-  auto sample_sort (Seq A, const BinPred& f, bool inplace = false, bool stable = false)
+  auto sample_sort (Seq &A, const BinPred& f, bool inplace = false, bool stable = false)
     -> sequence<typename Seq::T> {
     if (A.size() < ((size_t) 1) << 32)
-      return sample_sort_<unsigned int>(A,f, inplace, stable);
-    else return sample_sort_<size_t>(A,f, inplace, stable);
+      return sample_sort_<unsigned int>(A.slice(), f, inplace, stable);
+    else return sample_sort_<size_t>(A.slice(), f, inplace, stable);
   }
     
   template<typename E, typename BinPred, typename s_size_t>

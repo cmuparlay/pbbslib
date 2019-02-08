@@ -92,7 +92,7 @@ namespace pbbs {
   template <class intT>
   inline sequence<intT> random_permutation(size_t n,
                                            random r = default_random) {
-    sequence<intT> id = sequence<intT>::tabulate(n, [&] (intT i) { return i; });
+    sequence<intT> id(n, [&] (size_t i) { return i; });
     return pbbs::random_shuffle(std::move(id), r);
   }
 }
