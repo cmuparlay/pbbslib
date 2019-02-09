@@ -35,8 +35,12 @@ public:
   }
 
   sequence(const size_t n)
-    : s(pbbs::new_array<E>(n)), allocated(true) {
-    e = s + n;
+    : s(NULL), e(NULL), allocated(false) {
+    if (n > 0) {
+      s = pbbs::new_array<E>(n);
+      e = s + n;
+      allocated = true;
+    }
   };
 
   static sequence<E> alloc_no_init(const size_t n) {
