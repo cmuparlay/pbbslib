@@ -18,7 +18,7 @@ struct monoid {
 };
 
 template <class F, class T>
-monoid<T,F> make_monoid (F f, T id) {
+monoid<F,T> make_monoid (F f, T id) {
   return monoid<F,T>(f, id);
 }
 
@@ -44,6 +44,14 @@ struct minm {
   minm() : identity(std::numeric_limits<TT>::max()) {}
   T identity;
   static T f(T a, T b) {return std::min(a,b);}
+};
+
+template <class TT>
+struct xorm {
+  using T = TT;
+  xorm() : identity(std::numeric_limits<TT>::lowest()) {}
+  T identity;
+  static T f(T a, T b) {return a ^ b;}
 };
 
 template <class TT>

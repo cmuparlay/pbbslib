@@ -105,6 +105,14 @@ public:
   bool is_allocated() const {return allocated;}
   void set_allocated(bool a) {allocated = a;}
 
+  // TODO(ldhulipa): crutch before porting over code
+  T* start() const {return s;}
+  E& operator() (const size_t i) const {return s[i];}
+  T* get_array() {
+    allocated = false;
+    return s;
+  }
+
   void clear() {
     if (allocated) pbbs::delete_array<E>(s,e-s);
     allocated = false;
@@ -131,6 +139,8 @@ struct func_sequence {
   sequence<T> as_sequence() const {
     return sequence<T>::tabulate(e-s, [&] (size_t i) {return (f)(i+s);});
   }
+  // TODO(ldhulipa): crutch before porting over code
+  const T operator() (size_t i) const {return (f)(i+s);}
 private:
   const F f;
   const size_t s, e;
