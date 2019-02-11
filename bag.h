@@ -35,6 +35,8 @@
 #include <atomic>
 #include "list_allocator.h"
 
+namespace pbbs {
+
 // a bag of elements of a given type
 // supports
 //  - creating a singleton bag (constant work)
@@ -122,3 +124,4 @@ private:
   }	     
 
 };
+}

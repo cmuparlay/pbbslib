@@ -53,15 +53,16 @@ namespace pbbs {
     }
   }
 
-  template <class T, class GetKey>
-  void seq_radix_sort(sequence<T> const &In, sequence<T> &Out,
-		      GetKey const &g,
+  template <class Slice, class GetKey>
+  void seq_radix_sort(Slice In, Slice Out, GetKey const &g,
 		      size_t bits, bool inplace=true) {
+    using Iter = typename Slice::Iter;
+    using T = typename Slice::T;
     size_t n = In.size();
     if (n == 0) return;
     size_t counts[max_buckets+1];
-    T* InA = In.begin();
-    T* OutA = Out.begin();
+    Iter InA = In.begin();
+    Iter OutA = Out.begin();
     bool swapped = false;
     int bit_offset = 0;
     while (bits > 0) {
@@ -87,9 +88,8 @@ namespace pbbs {
   // key_bits specifies how many bits there are left
   // if inplace is true, then result will be in In, otherwise in Out
   // In and Out cannot be the same
-  template <typename T, typename Get_Key>
-  void integer_sort_r(sequence<T> &In,  sequence<T> &Out,
-		      Get_Key const &g, 
+  template <typename Slice, typename Get_Key>
+  void integer_sort_r(Slice In, Slice Out, Get_Key const &g, 
 		      size_t key_bits, bool inplace) {
     size_t n = In.size();
     timer t;
@@ -99,8 +99,8 @@ namespace pbbs {
 	parallel_for(0, In.size(), [&] (size_t i) {Out[i] = In[i];});
       
     // for small inputs use sequential radix sort
-	  } else if (n < (1 << 15)) {
-      seq_radix_sort<T>(In, Out, g, key_bits, inplace);
+    } else if (n < (1 << 15)) {
+      seq_radix_sort(In, Out, g, key_bits, inplace);
     
     // few bits, just do a single parallel count sort
     } else if (key_bits <= radix) {
@@ -108,7 +108,7 @@ namespace pbbs {
       size_t num_buckets = (1 << key_bits);
       size_t mask = num_buckets - 1;
       auto f = [&] (size_t i) {return g(In[i]) & mask;};
-      auto get_bits = make_sequence<size_t>(n, f);
+      auto get_bits = delayed_seq<size_t>(n, f);
       if (inplace) count_sort(In, In, get_bits, num_buckets);
       else count_sort(In, Out, get_bits, num_buckets);
       
@@ -119,10 +119,11 @@ namespace pbbs {
       size_t buckets = (1 << bits);
       size_t mask = buckets - 1;
       auto f = [&] (size_t i) {return (g(In[i]) >> shift_bits) & mask;};
-      auto get_bits = make_sequence<size_t>(n, f);
+      auto get_bits = delayed_seq<size_t>(n, f);
 
       // divide into buckets
       sequence<size_t> offsets = count_sort(In, Out, get_bits, buckets);
+      //if (n > 10000000) t.next("count sort");
 
       // recursively sort each bucket
       parallel_for(0, buckets, [&] (size_t i) {
@@ -141,10 +142,11 @@ namespace pbbs {
   //    but if inplace is true, then result will be put back into In
   // val_bits specifies how many bits there are in the key
   //    if set to 0, then a max is taken over the keys to determine
-  template <typename T, typename Get_Key>
-  void integer_sort(sequence<T> &In, sequence<T> &Out,
+  template <typename SeqIn, typename SeqOut, typename Get_Key>
+  void integer_sort_(SeqIn &In, SeqOut &Out,
 		    Get_Key const &g, 
 		    size_t key_bits=0, bool inplace=false) {
+    using T = typename SeqIn::T;
     if (In.begin() == Out.begin()) {
       cout << "in integer_sort : input and output must be different locations" << endl;
       abort();}
@@ -153,25 +155,25 @@ namespace pbbs {
       auto get_key = [&] (size_t i) -> P {
 	size_t k =g(In[i]);
 	return P(k,k);};
-      auto keys = make_sequence<P>(In.size(), get_key);
+      auto keys = delayed_seq<P>(In.size(), get_key);
       size_t min_val, max_val;
       std::tie(min_val,max_val) = reduce(keys, minmaxm<size_t>());
       key_bits = log2_up(max_val - min_val + 1);
-      cout << key_bits << endl;
       if (min_val > max_val / 4) {
 	auto h = [&] (T a) {return g(a) - min_val;};
-	integer_sort_r(In, Out, h, key_bits, inplace);
+	integer_sort_r(In.slice(), Out.slice(), h, key_bits, inplace);
 	return;
       }
     }
-    integer_sort_r(In, Out, g, key_bits, inplace);
+    integer_sort_r(In.slice(), Out.slice(), g, key_bits, inplace);
   }
 
-  template <typename T, typename Get_Key>
-  void integer_sort(sequence<T> &In,
+  template <typename Seq, typename Get_Key>
+  void integer_sort(Seq &In,
 		    Get_Key const &g,
 		    size_t key_bits=0) {
-    sequence<T> Tmp = sequence<T>::alloc_no_init(In.size());
-    integer_sort(In, Tmp, g, key_bits, true);
+    using T = typename Seq::T;
+    sequence<T> Tmp = sequence<T>::no_init(In.size());
+    integer_sort_(In, Tmp, g, key_bits, true);
   }
 }

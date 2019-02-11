@@ -245,16 +245,13 @@ namespace pbbs {
     size_t count() {
       auto is_full = [&] (size_t i) -> size_t {
 	return (TA[i] == empty) ? 0 : 1;};
-      return reduce_add(make_sequence<size_t>(m, is_full));
+      return reduce(delayed_seq<size_t>(m, is_full), addm<size_t>());
     }
 
     // returns all the current entries compacted into a sequence
     sequence<eType> entries() {
-      auto is_full = [&] (const size_t i) -> bool {
-	return (TA[i] != empty);};
-      sequence<eType> S = sequence<eType>(TA, m);
-      sequence<eType> R = pack(S, make_sequence<bool>(m, is_full));
-      return R;
+      return filter(slice_t<eType*>(TA, TA+m),
+		    [&] (eType v) {return v != empty;});
     }
 
     index findIndex(kType v) {

@@ -9,6 +9,8 @@
 //   static T identity() : returns identity for the monoid
 //   static T add(T, T) : adds two elements, must be associative
 
+namespace pbbs {
+
 template <class F, class TT>
 struct monoid {
   using T = TT;
@@ -18,7 +20,7 @@ struct monoid {
 };
 
 template <class F, class T>
-monoid<T,F> make_monoid (F f, T id) {
+monoid<F,T> make_monoid (F f, T id) {
   return monoid<F,T>(f, id);
 }
 
@@ -125,3 +127,4 @@ struct Add_Nested_Array {
   }
 };
 
+}

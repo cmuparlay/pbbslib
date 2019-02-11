@@ -108,7 +108,7 @@ namespace pbbs {
     parallel_for(0, n, set_f, 10000);
 
     auto f = [&] (size_t i) {return &Str[i];};
-    auto offset = make_sequence<char*>(n, f);
+    auto offset = delayed_seq<char*>(n, f);
     return pack(offset, FL);
   }
 

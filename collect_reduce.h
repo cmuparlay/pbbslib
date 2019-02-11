@@ -76,7 +76,7 @@ namespace pbbs {
 
     num_blocks = 1 << log2_up(num_blocks);
 
-    OutVal* Out = new_array<OutVal>(num_buckets);
+    sequence<OutVal> Out(num_buckets);
 
     // if insufficient parallelism, sort sequentially
     if (n < CR_SEQ_THRESHOLD || num_blocks == 1 || num_threads == 1)
@@ -96,14 +96,14 @@ namespace pbbs {
     parallel_for (0, num_blocks, block_f, 1);
     
     auto sum_buckets = [&] (size_t i) {
-      OutVal O = monoid.identity;
+      OutVal o_val = monoid.identity;
       for (size_t j = 0; j < num_blocks; j++)
-	O = monoid.f(O, OutM[i + j*num_buckets]);
-      Out[i] = O;
+	o_val = monoid.f(o_val, OutM[i + j*num_buckets]);
+      Out[i] = o_val;
     };
     parallel_for(0, num_buckets, sum_buckets, 1);
     delete_array(OutM, m);
-    return sequence<OutVal>(Out,num_buckets);
+    return Out;
   }
 
   // this one is for many buckets but no more than len(A) buckets
@@ -130,9 +130,9 @@ namespace pbbs {
     // Keys that share low 4 bits get same bucket unless big.
     // This is to avoid false sharing.
     auto get_i = [&] (size_t i) -> size_t {return get_index(A[i]);};
-    auto s = make_sequence<size_t>(n,get_i);
+    auto s = delayed_seq<size_t>(n,get_i);
     get_bucket<decltype(s)> x(s, bits-1);
-    auto get_buckets = make_sequence<size_t>(n, x);
+    auto get_buckets = delayed_seq<size_t>(n, x);
     //sequence<size_t> get_buckets(n, [&] (size_t i) {return 0;});
 
     // first buckets based on hash using a counting sort
@@ -157,7 +157,7 @@ namespace pbbs {
       // large buckets have indices in top half
       else if (end > start) {
 	auto x = [&] (size_t i) {return get_val(A[i]);};
-	auto vals = make_sequence<size_t>(n, x);
+	auto vals = delayed_seq<size_t>(n, x);
 	sums[get_index(A[i])] = reduce(vals, monoid);
       }
     };
@@ -206,10 +206,10 @@ namespace pbbs {
     // Keys that share low 4 bits get same bucket unless big.
     // This is to avoid false sharing.
     auto get_i = [&] (size_t i) -> size_t {return A[i].first;};
-    auto s = make_sequence<size_t>(n,get_i);
+    auto s = delayed_seq<size_t>(n,get_i);
     get_bucket<decltype(s)> x(s, bits-1);
-    auto get_buckets = make_sequence<size_t>(n, x);
-    sequence<T> B = std::move(sequence<T>::alloc_no_init(n));
+    auto get_buckets = delayed_seq<size_t>(n, x);
+    sequence<T> B = sequence<T>::no_init(n);
     
     // first buckets based on hash using a counting sort
     sequence<size_t> bucket_offsets 
@@ -223,8 +223,7 @@ namespace pbbs {
     if (sz < 128000) factor += (17 - log2_up(sz))*.15;
     uint table_size = (factor * sz);
     size_t total_table_size = table_size * num_tables;
-    sequence<T> table
-      = sequence<T>::alloc_no_init(total_table_size);
+    sequence<T> table = sequence<T>::no_init(total_table_size);
     sequence<size_t> sizes(num_tables + 1);
     //t.next("alloc");
 	
@@ -257,7 +256,7 @@ namespace pbbs {
       size_t len = bucket_offsets[num_tables + i + 1] - start_l;
       if (len > 0) {
 	auto f = [&] (size_t i) -> val_type {return B[i+start_l].second;};
-	auto s = make_sequence<val_type>(len, f);
+	auto s = delayed_seq<val_type>(len, f);
 	val_type x = reduce(s, monoid);
 	size_t k = 0;
 	while (my_table[k].first != empty) k++;
@@ -280,7 +279,7 @@ namespace pbbs {
     //t.next("scan");
 
     // copy packed tables into contiguous result
-    sequence<T> result = sequence<T>::alloc_no_init(total);
+    sequence<T> result = sequence<T>::no_init(total);
     auto copy_f = [&] (size_t i) {
       size_t d_offset = sizes[i];
       size_t s_offset = i * table_size;

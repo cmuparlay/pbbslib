@@ -136,7 +136,8 @@ namespace pbbs {
     size_t m = num_buckets * num_blocks;
     sequence<s_size_t> dest_offsets; //(m);
     auto add = addm<s_size_t>();
-
+    //cout << "ss 8" << endl;
+      
     // for smaller input do non-cache oblivious version
     if (n < (1 << 22) || num_buckets <= 512 || num_blocks <= 512) {
       size_t block_bits = log2_up(num_blocks);      
@@ -165,21 +166,26 @@ namespace pbbs {
 	}
       };
       parallel_for(0, num_blocks, f, 1);
+      free_array(counts);
     } else { // for larger input do cache efficient transpose
       sequence<s_size_t> source_offsets(counts,m);
       dest_offsets = sequence<s_size_t>(m);
       size_t total;
       transpose<s_size_t>(counts, dest_offsets.begin()).trans(num_blocks,
 							      num_buckets);
+
+
+      //cout << "ss 9" << endl;
       // do both scans inplace
-      std::tie(dest_offsets, total) = scan(std::move(dest_offsets), add);
+      total = scan_inplace(dest_offsets, add);
       if (total != n) abort();
-      std::tie(source_offsets,total) = scan(std::move(source_offsets), add);
+      total = scan_inplace(source_offsets, add);
       if (total != n) abort();
       source_offsets[m] = n;
 
       blockTrans<E,s_size_t>(From, To, source_offsets.begin(),
 			     dest_offsets.begin()).trans(num_blocks, num_buckets);
+      //cout << "ss 10" << endl;
     }
 
     size_t *bucket_offsets = new_array_no_init<size_t>(num_buckets+1);

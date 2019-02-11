@@ -73,7 +73,7 @@ namespace pbbs {
     T r = reduce(Sums, m);
     return r;
   }
-
+  
   // sums I with + (can be any type with + defined)
   template <class Seq>
   auto reduce_add(Seq const &I, flags fl = no_flag)
@@ -84,71 +84,6 @@ namespace pbbs {
   }
 
   const flags fl_scan_inclusive = (1 << 4);
-
-  template <class Seq, class F>
-  auto reduce_serialo(Seq A, const F& f) -> typename Seq::T {
-    using T = typename Seq::T;
-    T r = A[0];
-    for (size_t j=1; j < A.size(); j++) r = f(r,A[j]);
-    return r;
-  }
-
-    // serial scan with combining function f and start value zero
-  // fl_scan_inclusive indicates it includes the current location
-  template <class In_Seq, class Out_Seq, class F>
-  auto scan_serialo(In_Seq In, Out_Seq Out,
-		   const F& f, typename In_Seq::T zero,
-		   flags fl = no_flag)  -> typename In_Seq::T
-  {
-    using T = typename In_Seq::T;
-    T r = zero;
-    size_t n = In.size();
-    bool inclusive = fl & fl_scan_inclusive;
-    if (inclusive) {
-      for (size_t i = 0; i < n; i++) {
-	r = f(r,In[i]);
-	Out.update(i,r);
-      }
-    } else {
-      for (size_t i = 0; i < n; i++) {
-	T t = In[i];
-	Out.update(i,r);
-	r = f(r,t);
-      }
-    }
-    return r;
-  }
-
-  // parallel version of scan_serial -- see comments above
-  template <class In_Seq, class Out_Seq, class F>
-  auto scano(In_Seq In, Out_Seq Out,
-	    const F& f, typename In_Seq::T zero,
-	    flags fl = no_flag)  -> typename In_Seq::T
-  {
-    using T = typename In_Seq::T;
-    size_t n = In.size();
-    size_t l = num_blocks(n,_block_size);
-    if (l <= 2 || fl & fl_sequential)
-      return scan_serialo(In, Out, f, zero, fl);
-    sequence<T> Sums(l);
-    sliced_for (n, _block_size,
-		[&] (size_t i, size_t s, size_t e)
-		{ Sums[i] = reduce_serialo(In.slice(s,e),f);});
-    T total = scan_serialo(Sums, Sums, f, zero, 0);
-    sliced_for (n, _block_size,
-		[&] (size_t i, size_t s, size_t e)
-		{ scan_serialo(In.slice(s,e), Out.slice(s,e), f, Sums[i], fl);});
-    return total;
-  }
-
-  template <class In_Seq, class Out_Seq>
-  auto scan_add(In_Seq In, Out_Seq Out, flags fl = no_flag)
-    -> typename In_Seq::T
-  {
-    using T = typename In_Seq::T;
-    auto add = [] (T x, T y) {return x + y;};
-    return scano(In, Out, add, (T) 0, fl);
-  }
 
   template <class In_Seq, class Out_Seq, class Monoid>
   auto scan_serial(In_Seq const &In, Out_Seq &Out,
@@ -162,19 +97,18 @@ namespace pbbs {
     if (inclusive) {
       for (size_t i = 0; i < n; i++) {
 	r = m.f(r,In[i]);
-	Out.update(i,r);
+	Out[i] = r;
       }
     } else {
       for (size_t i = 0; i < n; i++) {
 	T t = In[i];
-	Out.update(i,r);
+	Out[i] = r;
 	r = m.f(r,t);
       }
     }
     return r;
   }
 
-  // parallel version of scan_serial -- see comments above
   template <class In_Seq, class Out_Seq, class Monoid>
   auto scan_(In_Seq const &In, Out_Seq &Out, Monoid const &m,
 	     flags fl = no_flag) -> typename In_Seq::T
@@ -203,7 +137,7 @@ namespace pbbs {
 
   template <class In_Seq, class Monoid>
   auto scan(In_Seq const &In, Monoid m, flags fl = no_flag)
-    ->  std::pair<sequence<typename In_Seq::T>,typename In_Seq::T>
+    ->  std::pair<sequence<typename In_Seq::T>, typename In_Seq::T>
   {
     using T = typename In_Seq::T;
     sequence<T> Out(In.size());
@@ -227,52 +161,51 @@ namespace pbbs {
   }
 
   template <class In_Seq, class Bool_Seq>
-  inline auto pack_serial(In_Seq const &In, Bool_Seq const &Fl,
-                          typename In_Seq::T* _Out = nullptr)
+  auto pack_serial(In_Seq const &In, Bool_Seq const &Fl)
       -> sequence<typename In_Seq::T> {
     using T = typename In_Seq::T;
-    T* Out;
     size_t n = In.size();
-    Out = (_Out) ? _Out : new_array_no_init<T>(sum_bools_serial(Fl));
+    size_t m = sum_bools_serial(Fl);
+    sequence<T> Out = sequence<T>::no_init(m);
     size_t k = 0;
     for (size_t i = 0; i < n; i++)
       if (Fl[i]) assign_uninitialized(Out[k++], In[i]);
-    return sequence<T>(Out, k, (_Out) ? false : true);
+    return Out;
   }
 
-  template <class In_Seq, class Bool_Seq>
-  void pack_serial_at(In_Seq const &In, typename In_Seq::T* Out,
-		      Bool_Seq const &Fl) {
+  template <class Slice, class Slice2>
+  void pack_serial_at(Slice In, Slice2 Fl, typename Slice::T* Out) {
     size_t k = 0;
     for (size_t i=0; i < In.size(); i++)
       if (Fl[i]) assign_uninitialized(Out[k++], In[i]);
   }
 
   template <class In_Seq, class Bool_Seq>
-  inline auto pack(In_Seq const &In, Bool_Seq const &Fl, flags fl = no_flag,
-                   typename In_Seq::T* _Out = nullptr)
+  auto pack(In_Seq const &In, Bool_Seq const &Fl, flags fl = no_flag)
+  //typename In_Seq::T* _Out = nullptr)
       -> sequence<typename In_Seq::T> {
     using T = typename In_Seq::T;
     size_t n = In.size();
     size_t l = num_blocks(n, _block_size);
     if (l <= 1 || fl & fl_sequential) {
-      return pack_serial(In, Fl.slice(0, In.size()), _Out);
+      return pack_serial(In, Fl.slice(0, In.size()));
     }
     sequence<size_t> Sums(l);
-    sliced_for(n, _block_size, [&](size_t i, size_t s, size_t e) {
+    sliced_for(n, _block_size, [&] (size_t i, size_t s, size_t e) {
       Sums[i] = sum_bools_serial(Fl.slice(s, e));
     });
     size_t m = scan_inplace(Sums, addm<size_t>());
-    T* Out = (_Out) ? _Out : new_array_no_init<T>(m);
+    sequence<T> Out = sequence<T>::no_init(m);
     sliced_for(n, _block_size, [&](size_t i, size_t s, size_t e) {
-	pack_serial(In.slice(s, e),  Fl.slice(s, e), Out + Sums[i]);
+	pack_serial_at(In.slice(s, e),  Fl.slice(s, e),
+		       Out.begin() + Sums[i]);
     });
-    return sequence<T>(Out, m, (_Out) ? false : true);
+    return Out;
   }
 
   template <class In_Seq, class F>
-  auto filter(In_Seq const &In, F const &f, flags fl = no_flag,
-	      typename In_Seq::T* _Out = nullptr)
+  auto filter(In_Seq const &In, F const &f, flags fl = no_flag)
+  //typename In_Seq::T* _Out = nullptr)
     -> sequence<typename In_Seq::T>
   {
     using T = typename In_Seq::T;
@@ -286,25 +219,26 @@ namespace pbbs {
 		  for (size_t j=s; j < e; j++)
 		    r += (Fl[j] = f(In[j]));
 		  Sums[i] = r;});
-    size_t m;
-    std::tie(Sums,m) = scan(std::move(Sums), addm<size_t>());
-    T* Out = (_Out != nullptr) ? _Out : new_array_no_init<T>(m);
+    size_t m = scan_inplace(Sums, addm<size_t>());
+    sequence<T> Out = sequence<T>::no_init(m);
     sliced_for (n, _block_size,
 		[&] (size_t i, size_t s, size_t e)
-		{ pack_serial(In.slice(s,e),
-			      Fl.slice(s,e),
-			      Out + Sums[i]);});
-    return sequence<T>(Out,m,(_Out == nullptr));
+		{ pack_serial_at(In.slice(s,e),
+				 Fl.slice(s,e),
+				 Out.begin() + Sums[i]);});
+    return Out;
   }
 
   template <class Idx_Type, class Bool_Seq>
   sequence<Idx_Type> pack_index(Bool_Seq const &Fl, flags fl = no_flag) {
     auto identity = [] (size_t i) {return (Idx_Type) i;};
-    return pack(make_sequence<Idx_Type>(Fl.size(),identity), Fl, fl);
+    return pack(delayed_seq<Idx_Type>(Fl.size(),identity), Fl, fl);
   }
 
   template <class In_Seq, class Out_Seq, class Char_Seq>
-  std::pair<size_t,size_t> split_three(In_Seq const &In, Out_Seq &Out, Char_Seq const &Fl,
+  std::pair<size_t,size_t> split_three(In_Seq const &In,
+				       Out_Seq &Out,
+				       Char_Seq const &Fl,
 				       flags fl = no_flag) {
     size_t n = In.size();
     if (In.begin() == Out.begin()) {

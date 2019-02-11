@@ -178,7 +178,7 @@ namespace pbbs {
     // Keys that share low 4 bits get same bucket unless big.
     // This is to avoid false sharing.
     get_bucket<Seq> x(A, bits-1);
-    auto get_buckets = make_sequence<size_t>(n, x);
+    auto get_buckets = delayed_seq<size_t>(n, x);
     sequence<T> B(n);
 
     // first buckets based on hash using a counting sort

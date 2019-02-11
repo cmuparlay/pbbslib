@@ -4,7 +4,7 @@
 #include "binary_search.h"
 
 namespace pbbs {
-  // not yet optimized to use moves instead of copies.
+  // TODO: not yet optimized to use moves instead of copies.
 
   // the following parameter can be tuned
   constexpr const size_t _merge_base = PAR_GRANULARITY; 
@@ -44,9 +44,9 @@ namespace pbbs {
     if (nR < _merge_base)
       seq_merge(A, B, R, f);
     else if (nA == 0)
-      parallel_for(0, nB, [&] (size_t i) {R.update(i,B[i]);});
+      parallel_for(0, nB, [&] (size_t i) {R[i] = B[i];});
     else if (nB == 0)
-      parallel_for(0, nA, [&] (size_t i) {R.update(i,A[i]);});
+      parallel_for(0, nA, [&] (size_t i) {R[i] = A[i];});
     else {
       size_t mA = nA/2;
       // important for stability that binary search identifies

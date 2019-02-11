@@ -33,7 +33,7 @@
 #include "utilities.h"
 #include "sequence_ops.h"
 #include "quicksort.h"
-//#include "merge_sort.h"
+#include "merge_sort.h"
 #include "transpose.h"
 
 namespace pbbs {
@@ -65,20 +65,36 @@ namespace pbbs {
     *sC = eA-sA;
   }
 
-  template<typename s_size_t = size_t, class Seq, typename BinPred>
-  auto sample_sort_ (Seq A, const BinPred& f, bool inplace = false, bool stable = false)
-    -> sequence<typename Seq::T> {
-    using E = typename Seq::T;
+  template<class SeqA, class SeqB, typename BinPred>
+  void sort_small_(SeqA A, SeqB B, const BinPred& f,
+		   bool inplace = false, bool stable = false) {
+    using T = typename SeqA::T;
+    size_t n = A.size();
+    if (stable) {
+      if (inplace) {
+	sequence<T> C(n);
+	merge_sort_(A.slice(), C.slice(), f, true);
+      } else merge_sort_(A.slice(), B.slice(), f, false);
+    } else {
+      if (!inplace) 
+	parallel_for(0, n, [&] (size_t i) { B[i] = A[i];});
+      quicksort(B.begin(), n, f);
+    }
+  }
+
+  template<typename E, typename BinPred, typename s_size_t>
+  void sample_sort (E* A, s_size_t n, const BinPred& f, bool stable = false);
+
+    
+  template<typename s_size_t = size_t, class SeqA, class SeqB, typename BinPred>
+  void sample_sort_ (SeqA A, SeqB B, const BinPred& f,
+		     bool inplace = false, bool stable = false) {
+    using T = typename SeqA::T;
     size_t n = A.size();
 
     //if (n == 0) return A;
     if (n < QUICKSORT_THRESHOLD) {
-      sequence<E> B;
-      auto y = [&] (size_t i) -> E {return A[i];};
-      if (inplace) B = A.as_sequence();
-      else B = sequence<E>(n, y);
-      quicksort(B.begin(), n, f);
-      return B;
+      sort_small_(A,B, f, inplace, stable);
     } else {
       timer t;
       size_t bucket_quotient = 5;
@@ -86,7 +102,7 @@ namespace pbbs {
       if (is_pointer(A[0])) {
 	bucket_quotient = 2;
 	block_quotient = 3;
-      } else if (sizeof(E) > 8) {
+      } else if (sizeof(T) > 8) {
 	bucket_quotient = block_quotient = 4;
       }
       size_t sqrt = (size_t) ceil(pow(n,0.5));
@@ -95,100 +111,105 @@ namespace pbbs {
       size_t num_buckets = (sqrt/bucket_quotient) + 1;
       size_t sample_set_size = num_buckets * OVER_SAMPLE;
       size_t m = num_blocks*num_buckets;
-    
-      E* sample_set = new_array<E>(sample_set_size);
 
       // generate "random" samples with oversampling
-      auto hash_f = [&] (size_t j) {
-	sample_set[j] = A[hash64(j)%n];};
-      parallel_for(0, sample_set_size, hash_f, 1000);
+      sequence<T> sample_set(sample_set_size, [&] (size_t i) {
+	  return A[hash64(i)%n];});
       
       // sort the samples
-      quicksort(sample_set, sample_set_size, f);
+      quicksort(sample_set.begin(), sample_set_size, f);
 
       // subselect samples at even stride
-      E* pivots = new_array<E>(num_buckets-1);
-      auto pivot_f = [&] (size_t k) {
-	pivots[k] = sample_set[OVER_SAMPLE*k];};
-      parallel_for(0, num_buckets-1, pivot_f, 1000);
+      sequence<T> pivots(num_buckets-1, [&] (size_t i) {
+	  return sample_set[OVER_SAMPLE*i];});
 
-      delete_array(sample_set,sample_set_size);
-
-      sequence<E> Bs;
-      if (inplace) Bs = A.as_sequence();
-      else Bs = sequence<E>(new_array_no_init<E>(n,1), n);
-      E* B = Bs.begin();
-      E *C = new_array_no_init<E>(n,1);
+      sequence<T> C = sequence<T>::no_init(n);
       
       // sort each block and merge with samples to get counts for each bucket
       s_size_t *counts = new_array_no_init<s_size_t>(m+1,1);
       counts[m] = 0;
       parallel_for (0, num_blocks,  [&] (size_t i) {
-	  size_t start = i * block_size;
-	  size_t l = (i < num_blocks - 1) ? block_size : n - start;
-	  if (!inplace)
-	    for (size_t j = start;  j < start + l; j++) 
-	      assign_uninitialized(B[j], A[j]);
-	  if (stable) // if stable then use mergesort
-	    {} //merge_sort_(sequence<E>(B+start, l), sequence<E>(C+start,l), f, 1);
+	  size_t start = std::min(n, i * block_size);
+	  size_t end = std::min(n, start + block_size);
+	  size_t l = end-start;
+	  if (stable || is_pointer(A[0]))
+	    merge_sort_(A.slice(start,end), C.slice(start,end), f);
 	  else {
+	    if (inplace)
+	      for (size_t j = start;  j < start + l; j++) 
+		move_uninitialized(C[j], A[j]);
+	    else
+	      for (size_t j = start;  j < start + l; j++) 
+		assign_uninitialized(C[j], A[j]);
 #if defined(OPENMP)
-	    quicksort_serial(B+start, l, f);
+	    quicksort_serial(C.begin()+start, l, f);
 #else
-	    quicksort(B+start, l, f);
+	    quicksort(C.begin()+start, l, f);
+	    //sample_sort(C.begin()+start, l, f);
+	    //std::sort(C.begin() + start, C.begin() + end, f);
 #endif
 	  }
-	  merge_seq(B + start, pivots, counts + i*num_buckets,
+	  merge_seq(C.begin() + start, pivots.begin(), counts + i*num_buckets,
 		    l, num_buckets-1, f);
 	}, 1);
-      
+
+      cout << "ss 2" << endl;
       // move data from blocks to buckets
-      size_t* bucket_offsets = transpose_buckets(B, C, counts, n, block_size,
+      size_t* bucket_offsets = transpose_buckets(C.begin(), B.begin(),
+						 counts, n, block_size,
 						 num_blocks, num_buckets);
-      delete_array(counts, m);
+      //delete_array(counts, m);
+      cout << "ss 2.5" << endl;
       
       // sort within each bucket
       parallel_for (0, num_buckets, [&] (size_t i) {
-	size_t start = bucket_offsets[i];
-	size_t end = bucket_offsets[i+1];
-	size_t l = end-start;
+	  size_t start = bucket_offsets[i];
+	  size_t end = bucket_offsets[i+1];
+	  size_t l = end-start;
 
-	// middle buckets need not be sorted if two consecutive pivots
-	// are equal
-	if (i == 0 || i == num_buckets - 1 || f(pivots[i-1],pivots[i])) {
-	  if (stable)
-	    {} //merge_sort_(sequence<E>(C+start,l), sequence<E>(B+start,l), f, 1);
-	  else {
+	  // buckets need not be sorted if two consecutive pivots
+	  // are equal
+	  if (i == 0 || i == num_buckets - 1 || f(pivots[i-1],pivots[i])) {
+	    if (stable || is_pointer(A[0]))
+	      merge_sort_(C.slice(start,end), B.slice(start,end), f);
+	    else {
 #if defined(OPENMP)
-	    quicksort_serial(C+start, l, f);
+	      quicksort_serial(B.begin()+start, l, f);
 #else
-	    quicksort(C+start, l, f);
+	      quicksort(B.begin()+start, l, f);
+	      //sample_sort(B.begin()+start, l, f);
+	      //std::sort(B.begin() + start, B.begin() + end, f);
 #endif
+	    }
 	  }
-	}
-	if (inplace) // move back to B
-	  parallel_for (start, end, [&] (size_t k) {
-	   move_uninitialized(B[k], C[k]);}, 1000);
 	}, 1);
-      
-      delete_array(pivots,num_buckets-1);
+
+      cout << "ss 3" << endl;
       delete_array(bucket_offsets,num_buckets+1 );
-      if (inplace) {free_array(C); return Bs;}
-      else {free_array(B); return sequence<E>(C,n,true);}
     }
   }
 
   template<class Seq, typename BinPred>
-  auto sample_sort (Seq &A, const BinPred& f, bool inplace = false, bool stable = false)
+  auto sample_sort (Seq &A, const BinPred& f, bool stable = false)
     -> sequence<typename Seq::T> {
+    using T = typename Seq::T;
+    sequence<T> R = sequence<T>::no_init(A.size());
     if (A.size() < ((size_t) 1) << 32)
-      return sample_sort_<unsigned int>(A.slice(), f, inplace, stable);
-    else return sample_sort_<size_t>(A.slice(), f, inplace, stable);
+      sample_sort_<unsigned int>(A.slice(), R.slice(), f, false, stable);
+    else sample_sort_<size_t>(A.slice(), R.slice(), f, false, stable);
+    return R;
+  }
+
+  template<class Seq, typename BinPred>
+  void sample_sort_inplace (Seq &A, const BinPred& f, bool stable = false) {
+    if (A.size() < ((size_t) 1) << 32)
+      sample_sort_<unsigned int>(A.slice(), A.slice(), f, true, stable);
+    else sample_sort_<size_t>(A.slice(), A.slice(), f, true, stable);
   }
     
   template<typename E, typename BinPred, typename s_size_t>
-  void sample_sort (E* A, s_size_t n, const BinPred& f, bool stable = false) {
-    sequence<E> B(A,A+n);
-    sample_sort_<s_size_t>(B, f, true, stable);
+  void sample_sort (E* A, s_size_t n, const BinPred& f, bool stable) { // = false) {
+    slice_t<E*> B(A,A+n);
+    sample_sort_inplace(B, f, stable);
   }
 }

@@ -60,11 +60,11 @@ namespace pbbs {
     auto rand_pos = [&] (size_t i) -> size_t {
       return r.ith_rand(i) & mask;};
 
-    auto get_pos = make_sequence<size_t>(n, rand_pos);
+    auto get_pos = delayed_seq<size_t>(n, rand_pos);
 
     // first randomly sorts based on random values [0,num_buckets)
     sequence<size_t> bucket_offsets = count_sort(In, Out, get_pos, num_buckets);
-
+    
     // now sequentially randomly shuffle within each bucket
     auto bucket_f = [&] (size_t i) {
       size_t start = bucket_offsets[i];
@@ -77,15 +77,8 @@ namespace pbbs {
   template <typename Seq>
   sequence<typename Seq::T> random_shuffle(Seq const &In, random r = default_random) {
     using T = typename Seq::T;
-    sequence<T> Out = std::move(sequence<T>::alloc_no_init(In.size()));
+    sequence<T> Out = sequence<T>::no_init(In.size());
     random_shuffle_(In, Out, r);
-    return Out;
-  }
-
-  template <typename T>
-  sequence<T> random_shuffle(sequence<T> &&In, random r = default_random) {
-    sequence<T> Out = std::move(In);
-    random_shuffle_(Out, Out, r);
     return Out;
   }
 
@@ -93,6 +86,6 @@ namespace pbbs {
   inline sequence<intT> random_permutation(size_t n,
                                            random r = default_random) {
     sequence<intT> id(n, [&] (size_t i) { return i; });
-    return pbbs::random_shuffle(std::move(id), r);
+    return pbbs::random_shuffle(id, r);
   }
 }
