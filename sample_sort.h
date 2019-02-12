@@ -153,13 +153,13 @@ namespace pbbs {
 		    l, num_buckets-1, f);
 	}, 1);
 
-      cout << "ss 2" << endl;
+      //cout << "ss 2" << endl;
       // move data from blocks to buckets
       size_t* bucket_offsets = transpose_buckets(C.begin(), B.begin(),
 						 counts, n, block_size,
 						 num_blocks, num_buckets);
       //delete_array(counts, m);
-      cout << "ss 2.5" << endl;
+      //cout << "ss 2.5" << endl;
       
       // sort within each bucket
       parallel_for (0, num_buckets, [&] (size_t i) {
@@ -184,7 +184,7 @@ namespace pbbs {
 	  }
 	}, 1);
 
-      cout << "ss 3" << endl;
+      //cout << "ss 3" << endl;
       delete_array(bucket_offsets,num_buckets+1 );
     }
   }

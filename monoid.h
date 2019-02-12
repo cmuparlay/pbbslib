@@ -49,6 +49,14 @@ struct minm {
 };
 
 template <class TT>
+struct xorm {
+  using T = TT;
+  xorm() : identity(std::numeric_limits<TT>::lowest()) {}
+  T identity;
+  static T f(T a, T b) {return a ^ b;}
+};
+
+template <class TT>
 struct minmaxm {
   using T = std::pair<TT,TT>;
   minmaxm() : identity(T(std::numeric_limits<TT>::max(),
