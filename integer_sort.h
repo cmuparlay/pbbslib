@@ -109,8 +109,10 @@ namespace pbbs {
       size_t mask = num_buckets - 1;
       auto f = [&] (size_t i) {return g(In[i]) & mask;};
       auto get_bits = delayed_seq<size_t>(n, f);
-      if (inplace) count_sort(In, In, get_bits, num_buckets);
-      else count_sort(In, Out, get_bits, num_buckets);
+      count_sort(In, Out, get_bits, num_buckets);
+      if (inplace)
+	parallel_for(0, n, [&] (size_t i) {
+	    move_uninitialized(In[i], Out[i]);});
       
     // recursive case  
     } else {
@@ -176,4 +178,5 @@ namespace pbbs {
     sequence<T> Tmp = sequence<T>::no_init(In.size());
     integer_sort_(In, Tmp, g, key_bits, true);
   }
+
 }
