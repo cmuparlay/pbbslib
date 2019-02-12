@@ -6,25 +6,6 @@
 namespace pbbs {
   // not yet optimized to use moves instead of copies.
 
-  template <class It, class Comp>
-void insertionSort(const It begin, const It end, Comp comp) {
-
-    for (It it = begin + 1; it < end; ++it) {
-        auto val = std::move(*it);
-        if (comp(val, *begin)) {
-            std::move_backward(begin, it, it + 1);
-            *begin = std::move(val);
-        } else {
-            auto cur = it;
-            for (auto next = it - 1; comp(val, *next); --next) {
-                *cur = std::move(*next);
-                cur = next;
-            }
-            *cur = std::move(val);
-        }
-    }
-}
-
   // Parallel mergesort
   // This sort is stable
   // if inplace is true then the output is placed in In and Out is just used
@@ -33,7 +14,7 @@ void insertionSort(const It begin, const It end, Comp comp) {
   void merge_sort_(SeqA In, SeqB Out, const F& f, bool inplace=false) {
     size_t n = In.size();
     if (base_case(In.begin(), n/2)) {
-      pbbs::insertionSort(In.begin(), In.begin()+n, f);
+      pbbs::insertion_sort(In.begin(), n, f);
       if (!inplace)
 	for (size_t i=0; i < n; i++) Out[i] = In[i];
       return;

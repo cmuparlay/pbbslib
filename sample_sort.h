@@ -132,7 +132,7 @@ namespace pbbs {
 	  size_t start = std::min(n, i * block_size);
 	  size_t end = std::min(n, start + block_size);
 	  size_t l = end-start;
-	  if (stable || is_pointer(A[0]))
+	  if (stable)
 	    merge_sort_(A.slice(start,end), C.slice(start,end), f);
 	  else {
 	    if (inplace)
@@ -170,8 +170,11 @@ namespace pbbs {
 	  // buckets need not be sorted if two consecutive pivots
 	  // are equal
 	  if (i == 0 || i == num_buckets - 1 || f(pivots[i-1],pivots[i])) {
-	    if (stable || is_pointer(A[0]))
-	      merge_sort_(C.slice(start,end), B.slice(start,end), f);
+	    // todo: using stable here breaks the permuted test??
+	    if (stable) {
+	      // final argument means to do it inplace, using C as temp
+	      merge_sort_(B.slice(start,end), C.slice(start,end), f, true);
+	    }
 	    else {
 #if defined(OPENMP)
 	      quicksort_serial(B.begin()+start, l, f);
