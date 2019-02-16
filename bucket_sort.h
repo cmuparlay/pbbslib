@@ -46,10 +46,11 @@ template <class T, class binOp>
 bool get_buckets(slice_t<T*> A, uchar* buckets, binOp f, size_t rounds) {
   size_t n = A.size();
   size_t num_buckets = (1 << rounds);
-  size_t over_sample = (n > 8196) ? 2 : 2; 
+  size_t over_sample = (n > 8196) ? 8 : 2; 
   size_t sample_set_size = num_buckets * over_sample;
   size_t num_pivots = num_buckets-1;
-  T sample_set[sample_set_size];
+  //T sample_set[sample_set_size];
+  T *sample_set = (T*) my_alloc(sample_set_size*sizeof(T));
 
   for (size_t i=0; i < sample_set_size; i++)
     sample_set[i] = A[hash64(i)%n];
@@ -57,7 +58,8 @@ bool get_buckets(slice_t<T*> A, uchar* buckets, binOp f, size_t rounds) {
   // sort the samples
   quicksort(sample_set, sample_set_size, f);
 
-  T pivots[num_pivots];
+  //T pivots[num_pivots];
+  T* pivots = (T*) my_alloc(num_pivots*sizeof(T));
   // subselect samples at even stride
   pivots[0] = sample_set[over_sample];
   for (size_t i=1; i < num_pivots; i++) 
@@ -65,7 +67,8 @@ bool get_buckets(slice_t<T*> A, uchar* buckets, binOp f, size_t rounds) {
 
   if (!f(pivots[0],pivots[num_pivots-1])) return true;
 
-  T pivots2[num_pivots];
+  //T pivots2[num_pivots];
+  T* pivots2 = sample_set;
   to_heap_order(pivots, pivots2, 0, 0, num_pivots);
 
   t.next("sample");
@@ -80,6 +83,7 @@ bool get_buckets(slice_t<T*> A, uchar* buckets, binOp f, size_t rounds) {
     //buckets[i] = j;
     buckets[i] = j-num_pivots;
   }
+  my_free(pivots); my_free(sample_set);
   return false;
 }
 

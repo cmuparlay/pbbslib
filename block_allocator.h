@@ -37,7 +37,7 @@
 #include "utilities.h"
 #include "memory_size.h"
 
-class block_allocator {
+struct block_allocator {
  private:
 
   static const size_t default_alloc_size = 1000000;
@@ -167,7 +167,7 @@ block_allocator::~block_allocator() {
     delete[] local_lists;
 
     maybe<uchar*> x;
-    while (x = pool_roots.pop()) std::free(*x);
+    while ((x = pool_roots.pop())) std::free(*x);
     pool_roots.clear();
     global_stack.clear();
 

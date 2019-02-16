@@ -65,6 +65,9 @@ struct maybe {
 	}
 };
 
+#if defined(__APPLE__)
+void* aligned_alloc(size_t a, size_t n) {return malloc(n);}
+#else
 #include <malloc.h>
 struct __mallopt {
   __mallopt() {
@@ -73,7 +76,8 @@ struct __mallopt {
   }
 };
 
-static __mallopt __mallopt_var;
+__mallopt __mallopt_var;
+#endif
 
 namespace pbbs {
 
