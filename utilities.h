@@ -7,6 +7,7 @@
 #include <type_traits>
 #include <type_traits>
 #include <math.h>
+#include <atomic>
 #include "parallel.h"
 
 using std::cout;
@@ -195,10 +196,10 @@ namespace pbbs {
   }
 
   template <typename ET>
-  inline bool atomic_compare_and_swap(ET* ptr, const ET oldv, const ET newv) {
+  inline bool atomic_compare_and_swap(ET* ptr, ET oldv, ET newv) {
     return __sync_bool_compare_and_swap(ptr, oldv, newv);
   }
-
+  
   template <typename ET>
   inline bool CAS_GCC(ET* ptr, const ET oldv, const ET newv) {
     return __sync_bool_compare_and_swap(ptr, oldv, newv);
@@ -232,11 +233,27 @@ namespace pbbs {
     while (!atomic_compare_and_swap(a, oldV, newV));
   }
 
+  template <typename E, typename EV>
+  inline void write_add(std::atomic<E> *a, EV b) {
+    //volatile E newV, oldV;
+    E newV, oldV;
+    do {oldV = a->load(); newV = oldV + b;}
+    while (!std::atomic_compare_exchange_strong(a, &oldV, newV));
+  }
+
   template <typename ET, typename F>
   inline bool write_min(ET *a, ET b, F less) {
     ET c; bool r=0;
     do c = *a;
     while (less(b,c) && !(r=CAS_GCC(a,c,b)));
+    return r;
+  }
+
+  template <typename ET, typename F>
+  inline bool write_min(std::atomic<ET> *a, ET b, F less) {
+    ET c; bool r=0;
+    do c = a->load();
+    while (less(b,c) && !(r=std::atomic_compare_exchange_strong(a, &c, b)));
     return r;
   }
 

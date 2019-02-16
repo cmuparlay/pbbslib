@@ -173,7 +173,8 @@ double t_scatter(size_t n) {
   pbbs::sequence<T> out(n, (T) 0);
   pbbs::sequence<T> idx(n, [&] (size_t i) {return r.ith_rand(i)%n;});
   auto f = [&] (size_t i) {
-      __builtin_prefetch (&out[idx[i+4]], 1, 1);
+    // prefetching makes little if any difference
+    //__builtin_prefetch (&out[idx[i+4]], 1, 1);
       out[idx[i]] = i;};
   time(t, parallel_for(0, n-4, f););
   return t;
@@ -182,11 +183,14 @@ double t_scatter(size_t n) {
 template<typename T>
 double t_write_add(size_t n) {
   pbbs::random r(0);
-  pbbs::sequence<T> out(n, (T) 0);
+  //pbbs::sequence<T> out(n, (T) 0);
+  pbbs::sequence<std::atomic<T>> out(n);
+  parallel_for(0,n,[&] (size_t i) {std::atomic_init(&out[i], (T) 0);});
   pbbs::sequence<T> idx(n, [&] (size_t i) {return r.ith_rand(i)%n;});
   auto f = [&] (size_t i) {
     // putting write prefetch in slows it down
     //__builtin_prefetch (&out[idx[i+4]], 0, 1);
+    //__sync_fetch_and_add(&out[idx[i]],1);};
     pbbs::write_add(&out[idx[i]],1);};
   time(t, parallel_for(0, n-4, f););
   return t;
@@ -195,7 +199,9 @@ double t_write_add(size_t n) {
 template<typename T>
 double t_write_min(size_t n) {
   pbbs::random r(0);
-  pbbs::sequence<T> out(n, (T) n);
+  pbbs::sequence<std::atomic<T>> out(n);
+  parallel_for(0,n,[&] (size_t i) {std::atomic_init(&out[i], (T) n);});
+  //pbbs::sequence<T> out(n, (T) n);
   pbbs::sequence<T> idx(n, [&] (size_t i) {return r.ith_rand(i)%n;});
   auto f = [&] (size_t i) {
     // putting write prefetch in slows it down

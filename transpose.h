@@ -82,15 +82,16 @@ namespace pbbs {
 
       void transR(size_t rStart, size_t rCount, size_t rLength,
 		  size_t cStart, size_t cCount, size_t cLength) {
-	if (cCount*rCount < TRANS_THRESHHOLD/2) {
+	if (cCount*rCount < TRANS_THRESHHOLD*16) {
 	  parallel_for(rStart, rStart+rCount, [&] (size_t i) {
 	    for (size_t j=cStart; j < cStart + cCount; j++) {
-	      E* pa = A+OA[i*rLength + j];
-	      E* pb = B+OB[j*cLength + i];
-	      size_t l = OA[i*rLength + j + 1] - OA[i*rLength + j];
+	      size_t sa = OA[i*rLength + j];
+	      size_t sb = OB[j*cLength + i];
+	      size_t l = OA[i*rLength + j + 1] - sa;
 	      for (size_t k =0; k < l; k++)
-		move_uninitialized(pb[k], pa[k]);
+		move_uninitialized(B[k+sb], A[k+sa]);
 	    }
+
           });
 	} else if (cCount > rCount) {
 	  size_t l1 = split(cCount);
@@ -131,8 +132,7 @@ namespace pbbs {
   size_t* transpose_buckets(E* From, E* To, s_size_t* counts, size_t n,
 			    size_t block_size,
 			    size_t num_blocks, size_t num_buckets) {
-    timer t;
-    t.start();
+    timer t("transpose", false);
     size_t m = num_buckets * num_blocks;
     sequence<s_size_t> dest_offsets; //(m);
     auto add = addm<s_size_t>();
@@ -151,9 +151,11 @@ namespace pbbs {
       // determine the destination offsets
       auto get = [&] (size_t i) {
 	return counts[(i>>block_bits) + num_buckets*(i&block_mask)];};
-      size_t sum;
-      std::tie(dest_offsets,sum) = scan(sequence<s_size_t>(m, get), add);
+      
+      dest_offsets = std::move(sequence<s_size_t>(m, get));
+      size_t sum = scan_inplace(dest_offsets, add);
       if (sum != n) abort();
+      t.next("seq and scan");
 
       // send each key to correct location within its bucket
       auto f = [&] (size_t i) {
@@ -166,6 +168,7 @@ namespace pbbs {
 	}
       };
       parallel_for(0, num_blocks, f, 1);
+      t.next("trans");
       free_array(counts);
     } else { // for larger input do cache efficient transpose
       sequence<s_size_t> source_offsets(counts,m);
@@ -173,7 +176,7 @@ namespace pbbs {
       size_t total;
       transpose<s_size_t>(counts, dest_offsets.begin()).trans(num_blocks,
 							      num_buckets);
-
+      t.next("trans 1");
 
       //cout << "ss 9" << endl;
       // do both scans inplace
@@ -182,9 +185,11 @@ namespace pbbs {
       total = scan_inplace(source_offsets, add);
       if (total != n) abort();
       source_offsets[m] = n;
-
+      t.next("scans");
+      
       blockTrans<E,s_size_t>(From, To, source_offsets.begin(),
 			     dest_offsets.begin()).trans(num_blocks, num_buckets);
+      t.next("trans 2");
       //cout << "ss 10" << endl;
     }
 

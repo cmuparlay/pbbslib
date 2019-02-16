@@ -97,7 +97,7 @@ public:
     : s(pbbs::new_array_no_init<E>(n)), n(n) {
     //if (n > 1000000000) cout << "make func: " << s << endl;
     parallel_for(0, n, [&] (size_t i) {
-	new ((void*) (s+i)) T(f(i));});
+	new ((void*) (s+i)) T(f(i));}, 1000);
   };
 
   template <typename Iter>
@@ -143,7 +143,7 @@ private:
   void copy_here(Seq a, size_t n) {
     s = pbbs::new_array_no_init<E>(n, true);
     if (n > 0) {
-      cout << "Yikes, copy: " << s << endl;
+      //cout << "Yikes, copy: " << s << endl;
       //abort();  
     }
     parallel_for(0, n, [&] (size_t i) {

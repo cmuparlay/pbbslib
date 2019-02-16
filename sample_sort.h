@@ -35,6 +35,8 @@
 #include "quicksort.h"
 #include "merge_sort.h"
 #include "transpose.h"
+#include "bucket_sort.h"
+#include "get_time.h"
 
 namespace pbbs {
 
@@ -85,7 +87,18 @@ namespace pbbs {
   template<typename E, typename BinPred, typename s_size_t>
   void sample_sort (E* A, s_size_t n, const BinPred& f, bool stable = false);
 
-    
+
+  template<typename E, typename BinPred>
+  void seq_sort_inplace(slice_t<E*> A, BinPred f) {
+#if defined(OPENMP)
+    quicksort_serial(A.begin(), A.size(), f);
+#else
+    if (is_pointer(A[0])) 
+      quicksort(A.begin(), A.size(), f);
+    else bucket_sort(A, f);
+#endif
+  }
+  
   template<typename s_size_t = size_t, class SeqA, class SeqB, typename BinPred>
   void sample_sort_ (SeqA A, SeqB B, const BinPred& f,
 		     bool inplace = false, bool stable = false) {
@@ -96,14 +109,15 @@ namespace pbbs {
     if (n < QUICKSORT_THRESHOLD) {
       sort_small_(A,B, f, inplace, stable);
     } else {
-      timer t;
-      size_t bucket_quotient = 5;
-      size_t block_quotient = 5;
+      timer t("sample sort", true);
+      size_t bucket_quotient = 4;
+      size_t block_quotient = 4;
       if (is_pointer(A[0])) {
 	bucket_quotient = 2;
 	block_quotient = 3;
       } else if (sizeof(T) > 8) {
-	bucket_quotient = block_quotient = 4;
+	bucket_quotient = 3;
+	block_quotient = 3;
       }
       size_t sqrt = (size_t) ceil(pow(n,0.5));
       size_t num_blocks = 1 << log2_up((sqrt/block_quotient) + 1);
@@ -111,7 +125,7 @@ namespace pbbs {
       size_t num_buckets = (sqrt/bucket_quotient) + 1;
       size_t sample_set_size = num_buckets * OVER_SAMPLE;
       size_t m = num_blocks*num_buckets;
-
+      
       // generate "random" samples with oversampling
       sequence<T> sample_set(sample_set_size, [&] (size_t i) {
 	  return A[hash64(i)%n];});
@@ -124,6 +138,7 @@ namespace pbbs {
 	  return sample_set[OVER_SAMPLE*i];});
 
       sequence<T> C = sequence<T>::no_init(n);
+      t.next("head");
       
       // sort each block and merge with samples to get counts for each bucket
       s_size_t *counts = new_array_no_init<s_size_t>(m+1,1);
@@ -141,17 +156,12 @@ namespace pbbs {
 	    else
 	      for (size_t j = start;  j < start + l; j++) 
 		assign_uninitialized(C[j], A[j]);
-#if defined(OPENMP)
-	    quicksort_serial(C.begin()+start, l, f);
-#else
-	    quicksort(C.begin()+start, l, f);
-	    //sample_sort(C.begin()+start, l, f);
-	    //std::sort(C.begin() + start, C.begin() + end, f);
-#endif
+	    seq_sort_inplace(C.slice(start,end), f);
 	  }
 	  merge_seq(C.begin() + start, pivots.begin(), counts + i*num_buckets,
 		    l, num_buckets-1, f);
 	}, 1);
+      t.next("first sort");
 
       //cout << "ss 2" << endl;
       // move data from blocks to buckets
@@ -160,12 +170,12 @@ namespace pbbs {
 						 num_blocks, num_buckets);
       //delete_array(counts, m);
       //cout << "ss 2.5" << endl;
+      t.next("transpose");
       
       // sort within each bucket
       parallel_for (0, num_buckets, [&] (size_t i) {
 	  size_t start = bucket_offsets[i];
 	  size_t end = bucket_offsets[i+1];
-	  size_t l = end-start;
 
 	  // buckets need not be sorted if two consecutive pivots
 	  // are equal
@@ -176,17 +186,11 @@ namespace pbbs {
 	      merge_sort_(B.slice(start,end), C.slice(start,end), f, true);
 	    }
 	    else {
-#if defined(OPENMP)
-	      quicksort_serial(B.begin()+start, l, f);
-#else
-	      quicksort(B.begin()+start, l, f);
-	      //sample_sort(B.begin()+start, l, f);
-	      //std::sort(B.begin() + start, B.begin() + end, f);
-#endif
+	      seq_sort_inplace(B.slice(start,end), f);
 	    }
 	  }
-	}, 1);
-
+	},1);
+      t.next("second sort");
       //cout << "ss 3" << endl;
       delete_array(bucket_offsets,num_buckets+1 );
     }
