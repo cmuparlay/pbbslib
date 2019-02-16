@@ -69,10 +69,18 @@ namespace pbbs {
       size_t round_bits = std::min(radix, bits);
       size_t num_buckets = (1 << round_bits);
       size_t mask = num_buckets-1;
-      auto get_key = [&] (T k) -> size_t {
-	return (g(k) >> bit_offset) & mask;};
-      radix_step(InA, OutA, counts, n, num_buckets, get_key);
-      std::swap(InA,OutA);
+      if (true) {
+	auto get_key = [&] (T k) -> size_t {
+	  return (g(k) >> bit_offset) & mask;};
+	radix_step(InA, OutA, counts, n, num_buckets, get_key);
+	std::swap(InA,OutA);
+      } else {
+	auto get_key = [&] (size_t i) -> size_t {
+	  return (g(InA[i]) >> bit_offset) & mask;};
+	seq_count_sort_(In, Out, delayed_seq<size_t>(n, get_key),
+			counts, num_buckets);
+	std::swap(In,Out);
+      }
       bits = bits - round_bits;
       bit_offset = bit_offset + round_bits;
       swapped = !swapped;

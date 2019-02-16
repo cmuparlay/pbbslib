@@ -122,6 +122,10 @@ public:
     return slice_t<T*>(s, s + n);
   }
 
+  void swap(sequence& b) {
+    std::swap(s, b.s); std::swap(n, b.n);
+  }
+
   size_t size() const { return n;}
   T* begin() const {return s;}
   T* end() const {return s + n;}

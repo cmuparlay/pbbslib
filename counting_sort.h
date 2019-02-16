@@ -37,48 +37,9 @@ namespace pbbs {
   constexpr const size_t BUCKET_FACTOR = 32;
   constexpr const size_t LOW_BUCKET_FACTOR = 16;
 
-  // Sequential internal version
-  template <typename b_size_t, typename s_size_t, typename InSeq, typename KeySeq>
-  void _seq_count_sort(InSeq In, typename InSeq::T* Out, KeySeq Keys,
-		       s_size_t* counts, size_t num_buckets) {
-    size_t n = In.size();
-    b_size_t tmp[n];
-
-    //sequence<b_size_t> tmp(n);
-
-    for (size_t i = 0; i < num_buckets; i++)
-      counts[i] = 0;
-    for (size_t j = 0; j < n; j++) {
-      size_t k = tmp[j] = Keys[j];
-      if (k >= num_buckets) abort();
-      counts[k]++;
-    }
-    
-    // generate offsets
-    size_t s = 0;
-    for (size_t i = 0; i < num_buckets; i++) {
-      size_t t = counts[i];
-      counts[i] = s;
-      s += t;
-    }
-    for (size_t j = 0; j < n; j++) {
-      size_t k = counts[tmp[j]]++;
-      // needed for types with self defined assignment or initialization
-      // otherwise equivalent to: Out[k+start] = In[j+start];
-      move_uninitialized(Out[k], In[j]);
-    }
-    // convert offsets back to counts
-    s = 0;
-    for (size_t i = 0; i < num_buckets; i++) {
-      size_t t = counts[i];
-      counts[i] = t - s;
-      s = t;
-    }
-  }
-
-   // Sequential internal version
-  template <typename b_size_t, typename s_size_t, typename InSeq, typename KeySeq>
-  void _seq_count(InSeq In, KeySeq Keys,
+  // count number in each bucket
+  template <typename s_size_t, typename InSeq, typename KeySeq>
+  void seq_count_(InSeq In, KeySeq Keys,
 		  s_size_t* counts, size_t num_buckets) {
     size_t n = In.size();
 
@@ -91,99 +52,61 @@ namespace pbbs {
     }
   }
 
-  template <typename b_size_t, typename s_size_t, typename InSeq, typename KeySeq>
-  void _seq_write(InSeq In, typename InSeq::T* Out, KeySeq Keys,
+  // write to destination, where offsets give start of each bucket
+  template <typename s_size_t, typename InSeq, typename KeySeq>
+  void seq_write_(InSeq In, typename InSeq::T* Out, KeySeq Keys,
 		  s_size_t* offsets, size_t num_buckets) {
-  
     for (size_t j = 0; j < In.size(); j++) {
       size_t k = offsets[Keys[j]]++;
-      // needed for types with self defined assignment or initialization
-      // otherwise equivalent to: Out[k+start] = In[j+start];
       move_uninitialized(Out[k], In[j]);
     }
   }
 
-  //
-
-  // Sequential version
-  template <typename b_size_t, typename InS, typename OutS, typename KeyS>
-  sequence<size_t> seq_count_sort(InS& In, OutS& Out, KeyS& Keys, size_t num_buckets) {
-    using T = typename InS::T;
-    size_t n = In.size();
-
-    size_t* counts = new_array_no_init<size_t>(num_buckets+1);
-    T* B = new_array_no_init<T>(n);
-    _seq_count_sort<b_size_t,size_t>(In, B, Keys, counts, num_buckets);
-    for (size_t i = 0; i < n ; i++)
-      Out[i] = B[i]; 
-    free_array(B);
-    size_t c = 0;
-    for (size_t i=0; i < num_buckets; i++) {
-      size_t x = counts[i];
-      counts[i] = c;
-      c = c + x;
+  // write to destination, where offsets give end of each bucket
+  template <typename s_size_t, typename InSeq, typename KeySeq>
+  void seq_write_down_(InSeq In, typename InSeq::T* Out, KeySeq Keys,
+		       s_size_t* offsets, size_t num_buckets) {
+    for (long j = In.size()-1; j >= 0; j--) {
+      long k = --offsets[Keys[j]];
+      move_uninitialized(Out[k], In[j]);
     }
-    counts[num_buckets] = n;
-    return sequence<size_t>(counts,num_buckets+1);
   }
 
-  // Parallel internal version
-  template <typename b_size_t, typename s_size_t, 
-    typename InS, typename OutS, typename KeyS>
-  sequence<size_t> _count_sort(InS& In, OutS& Out, KeyS& Keys,
-			       size_t num_buckets) {
-    timer t;
-    t.start();
-    using T = typename InS::T;
-    size_t n = In.size();
-    size_t num_threads = num_workers();
+  // Sequential counting sort internal
+  template <typename s_size_t, typename InS, typename OutS, typename KeyS>
+  void seq_count_sort_(InS In, OutS Out, KeyS Keys,
+		       s_size_t* counts, size_t num_buckets) {
 
-    // pad to 16 buckets to avoid false sharing (does not affect results)
-    num_buckets = std::max(num_buckets, (size_t) 16);
+    // count size of each bucket
+    seq_count_(In, Keys, counts, num_buckets);
 
-    // if not given, then use heuristic to choose num_blocks
-    size_t sqrt = (size_t) ceil(pow(n,0.5));
-    size_t num_blocks = 
-      (size_t) (n < (1<<24)) ? (sqrt/16) : ((n < (1<<28)) ? sqrt/2 : sqrt);
-    if (2*num_blocks < num_threads) num_blocks *= 2;
+    // generate offsets for buckets
+    size_t s = 0;
+    for (size_t i = 0; i < num_buckets; i++) {
+      s += counts[i];
+      counts[i] = s;
+    }
 
-    num_blocks = 1 << log2_up(num_blocks);
-
-    // if insufficient parallelism, sort sequentially
-    if (n < SEQ_THRESHOLD || num_blocks == 1 || num_threads == 1) {
-      return seq_count_sort<b_size_t>(In,Out,Keys,num_buckets);}
-
-    size_t block_size = ((n-1)/num_blocks) + 1;
-    size_t m = num_blocks * num_buckets;
-    
-    T *B = new_array_no_init<T>(n);
-    s_size_t *counts = new_array_no_init<s_size_t>(m,1);
-    //t.next("head");
-
-    // sort each block
-    auto block_f = [&] (size_t i) {
-      s_size_t start = std::min(i * block_size, n);
-      s_size_t end =  std::min(start + block_size, n);
-      _seq_count_sort<b_size_t,s_size_t>(In.slice(start,end), B+start, 
-					 Keys.slice(start,end),
-					 counts + i*num_buckets, num_buckets);
-    };
-    parallel_for(0, num_blocks, block_f, 1);
-    //t.next("count");
-    T* C = Out.begin();
-    size_t* bucket_offsets = transpose_buckets(B, C,
-					       counts, n, block_size,
-					       num_blocks, num_buckets);
-    //t.next("transpose");
-    free_array(B);
-    return sequence<size_t>(bucket_offsets,num_buckets+1);
+    // send to destination
+    seq_write_down_(In, Out.begin(), Keys, counts, num_buckets);
   }
 
-  // Parallel internal version
-  template <typename b_size_t, typename s_size_t, 
+  // Sequential counting sort
+  template <typename InS, typename OutS, typename KeyS>
+  sequence<size_t> seq_count_sort(InS& In, OutS& Out, KeyS& Keys,
+				  size_t num_buckets) {
+    sequence<size_t> counts(num_buckets+1);
+    seq_count_sort_(In.slice(), Out.slice(), Keys.slice(),
+		    counts.begin(), num_buckets);
+    counts[num_buckets] = In.size();
+    return counts;
+  }
+
+  // Parallel internal counting sort specialized to type for bucket counts
+  template <typename s_size_t, 
 	    typename InS, typename OutS, typename KeyS>
-  sequence<size_t> _count_sort2(InS& In, OutS& Out, KeyS& Keys,
-				size_t num_buckets) {
+  sequence<size_t> count_sort_(InS& In, OutS& Out, KeyS& Keys,
+			       size_t num_buckets) {
     timer t;
     t.start();
     using T = typename InS::T;
@@ -200,18 +123,13 @@ namespace pbbs {
     if (2*num_blocks < num_threads) num_blocks *= 2;
     if (sizeof(T) <= 4) num_blocks = num_blocks/2;
 
-    //num_blocks = 1 << log2_up(num_blocks);
-    //cout << num_blocks << endl;
-    //num_blocks = 1024;
-
     // if insufficient parallelism, sort sequentially
     if (n < SEQ_THRESHOLD || num_blocks == 1 || num_threads == 1) {
-      return seq_count_sort<b_size_t>(In,Out,Keys,num_buckets);}
+      return seq_count_sort(In,Out,Keys,num_buckets);}
 
     size_t block_size = ((n-1)/num_blocks) + 1;
     size_t m = num_blocks * num_buckets;
     
-    //T *B = new_array_no_init<T>(n);
     s_size_t *counts = new_array_no_init<s_size_t>(m,1);
     if (n > 1000000000) t.next("head");
 
@@ -219,8 +137,8 @@ namespace pbbs {
     parallel_for(0, num_blocks,  [&] (size_t i) {
 	s_size_t start = std::min(i * block_size, n);
 	s_size_t end =  std::min(start + block_size, n);
-	_seq_count<b_size_t,s_size_t>(In.slice(start,end), Keys.slice(start,end),
-				      counts + i*num_buckets, num_buckets);
+	seq_count_(In.slice(start,end), Keys.slice(start,end),
+		   counts + i*num_buckets, num_buckets);
       },1);
 
     if (n > 1000000000) t.next("count");
@@ -257,17 +175,17 @@ namespace pbbs {
     // if (sum != n) abort();
     // transpose<s_size_t>(dest_offsets.begin(), counts).trans(num_buckets,
     // 							    num_blocks);
-        if (n > 1000000000) t.next("scan");
+    //if (n > 1000000000) t.next("scan");
 
     parallel_for(0, num_blocks,  [&] (size_t i) {
 	s_size_t start = std::min(i * block_size, n);
 	s_size_t end =  std::min(start + block_size, n);
-	_seq_write<b_size_t,s_size_t>(In.slice(start,end), Out.begin(),
-				      Keys.slice(start,end),
-				      counts + i*num_buckets, num_buckets);
+	seq_write_(In.slice(start,end), Out.begin(),
+		   Keys.slice(start,end),
+		   counts + i*num_buckets, num_buckets);
       },1);
 
-    if (n > 1000000000) t.next("move");
+    //if (n > 1000000000) t.next("move");
     
     // for (s_size_t i=0; i < num_buckets; i++) {
     //   bucket_offsets[i] = dest_offsets[i*num_blocks];
@@ -284,26 +202,15 @@ namespace pbbs {
     return bucket_offsets;
   }
 
-  template <typename s_size_t, typename InS, typename OutS, typename KeyS>
-  sequence<size_t> _count_sort_size(InS& In, OutS& Out, KeyS& Keys, size_t num_buckets) {
-    if (num_buckets <= 256)
-      if (true)
-	return _count_sort2<uint8_t,s_size_t>(In, Out, Keys, num_buckets);
-      else return _count_sort<uint8_t,s_size_t>(In, Out, Keys, num_buckets);
-    else if  (num_buckets <= (1 << 16))
-      return _count_sort2<uint16_t,s_size_t>(In, Out, Keys, num_buckets);
-    else
-      return _count_sort<s_size_t,s_size_t>(In, Out, Keys, num_buckets);
-  }
-
   // Parallel version
   template <typename InS, typename OutS, typename KeyS>
-  sequence<size_t> count_sort(InS& In, OutS& Out, KeyS& Keys, size_t num_buckets) {
+  sequence<size_t> count_sort(InS& In, OutS& Out, KeyS& Keys,
+			      size_t num_buckets) {
     size_t n = In.size();
     size_t max32 = ((size_t) 1) << 32;
     if (n < max32 && num_buckets < max32)
       // use 4-byte counters when larger ones not needed
-      return _count_sort_size<uint32_t>(In, Out, Keys, num_buckets);
-    return _count_sort_size<size_t>(In, Out, Keys, num_buckets);
+      return count_sort_<uint32_t>(In, Out, Keys, num_buckets);
+    return count_sort_<size_t>(In, Out, Keys, num_buckets);
   }
 }
