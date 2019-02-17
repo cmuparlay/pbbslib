@@ -151,7 +151,7 @@ namespace pbbs {
 	bucket_offsets[i] = v;
       }, 1 + 1024/num_blocks);
     bucket_offsets[num_buckets] = 0;
-    size_t total = scan_inplace(bucket_offsets, addm<size_t>());
+    size_t total = scan_inplace(bucket_offsets.slice(), addm<size_t>());
     if (total != n) abort();
     sequence<s_size_t> dest_offsets = sequence<s_size_t>::no_init(num_blocks*num_buckets);
     parallel_for(0, num_buckets, [&] (size_t i) {
@@ -203,8 +203,10 @@ namespace pbbs {
   }
 
   // Parallel version
-  template <typename InS, typename OutS, typename KeyS>
-  sequence<size_t> count_sort(InS& In, OutS& Out, KeyS& Keys,
+  template <typename InS, typename KeyS>
+  sequence<size_t> count_sort(InS const &In,
+			      slice_t<typename InS::T*> Out,
+			      KeyS const &Keys,
 			      size_t num_buckets) {
     size_t n = In.size();
     size_t max32 = ((size_t) 1) << 32;

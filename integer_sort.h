@@ -33,61 +33,31 @@ namespace pbbs {
   constexpr size_t radix = 8;
   constexpr size_t max_buckets = 1 << radix;
 
-  template <class T, class F>
-  void radix_step(T* A, T* B, size_t* counts, size_t n, size_t m, F extract) {
-    for (size_t i = 0; i < m; i++)  counts[i] = 0;
-    for (size_t j = 0; j < n; j++) {
-      size_t k = extract(A[j]);
-      counts[k]++;
-    }
-
-    size_t s = 0;
-    for (size_t i = 0; i < m; i++) {
-      s += counts[i];
-      counts[i] = s;
-    }
-    
-    for (long j = n-1; j >= 0; j--) {
-      long x = --counts[extract(A[j])];
-      B[x] = A[j];
-    }
-  }
-
+  // a bottom up radix sort
   template <class Slice, class GetKey>
   void seq_radix_sort(Slice In, Slice Out, GetKey const &g,
 		      size_t bits, bool inplace=true) {
-    using Iter = typename Slice::Iter;
-    using T = typename Slice::T;
     size_t n = In.size();
     if (n == 0) return;
     size_t counts[max_buckets+1];
-    Iter InA = In.begin();
-    Iter OutA = Out.begin();
     bool swapped = false;
     int bit_offset = 0;
     while (bits > 0) {
       size_t round_bits = std::min(radix, bits);
       size_t num_buckets = (1 << round_bits);
       size_t mask = num_buckets-1;
-      if (true) {
-	auto get_key = [&] (T k) -> size_t {
-	  return (g(k) >> bit_offset) & mask;};
-	radix_step(InA, OutA, counts, n, num_buckets, get_key);
-	std::swap(InA,OutA);
-      } else {
 	auto get_key = [&] (size_t i) -> size_t {
-	  return (g(InA[i]) >> bit_offset) & mask;};
+	  return (g(In[i]) >> bit_offset) & mask;};
 	seq_count_sort_(In, Out, delayed_seq<size_t>(n, get_key),
 			counts, num_buckets);
 	std::swap(In,Out);
-      }
       bits = bits - round_bits;
       bit_offset = bit_offset + round_bits;
       swapped = !swapped;
     }
     if ((inplace && swapped) || (!inplace && !swapped)) {
       for (size_t i=0; i < n; i++) 
-	move_uninitialized(OutA[i], InA[i]);
+	move_uninitialized(Out[i], In[i]);
     }
   }
   
@@ -150,15 +120,17 @@ namespace pbbs {
   // g extracts the integer keys from In
   // result will be placed in out, 
   //    but if inplace is true, then result will be put back into In
+  // both in and out can be modified
   // val_bits specifies how many bits there are in the key
   //    if set to 0, then a max is taken over the keys to determine
-  template <typename SeqIn, typename SeqOut, typename Get_Key>
-  void integer_sort_(SeqIn &In, SeqOut &Out,
-		    Get_Key const &g, 
-		    size_t key_bits=0, bool inplace=false) {
-    using T = typename SeqIn::T;
+  template <typename IterIn, typename IterOut, typename Get_Key>
+  void integer_sort_(slice_t<IterIn> In, slice_t<IterOut> Out,
+		     Get_Key const &g, 
+		     size_t key_bits=0, bool inplace=false) {
+    using T = typename std::iterator_traits<IterIn>::value_type;
     if (In.begin() == Out.begin()) {
-      cout << "in integer_sort : input and output must be different locations" << endl;
+      cout << "in integer_sort : input and output must be different locations"
+	   << endl;
       abort();}
     if (key_bits == 0) {
       using P = std::pair<size_t,size_t>;
@@ -178,13 +150,12 @@ namespace pbbs {
     integer_sort_r(In.slice(), Out.slice(), g, key_bits, inplace);
   }
 
-  template <typename Seq, typename Get_Key>
-  void integer_sort(Seq &In,
+  template <typename T, typename Get_Key>
+  void integer_sort(slice_t<T*> In,
 		    Get_Key const &g,
 		    size_t key_bits=0) {
-    using T = typename Seq::T;
     sequence<T> Tmp = sequence<T>::no_init(In.size());
-    integer_sort_(In, Tmp, g, key_bits, true);
+    integer_sort_(In, Tmp.slice(), g, key_bits, true);
   }
 
 }

@@ -273,7 +273,7 @@ namespace pbbs {
       auto is_full = [&] (const size_t i) -> int {
 	if (TA[i] != empty) return 1; else return 0;};
       sequence<index> x(m, is_full);
-      scan_inplace(x, addm<index>());
+      scan_inplace(x.slice(), addm<index>());
       return x;
     }
 

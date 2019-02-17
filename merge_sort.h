@@ -10,8 +10,11 @@ namespace pbbs {
   // This sort is stable
   // if inplace is true then the output is placed in In and Out is just used
   // as temp space.
-  template <class SeqA, class SeqB, class F> 
-  void merge_sort_(SeqA In, SeqB Out, const F& f, bool inplace=false) {
+  template <class Iter, class F> 
+  void merge_sort_(slice_t<Iter> In,
+		   slice_t<Iter> Out,
+		   const F& f,
+		   bool inplace=false) {
     size_t n = In.size();
     if (base_case(In.begin(), n/2)) {
       pbbs::insertion_sort(In.begin(), n, f);

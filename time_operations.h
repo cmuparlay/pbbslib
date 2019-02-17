@@ -130,7 +130,7 @@ double t_split3(size_t n) {
   pbbs::random r(0);
   pbbs::sequence<T> In(n, [&] (size_t i) {return r.ith_rand(i);});
   pbbs::sequence<T> Out(n, (T) 0);
-  time(t, pbbs::p_split3(In, Out, std::less<T>()););
+  time(t, pbbs::p_split3(In, Out.slice(), std::less<T>()););
   return t;
 }
 
@@ -283,10 +283,11 @@ double t_count_sort_2(size_t n) {
   size_t num_buckets = (1<<2);
   size_t mask = num_buckets - 1;
   pbbs::sequence<T> in(n, [&] (size_t i) {return r.ith_rand(i);});
+  pbbs::sequence<T> out(n);
   auto f = [&] (size_t i) {return in[i] & mask;};
   auto keys = pbbs::delayed_seq<unsigned char>(n, f);
 
-  time(t, pbbs::count_sort(in, in, keys, num_buckets););
+  time(t, pbbs::count_sort(in, out.slice(), keys, num_buckets););
   return t;
 }
 
@@ -299,7 +300,7 @@ double t_count_sort_8(size_t n) {
   pbbs::sequence<T> out(n);
   auto f = [&] (size_t i) {return in[i] & mask;};
   auto keys = pbbs::delayed_seq<unsigned char>(n, f);
-  time(t, pbbs::count_sort(in, out, keys, num_buckets););
+  time(t, pbbs::count_sort(in, out.slice(), keys, num_buckets););
   for (size_t i=1; i < n; i++) {
     if ((out[i-1] & mask) > (out[i] & mask)) {
       cout << "error in count sort at: " << i << endl;
@@ -377,7 +378,7 @@ double t_integer_sort_pair(size_t n) {
   pbbs::sequence<par> S(n, [&] (size_t i) -> par {
       return par(r.ith_rand(i),i);});
   auto first = [] (par a) {return a.first;};
-  time(t, pbbs::integer_sort(S,first,bits););
+  time(t, pbbs::integer_sort(S.slice(),first,bits););
   return t;
 }
 
@@ -388,7 +389,7 @@ double t_integer_sort(size_t n) {
   pbbs::sequence<T> S(n, [&] (size_t i) -> T {
       return r.ith_rand(i);});
   auto identity = [] (T a) {return a;};
-  time(t, pbbs::integer_sort(S,identity,bits););
+  time(t, pbbs::integer_sort(S.slice(),identity,bits););
   return t;
 }
 
@@ -399,7 +400,7 @@ double t_integer_sort_128(size_t n) {
   pbbs::sequence<long_int> S(n, [&] (size_t i) -> long_int {
       return r.ith_rand(2*i) + (((long_int) r.ith_rand(2*i+1)) << 64) ;});
   auto identity = [] (long_int a) {return a;};
-  time(t, pbbs::integer_sort(S,identity,bits););
+  time(t, pbbs::integer_sort(S.slice(),identity,bits););
   return t;
 }
 
@@ -455,7 +456,7 @@ double t_mat_vec_mult(size_t n) {
   auto add = [] (T a, T b) { return a + b;};
   auto mult = [] (T a, T b) { return a * b;};
 
-  time(t, mat_vec_mult(starts, columns, values, in, out, mult, add););
+  time(t, mat_vec_mult(starts, columns, values, in, out.slice(), mult, add););
   return t;
 }
 

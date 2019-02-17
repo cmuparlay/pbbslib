@@ -130,9 +130,9 @@ namespace pbbs {
     return total;
   }
 
-  template <class In_Seq, class Monoid>
-  auto scan_inplace(In_Seq &In, Monoid m, flags fl = no_flag)
-    -> typename In_Seq::T
+  template <class T, class Monoid>
+  auto scan_inplace(slice_t<T*> In, Monoid m, flags fl = no_flag)
+    -> T
   { return scan_(In, In, m, fl); }
 
   template <class In_Seq, class Monoid>
@@ -194,7 +194,7 @@ namespace pbbs {
     sliced_for(n, _block_size, [&] (size_t i, size_t s, size_t e) {
       Sums[i] = sum_bools_serial(Fl.slice(s, e));
     });
-    size_t m = scan_inplace(Sums, addm<size_t>());
+    size_t m = scan_inplace(Sums.slice(), addm<size_t>());
     sequence<T> Out = sequence<T>::no_init(m);
     sliced_for(n, _block_size, [&](size_t i, size_t s, size_t e) {
 	pack_serial_at(In.slice(s, e),  Fl.slice(s, e),
@@ -219,7 +219,7 @@ namespace pbbs {
 		  for (size_t j=s; j < e; j++)
 		    r += (Fl[j] = f(In[j]));
 		  Sums[i] = r;});
-    size_t m = scan_inplace(Sums, addm<size_t>());
+    size_t m = scan_inplace(Sums.slice(), addm<size_t>());
     sequence<T> Out = sequence<T>::no_init(m);
     sliced_for (n, _block_size,
 		[&] (size_t i, size_t s, size_t e)
@@ -235,9 +235,9 @@ namespace pbbs {
     return pack(delayed_seq<Idx_Type>(Fl.size(),identity), Fl, fl);
   }
 
-  template <class In_Seq, class Out_Seq, class Char_Seq>
+  template <class In_Seq, class Char_Seq>
   std::pair<size_t,size_t> split_three(In_Seq const &In,
-				       Out_Seq &Out,
+				       slice_t<typename In_Seq::T*> Out,
 				       Char_Seq const &Fl,
 				       flags fl = no_flag) {
     size_t n = In.size();
@@ -261,8 +261,8 @@ namespace pbbs {
 		  Sums0[i] = c0;
 		  Sums1[i] = c1;
 		}, fl);
-    size_t m0 = scan_inplace(Sums0, addm<size_t>());
-    size_t m1 = scan_inplace(Sums1, addm<size_t>());
+    size_t m0 = scan_inplace(Sums0.slice(), addm<size_t>());
+    size_t m1 = scan_inplace(Sums1.slice(), addm<size_t>());
     sliced_for (n, _block_size,
 		[&] (size_t i, size_t s, size_t e)
 		{

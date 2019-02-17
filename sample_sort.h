@@ -109,7 +109,7 @@ namespace pbbs {
     if (n < QUICKSORT_THRESHOLD) {
       sort_small_(A,B, f, inplace, stable);
     } else {
-      timer t("sample sort", true);
+      timer t("sample sort", false);
       size_t bucket_quotient = 4;
       size_t block_quotient = 4;
       if (is_pointer(A[0])) {
@@ -197,7 +197,7 @@ namespace pbbs {
   }
 
   template<class Seq, typename BinPred>
-  auto sample_sort (Seq &A, const BinPred& f, bool stable = false)
+  auto sample_sort (Seq const &A, const BinPred& f, bool stable = false)
     -> sequence<typename Seq::T> {
     using T = typename Seq::T;
     sequence<T> R = sequence<T>::no_init(A.size());
@@ -207,15 +207,15 @@ namespace pbbs {
     return R;
   }
 
-  template<class Seq, typename BinPred>
-  void sample_sort_inplace (Seq &A, const BinPred& f, bool stable = false) {
+  template<class Iter, typename BinPred>
+  void sample_sort_inplace (slice_t<Iter> &A, const BinPred& f, bool stable = false) {
     if (A.size() < ((size_t) 1) << 32)
       sample_sort_<unsigned int>(A.slice(), A.slice(), f, true, stable);
     else sample_sort_<size_t>(A.slice(), A.slice(), f, true, stable);
   }
     
   template<typename E, typename BinPred, typename s_size_t>
-  void sample_sort (E* A, s_size_t n, const BinPred& f, bool stable) { // = false) {
+  void sample_sort (E* A, s_size_t n, const BinPred& f, bool stable) {
     slice_t<E*> B(A,A+n);
     sample_sort_inplace(B, f, stable);
   }

@@ -2,9 +2,13 @@
 
 // multiply a compresses sparse row matrix
 template <class IntSeq, class Seq, class Mult, class Add>
-void mat_vec_mult(IntSeq const &starts, IntSeq const &columns,
-		  Seq const &values, Seq const &in, Seq &out,
-		  Mult mult, Add add) {
+void mat_vec_mult(IntSeq const &starts,
+		  IntSeq const &columns,
+		  Seq const &values,
+		  Seq const &in,
+		  slice_t<typename Seq::T*> out,
+		  Mult mult,
+		  Add add) {
   using E = typename Seq::T;
   size_t n = in.size();
   auto row_f = [&] (size_t i) {

@@ -40,8 +40,10 @@ namespace pbbs {
       std::swap(A[i],A[r.ith_rand(i)%(i+1)]);
   }
 
-  template <typename Seq, typename OSeq>
-  void random_shuffle_(Seq const &In, OSeq &Out, random r = default_random) {
+  template <typename Seq>
+  void random_shuffle_(Seq const &In,
+		       slice_t<typename Seq::T*> Out,
+		       random r = default_random) {
     size_t n = In.size();
     if (n < SEQ_THRESHOLD) {
       if (In.begin() != Out.begin()) 
@@ -78,7 +80,7 @@ namespace pbbs {
   sequence<typename Seq::T> random_shuffle(Seq const &In, random r = default_random) {
     using T = typename Seq::T;
     sequence<T> Out = sequence<T>::no_init(In.size());
-    random_shuffle_(In, Out, r);
+    random_shuffle_(In, Out.slice(), r);
     return Out;
   }
 

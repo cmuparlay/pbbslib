@@ -151,9 +151,10 @@ namespace pbbs {
       // determine the destination offsets
       auto get = [&] (size_t i) {
 	return counts[(i>>block_bits) + num_buckets*(i&block_mask)];};
-      
-      dest_offsets = std::move(sequence<s_size_t>(m, get));
-      size_t sum = scan_inplace(dest_offsets, add);
+
+      // slow down?
+      dest_offsets = sequence<s_size_t>(m, get);
+      size_t sum = scan_inplace(dest_offsets.slice(), add);
       if (sum != n) abort();
       t.next("seq and scan");
 
@@ -180,9 +181,9 @@ namespace pbbs {
 
       //cout << "ss 9" << endl;
       // do both scans inplace
-      total = scan_inplace(dest_offsets, add);
+      total = scan_inplace(dest_offsets.slice(), add);
       if (total != n) abort();
-      total = scan_inplace(source_offsets, add);
+      total = scan_inplace(source_offsets.slice(), add);
       if (total != n) abort();
       source_offsets[m] = n;
       t.next("scans");

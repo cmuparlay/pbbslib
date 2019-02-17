@@ -114,8 +114,9 @@ namespace pbbs {
   //  get_val is a function that gets the value from an element of A
   //  monoid has fields m.identity and m.f (a binary associative function)
   template <typename OT, typename Seq, typename F, typename G, typename M>
-  sequence<OT> collect_reduce(Seq &A, size_t m,
+  sequence<OT> collect_reduce(Seq const &A, size_t m,
 			      F get_index, G get_val, M monoid) {
+    using T = typename Seq::T;
     size_t n = A.size();
     size_t bits;
 
@@ -134,34 +135,34 @@ namespace pbbs {
     get_bucket<decltype(s)> x(s, bits-1);
     auto get_buckets = delayed_seq<size_t>(n, x);
     //sequence<size_t> get_buckets(n, [&] (size_t i) {return 0;});
+    sequence<T> B(n);
 
     // first buckets based on hash using a counting sort
     sequence<size_t> bucket_offsets 
-      = count_sort(A, A, get_buckets, num_buckets);
+      = count_sort(A, B.slice(), get_buckets, num_buckets);
 
     // note that this is cache line alligned
     sequence<OT> sums(m, monoid.identity);
        
     // now process each bucket in parallel
-    auto bucket_f = [&] (size_t i) {
-      size_t start = bucket_offsets[i];
-      size_t end = bucket_offsets[i+1];
+    parallel_for(0, num_buckets, [&] (size_t i) {
+	size_t start = bucket_offsets[i];
+	size_t end = bucket_offsets[i+1];
 
-      // small buckets have indices in bottom half
-      if (i < num_buckets/2)
-	for (size_t i = start; i < end; i++) {
-	  size_t j = get_index(A[i]);
-	  sums[j] = monoid.f(sums[j], get_val(A[i]));
+	// small buckets have indices in bottom half
+	if (i < num_buckets/2)
+	  for (size_t i = start; i < end; i++) {
+	    size_t j = get_index(B[i]);
+	    sums[j] = monoid.f(sums[j], get_val(B[i]));
+	  }
+
+	// large buckets have indices in top half
+	else if (end > start) {
+	  auto x = [&] (size_t i) {return get_val(B[i]);};
+	  auto vals = delayed_seq<size_t>(n, x);
+	  sums[get_index(B[i])] = reduce(vals, monoid);
 	}
-
-      // large buckets have indices in top half
-      else if (end > start) {
-	auto x = [&] (size_t i) {return get_val(A[i]);};
-	auto vals = delayed_seq<size_t>(n, x);
-	sums[get_index(A[i])] = reduce(vals, monoid);
-      }
-    };
-    parallel_for(0, num_buckets, bucket_f, 1);
+      }, 1);
     return sums;
   }
 
@@ -213,7 +214,7 @@ namespace pbbs {
     
     // first buckets based on hash using a counting sort
     sequence<size_t> bucket_offsets 
-      = count_sort(A, B, get_buckets, num_buckets);
+      = count_sort(A, B.slice(), get_buckets, num_buckets);
     //t.next("sort");
     
     // note that this is cache line alligned
@@ -275,7 +276,7 @@ namespace pbbs {
     //t.next("hash");
 
     sizes[num_tables] = 0;
-    size_t total = scan_inplace(sizes, addm<size_t>());
+    size_t total = scan_inplace(sizes.slice(), addm<size_t>());
     //t.next("scan");
 
     // copy packed tables into contiguous result
@@ -293,7 +294,7 @@ namespace pbbs {
   }
 
   template <typename K, typename V, typename M>
-  sequence<V> collect_reduce(sequence<std::pair<K,V>> &A, size_t m, M monoid) {
+  sequence<V> collect_reduce(sequence<std::pair<K,V>> const &A, size_t m, M monoid) {
     using P = std::pair<K,V>;
     auto get_index = [] (P v) {return v.first;};
     auto get_val = [] (P v) {return v.second;};

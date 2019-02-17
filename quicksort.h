@@ -128,7 +128,9 @@ namespace pbbs {
   //// Fully Parallel version below here
  
   template <class SeqA, class BinPred>
-  std::tuple<size_t,size_t,bool> p_split3(SeqA const &A, SeqA &B, const BinPred& f) {
+  std::tuple<size_t,size_t,bool> p_split3(SeqA const &A,
+					  slice_t<typename SeqA::T*> B,
+					  const BinPred& f) {
     using E = typename SeqA::T;
     size_t n = A.size();
     sort5(A.begin(),n,f);
@@ -137,7 +139,8 @@ namespace pbbs {
     if (!f(A[0],A[1])) p1 = p2; // if few elements less than p1, then set to p2
     if (!f(A[3],A[4])) p2 = p1; // if few elements greater than p2, then set to p1
     auto flag = [&] (size_t i) {return f(A[i], p1) ? 0 : f(p2, A[i]) ? 2 : 1;};
-    auto r = split_three(A, B, delayed_seq<unsigned char>(n, flag), fl_conservative);
+    auto r = split_three(A, B.slice(),
+			 delayed_seq<unsigned char>(n, flag), fl_conservative);
     return std::make_tuple(r.first, r.first + r.second, !f(p1,p2));
   }
 
@@ -148,8 +151,8 @@ namespace pbbs {
   //     In and Out cannot be the same (Out is needed as temp space)
   // cut_size: is when to revert to  quicksort.
   //    If -1 then it uses a default based on number of threads
-  template <class SeqA, class F> 
-  void p_quicksort_(SeqA In, SeqA Out, const F& f,
+  template <class Iter, class F> 
+  void p_quicksort_(slice_t<Iter> In, slice_t<Iter> Out, const F& f,
 		    bool inplace = false, long cut_size = -1) {
     size_t n = In.size();
     if (cut_size == -1)
@@ -183,9 +186,8 @@ namespace pbbs {
     return Out;
   }
 
-  template <class SeqA, class F> 
-  void p_quicksort_inplace(SeqA &In, const F& f) {
-    using T = typename SeqA::T;
+  template <class T, class F> 
+  void p_quicksort_inplace(slice_t<T*> &In, const F& f) {
     sequence<T> Tmp = sequence<T>::no_init(In.size());
     p_quicksort_(In.slice(), Tmp.slice(), f, true);
   }

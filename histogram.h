@@ -41,8 +41,8 @@ namespace pbbs {
     return counts;
   }
 
-  template <typename Seq, typename CSeq>
-  void _seq_count(Seq const &In, CSeq &counts) {
+  template <typename Seq, typename Iter>
+  void _seq_count(Seq const &In, slice_t<Iter> counts) {
     for (size_t i = 0; i < counts.size(); i++) counts[i] = 0;
     for (size_t j = 0; j < In.size(); j++) counts[In[j]]++;
   }
@@ -53,7 +53,7 @@ namespace pbbs {
     size_t n = In.size();
 
     if (n < ((size_t) 1 << 14)) {
-      _seq_count(In, counts);
+      _seq_count(In, counts.slice());
       return counts;
     }
 
@@ -118,7 +118,7 @@ namespace pbbs {
       return std::make_pair(sample,k);
     }
 
-    void make_hash_table(std::vector<E> &entries, size_t n,
+    void make_hash_table(std::vector<E> const &entries, size_t n,
 			 size_t table_size, size_t table_mask) {
       hash_table = std::vector<HE>(table_size);
       for (size_t i=0; i < table_size; i++)
@@ -183,7 +183,7 @@ namespace pbbs {
 
     // first buckets based on hash using a counting sort
     sequence<size_t> bucket_offsets
-      = count_sort(A, B, get_buckets, num_buckets);
+      = count_sort(A, B.slice(), get_buckets, num_buckets);
     //t.next("send to buckets");
     
     // note that this is cache line alligned

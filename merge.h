@@ -9,8 +9,11 @@ namespace pbbs {
   // the following parameter can be tuned
   constexpr const size_t _merge_base = PAR_GRANULARITY; 
 
-  template <class SeqA, class SeqB, class SeqR, class F> 
-  void seq_merge(SeqA const &A, SeqB const &B, SeqR &R, const F& f) {
+  template <class SeqA, class SeqB, class F> 
+  void seq_merge(SeqA const &A,
+		 SeqB const &B,
+		 slice_t<typename SeqA::T*> R,
+		 const F& f) {
     using T = typename SeqA::T;
     size_t nA = A.size();
     size_t nB = B.size();
@@ -36,8 +39,12 @@ namespace pbbs {
   }
 
   // this merge is stable
-  template <class SeqA, class SeqB, class SeqR, class F> 
-  void merge_(const SeqA &A, const SeqB &B, SeqR R, const F& f, bool cons=false) {
+  template <class SeqA, class SeqB, class F> 
+  void merge_(const SeqA &A,
+	      const SeqB &B,
+	      slice_t<typename SeqA::T*> R,
+	      const F& f,
+	      bool cons=false) {
     size_t nA = A.size();
     size_t nB = B.size();
     size_t nR = nA + nB;
@@ -64,7 +71,10 @@ namespace pbbs {
 
   template <class SeqA, class SeqB, class F> 
   sequence<typename SeqA::T>
-  merge(const SeqA &A, const SeqB &B, const F& f, bool cons=false) {
+  merge(const SeqA &A,
+	const SeqB &B,
+	const F& f,
+	bool cons=false) {
     using T = typename SeqA::T;
     sequence<T> R(A.size() + B.size());
     merge_(A, B, R.slice(), f, cons);
