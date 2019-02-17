@@ -27,6 +27,7 @@ template <typename E, typename F>
 struct delayed_sequence {
   using T = E;
   delayed_sequence(size_t n, F _f) : f(_f), s(0), e(n) {};
+  delayed_sequence(size_t n, T v) : f([&] (size_t i) {return v;}), s(0), e(n) {};
   delayed_sequence(size_t s, size_t e, F _f) : f(_f), s(s), e(e) {};
   const T operator[] (size_t i) const {return (f)(i+s);}
   delayed_sequence<T,F> slice(size_t ss, size_t ee) const {

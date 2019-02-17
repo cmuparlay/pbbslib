@@ -130,7 +130,7 @@ namespace pbbs {
 
 
   // from numerical recipes
-  static uint64_t hash64(uint64_t u )
+  inline uint64_t hash64(uint64_t u )
   {
     uint64_t v = u * 3935559000370003845ul + 2691343689449507681ul;
     v ^= v >> 21;
@@ -145,7 +145,7 @@ namespace pbbs {
 
   // a slightly cheaper, but possibly not as good version
   // based on splitmix64
-  static uint64_t hash64_2(uint64_t x) {
+  inline uint64_t hash64_2(uint64_t x) {
     x = (x ^ (x >> 30)) * UINT64_C(0xbf58476d1ce4e5b9);
     x = (x ^ (x >> 27)) * UINT64_C(0x94d049bb133111eb);
     x = x ^ (x >> 31);
@@ -181,7 +181,7 @@ namespace pbbs {
     return r;
   }
 
-  static void free_array(void* a) {
+  inline void free_array(void* a) {
     my_free(a);
   }
 
