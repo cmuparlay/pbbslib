@@ -36,19 +36,76 @@ existing iterator rather than starting from indices.  Although I guess
 can start with iota.
 */
 
+
+template<class Seq, class UnaryPred>
+bool count_if(Seq S, UnaryPred p) {
+  auto BS = pbbs::delayed_seq<bool>(S.size(), [&] (size_t i) -> size_t {
+      return p(S[i]);});
+  return pbbs::reduce(BS, pbbs::addm<size_t>());
+}
+
+template<class Seq, class T>
+bool count(Seq S, T value) {
+  return count_if(S, [&] (size_t i) {return S[i] == value;});}
+
+template<class Seq, class UnaryPred>
+bool all_of(Seq S, UnaryPred p) { return count(S, p) == S.size();}
+
+template<class Seq, class UnaryPred>
+bool any_of(Seq S, UnaryPred p) { return count(S, p) > 1;}
+
+template<class Seq, class UnaryPred>
+bool none_of(Seq S, UnaryPred p) { return count(S, p) == 0;}
+
+template<class Seq, class UnaryPred>
+size_t find_if(Seq S, UnaryPred p) {
+  size_t n = S.size();
+  size_t granularity = 1000;
+  size_t i;
+  for (i = 0; i < std::min(granularity, n); i++)
+    if (p(S[i])) return i;
+  if (i < n) return i;
+  size_t start = granularity;
+  while (start < S.size()) {
+    size_t end = std::min(n,start+granularity);
+    auto SS = S.slice(start,end);
+    auto f = [&] (size_t i) -> size_t {
+      return p(S[i+start]) ? n : i+start;};
+    i = pbbs::reduce(delayed_seq<size_t>(end-start, f),
+		     minm<size_t>());
+    if (i < n) return i;
+    start += granularity;
+    granularity *= 2;
+  }
+  return n;
+}
+
+// needs to return location, and take comparison
+template <class Seq>
+Seq::value_type max_element(Seq S) {
+  return pbbs::reduce(S, maxm<Seq::value_type>);}
+
+template <class Seq>
+Seq::value_type min_element(Seq S) {
+  return pbbs::reduce(S, minm<Seq::value_type>);}
+
+template <class Seq>
+std::pair<Seq::value_type, Seq::value_type>
+minmax_element(Seq S) {
+  auto SS = delayed_seq(S.size(), [&] (size_t i) {
+      make_pair(S[i],S[i]);});
+  return pbbs::reduce(SS, minmaxm<Seq::value_type>());
+}
+
+
 /*
 
 Most of these are from the boost libraries, but the boost versions take ranges (as in slices).
 
-all_of
-any_of
-none_of
 for_each
-count
-count_if
+
 mismatch (first position where differ
 find (finds first element)
-find_if
 adjacent_find
 search (for a range of elements)
 copy
@@ -94,9 +151,6 @@ set_symmetric_difference
 set_union
 is_heap
 is_heap_until
-max_element
-min_element
-minmax_element
 equal (compares range)
 lexicographical_compare
 adjacent_difference

@@ -377,8 +377,9 @@ double t_integer_sort_pair(size_t n) {
   size_t bits = sizeof(T)*8;
   pbbs::sequence<par> S(n, [&] (size_t i) -> par {
       return par(r.ith_rand(i),i);});
+  pbbs::sequence<par> R;
   auto first = [] (par a) {return a.first;};
-  time(t, pbbs::integer_sort(S.slice(),first,bits););
+  time(t, R = pbbs::integer_sort(S.slice(),first,bits););
   return t;
 }
 
@@ -389,7 +390,7 @@ double t_integer_sort(size_t n) {
   pbbs::sequence<T> S(n, [&] (size_t i) -> T {
       return r.ith_rand(i);});
   auto identity = [] (T a) {return a;};
-  time(t, pbbs::integer_sort(S.slice(),identity,bits););
+  time(t, pbbs::integer_sort_inplace(S.slice(),identity,bits););
   return t;
 }
 
@@ -400,7 +401,7 @@ double t_integer_sort_128(size_t n) {
   pbbs::sequence<long_int> S(n, [&] (size_t i) -> long_int {
       return r.ith_rand(2*i) + (((long_int) r.ith_rand(2*i+1)) << 64) ;});
   auto identity = [] (long_int a) {return a;};
-  time(t, pbbs::integer_sort(S.slice(),identity,bits););
+  time(t, pbbs::integer_sort_inplace(S.slice(),identity,bits););
   return t;
 }
 
