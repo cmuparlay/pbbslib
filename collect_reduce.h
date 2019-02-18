@@ -116,7 +116,7 @@ namespace pbbs {
   template <typename OT, typename Seq, typename F, typename G, typename M>
   sequence<OT> collect_reduce(Seq const &A, size_t m,
 			      F get_index, G get_val, M monoid) {
-    using T = typename Seq::T;
+    using T = typename Seq::value_type;
     size_t n = A.size();
     size_t bits;
 
@@ -170,8 +170,9 @@ namespace pbbs {
   //  A is a sequence of key-value pairs
   //  monoid has fields m.identity and m.f (a binary associative function)
   template <typename Seq, typename M>
-  sequence<typename Seq::T> collect_reduce_pair(Seq const &A, M const &monoid) {
-    using T = typename Seq::T;
+  sequence<typename Seq::value_type>
+  collect_reduce_pair(Seq const &A, M const &monoid) {
+    using T = typename Seq::value_type;
     using key_type = typename T::first_type;
     using val_type = typename T::second_type;
     key_type empty = (key_type) -1;

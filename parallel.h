@@ -43,8 +43,8 @@ static void par_do(Lf left, Rf right, bool conservative=false);
 #include <sstream>
 #define PAR_GRANULARITY 2000
 
-static int num_workers() {return __cilkrts_get_nworkers();}
-static int worker_id() {return __cilkrts_get_worker_number();}
+inline int num_workers() {return __cilkrts_get_nworkers();}
+inline int worker_id() {return __cilkrts_get_worker_number();}
 inline void set_num_workers(int n) {
   __cilkrts_end_cilk();
   std::stringstream ss; ss << n;

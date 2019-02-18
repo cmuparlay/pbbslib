@@ -48,8 +48,8 @@ namespace pbbs {
   }
 
   template <class Seq, class Monoid>
-  auto reduce_serial(Seq const &A, Monoid m) -> typename Seq::T {
-    using T = typename Seq::T;
+  auto reduce_serial(Seq const &A, Monoid m) -> typename Seq::value_type {
+    using T = typename Seq::value_type;
     T r = A[0];
     for (size_t j=1; j < A.size(); j++) r = m.f(r,A[j]);
     return r;
@@ -57,9 +57,9 @@ namespace pbbs {
 
   template <class Seq, class Monoid>
   auto reduce(Seq const &A, Monoid m, flags fl = no_flag)
-    -> typename Seq::T
+    -> typename Seq::value_type
   {
-    using T = typename Seq::T;
+    using T = typename Seq::value_type;
     size_t n = A.size();
     size_t block_size = std::max(_block_size, 4 * (size_t) ceil(sqrt(n)));
     size_t l = num_blocks(n, block_size);
@@ -73,24 +73,15 @@ namespace pbbs {
     T r = reduce(Sums, m);
     return r;
   }
-  
-  // sums I with + (can be any type with + defined)
-  template <class Seq>
-  auto reduce_add(Seq const &I, flags fl = no_flag)
-    -> typename Seq::T
-  {
-    using T = typename Seq::T;
-    return reduce(I, addm<T>(), fl);
-  }
 
   const flags fl_scan_inclusive = (1 << 4);
 
   template <class In_Seq, class Out_Seq, class Monoid>
   auto scan_serial(In_Seq const &In, Out_Seq &Out,
-		   Monoid const &m, typename In_Seq::T offset,
-		   flags fl = no_flag)  -> typename In_Seq::T
+		   Monoid const &m, typename In_Seq::value_type offset,
+		   flags fl = no_flag)  -> typename In_Seq::value_type
   {
-    using T = typename In_Seq::T;
+    using T = typename In_Seq::value_type;
     T r = offset;
     size_t n = In.size();
     bool inclusive = fl & fl_scan_inclusive;
@@ -111,9 +102,9 @@ namespace pbbs {
 
   template <class In_Seq, class Out_Seq, class Monoid>
   auto scan_(In_Seq const &In, Out_Seq &Out, Monoid const &m,
-	     flags fl = no_flag) -> typename In_Seq::T
+	     flags fl = no_flag) -> typename In_Seq::value_type
   {
-    using T = typename In_Seq::T;
+    using T = typename In_Seq::value_type;
     size_t n = In.size();
     size_t l = num_blocks(n,_block_size);
     if (l <= 2 || fl & fl_sequential)
@@ -137,9 +128,9 @@ namespace pbbs {
 
   template <class In_Seq, class Monoid>
   auto scan(In_Seq const &In, Monoid m, flags fl = no_flag)
-    ->  std::pair<sequence<typename In_Seq::T>, typename In_Seq::T>
+    ->  std::pair<sequence<typename In_Seq::value_type>, typename In_Seq::value_type>
   {
-    using T = typename In_Seq::T;
+    using T = typename In_Seq::value_type;
     sequence<T> Out(In.size());
     return std::make_pair(std::move(Out), scan_(In, Out, m, fl));
   }
@@ -162,8 +153,8 @@ namespace pbbs {
 
   template <class In_Seq, class Bool_Seq>
   auto pack_serial(In_Seq const &In, Bool_Seq const &Fl)
-      -> sequence<typename In_Seq::T> {
-    using T = typename In_Seq::T;
+      -> sequence<typename In_Seq::value_type> {
+    using T = typename In_Seq::value_type;
     size_t n = In.size();
     size_t m = sum_bools_serial(Fl);
     sequence<T> Out = sequence<T>::no_init(m);
@@ -174,7 +165,7 @@ namespace pbbs {
   }
 
   template <class Slice, class Slice2>
-  void pack_serial_at(Slice In, Slice2 Fl, typename Slice::T* Out) {
+  void pack_serial_at(Slice In, Slice2 Fl, typename Slice::value_type* Out) {
     size_t k = 0;
     for (size_t i=0; i < In.size(); i++)
       if (Fl[i]) assign_uninitialized(Out[k++], In[i]);
@@ -182,9 +173,9 @@ namespace pbbs {
 
   template <class In_Seq, class Bool_Seq>
   auto pack(In_Seq const &In, Bool_Seq const &Fl, flags fl = no_flag)
-  //typename In_Seq::T* _Out = nullptr)
-      -> sequence<typename In_Seq::T> {
-    using T = typename In_Seq::T;
+  //typename In_Seq::value_type* _Out = nullptr)
+      -> sequence<typename In_Seq::value_type> {
+    using T = typename In_Seq::value_type;
     size_t n = In.size();
     size_t l = num_blocks(n, _block_size);
     if (l <= 1 || fl & fl_sequential) {
@@ -205,10 +196,10 @@ namespace pbbs {
 
   template <class In_Seq, class F>
   auto filter(In_Seq const &In, F const &f, flags fl = no_flag)
-  //typename In_Seq::T* _Out = nullptr)
-    -> sequence<typename In_Seq::T>
+  //typename In_Seq::value_type* _Out = nullptr)
+    -> sequence<typename In_Seq::value_type>
   {
-    using T = typename In_Seq::T;
+    using T = typename In_Seq::value_type;
     size_t n = In.size();
     size_t l = num_blocks(n,_block_size);
     sequence<size_t> Sums(l);
@@ -237,7 +228,7 @@ namespace pbbs {
 
   template <class In_Seq, class Char_Seq>
   std::pair<size_t,size_t> split_three(In_Seq const &In,
-				       slice_t<typename In_Seq::T*> Out,
+				       slice_t<typename In_Seq::value_type*> Out,
 				       Char_Seq const &Fl,
 				       flags fl = no_flag) {
     size_t n = In.size();

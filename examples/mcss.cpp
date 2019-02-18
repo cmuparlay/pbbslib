@@ -5,8 +5,11 @@
 using namespace std;
 using namespace pbbs;
 
+// Maximum Contiguous Subsequence Sum
+
+// 10x improvement by using delayed sequence
 template <class Seq>
-typename Seq::T mcss(Seq A) {
+typename Seq::T mcss(Seq const &A) {
   using T = typename Seq::T;
   using TT = tuple<T,T,T,T>;
   auto f = [&] (TT a, TT b) {
@@ -18,8 +21,8 @@ typename Seq::T mcss(Seq A) {
 	      max(sa + ab, sb),
 	      ta + tb);
   };
-  auto S = sequence<TT>(A.size(), [&] (size_t i) {
-  //auto S = delayed_seq<TT>(A.size(), [&] (size_t i) {
+  //auto S = sequence<TT>(A.size(), [&] (size_t i) {
+  auto S = delayed_seq<TT>(A.size(), [&] (size_t i) {
       return TT(A[i],A[i],A[i],A[i]);});
   TT r = reduce(S, make_monoid(f, TT(0,0,0,0)));
   return get<0>(r);
@@ -31,7 +34,6 @@ int main() {
   pbbs::random r(0);
   sequence<T> A(n, [&] (size_t i) {return (T) (r[i]%n - n/2);});
   T result;
-  timer t("MCSS");
   for (int i=0; i < 5; i++) {
     result = mcss(A);
     t.next("Total");

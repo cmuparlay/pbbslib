@@ -89,7 +89,7 @@ namespace pbbs {
 
   template <typename Seq>
   struct get_bucket {
-    using E = typename Seq::T;
+    using E = typename Seq::value_type;
     using HE = std::pair<E,int>;
     std::vector<HE> hash_table;
     size_t table_mask;
@@ -159,7 +159,7 @@ namespace pbbs {
   sequence<s_size_t> histogram(Seq const &A, size_t m) {
     size_t n = A.size();
     size_t bits;
-    using T = typename Seq::T;
+    using T = typename Seq::value_type;
     
     if (n < (1 << 27)) bits = (log2_up(n) - 7)/2;
     // for large n selected so each bucket fits into cache

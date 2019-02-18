@@ -6,10 +6,10 @@ void mat_vec_mult(IntSeq const &starts,
 		  IntSeq const &columns,
 		  Seq const &values,
 		  Seq const &in,
-		  slice_t<typename Seq::T*> out,
+		  slice_t<typename Seq::value_type*> out,
 		  Mult mult,
 		  Add add) {
-  using E = typename Seq::T;
+  using E = typename Seq::value_type;
   size_t n = in.size();
   auto row_f = [&] (size_t i) {
     size_t s = starts[i];

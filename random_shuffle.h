@@ -42,7 +42,7 @@ namespace pbbs {
 
   template <typename Seq>
   void random_shuffle_(Seq const &In,
-		       slice_t<typename Seq::T*> Out,
+		       slice_t<typename Seq::value_type*> Out,
 		       random r = default_random) {
     size_t n = In.size();
     if (n < SEQ_THRESHOLD) {
@@ -77,16 +77,17 @@ namespace pbbs {
   }
 
   template <typename Seq>
-  sequence<typename Seq::T> random_shuffle(Seq const &In, random r = default_random) {
-    using T = typename Seq::T;
+  sequence<typename Seq::value_type>
+  random_shuffle(Seq const &In, random r = default_random) {
+    using T = typename Seq::value_type;
     sequence<T> Out = sequence<T>::no_init(In.size());
     random_shuffle_(In, Out.slice(), r);
     return Out;
   }
 
   template <class intT>
-  inline sequence<intT> random_permutation(size_t n,
-                                           random r = default_random) {
+  sequence<intT>
+  random_permutation(size_t n, random r = default_random) {
     sequence<intT> id(n, [&] (size_t i) { return i; });
     return pbbs::random_shuffle(id, r);
   }

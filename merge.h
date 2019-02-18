@@ -12,9 +12,9 @@ namespace pbbs {
   template <class SeqA, class SeqB, class F> 
   void seq_merge(SeqA const &A,
 		 SeqB const &B,
-		 slice_t<typename SeqA::T*> R,
+		 slice_t<typename SeqA::value_type*> R,
 		 const F& f) {
-    using T = typename SeqA::T;
+    using T = typename SeqA::value_type;
     size_t nA = A.size();
     size_t nB = B.size();
     size_t i = 0;
@@ -42,7 +42,7 @@ namespace pbbs {
   template <class SeqA, class SeqB, class F> 
   void merge_(const SeqA &A,
 	      const SeqB &B,
-	      slice_t<typename SeqA::T*> R,
+	      slice_t<typename SeqA::value_type*> R,
 	      const F& f,
 	      bool cons=false) {
     size_t nA = A.size();
@@ -70,12 +70,12 @@ namespace pbbs {
   }
 
   template <class SeqA, class SeqB, class F> 
-  sequence<typename SeqA::T>
+  sequence<typename SeqA::value_type>
   merge(const SeqA &A,
 	const SeqB &B,
 	const F& f,
 	bool cons=false) {
-    using T = typename SeqA::T;
+    using T = typename SeqA::value_type;
     sequence<T> R(A.size() + B.size());
     merge_(A, B, R.slice(), f, cons);
     return R;

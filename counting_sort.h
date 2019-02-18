@@ -54,7 +54,7 @@ namespace pbbs {
 
   // write to destination, where offsets give start of each bucket
   template <typename s_size_t, typename InSeq, typename KeySeq>
-  void seq_write_(InSeq In, typename InSeq::T* Out, KeySeq Keys,
+  void seq_write_(InSeq In, typename InSeq::value_type* Out, KeySeq Keys,
 		  s_size_t* offsets, size_t num_buckets) {
     for (size_t j = 0; j < In.size(); j++) {
       size_t k = offsets[Keys[j]]++;
@@ -64,7 +64,7 @@ namespace pbbs {
 
   // write to destination, where offsets give end of each bucket
   template <typename s_size_t, typename InSeq, typename KeySeq>
-  void seq_write_down_(InSeq In, typename InSeq::T* Out, KeySeq Keys,
+  void seq_write_down_(InSeq In, typename InSeq::value_type* Out, KeySeq Keys,
 		       s_size_t* offsets, size_t num_buckets) {
     for (long j = In.size()-1; j >= 0; j--) {
       long k = --offsets[Keys[j]];
@@ -109,7 +109,7 @@ namespace pbbs {
 			       size_t num_buckets) {
     timer t;
     t.start();
-    using T = typename InS::T;
+    using T = typename InS::value_type;
     size_t n = In.size();
     size_t num_threads = num_workers();
 
@@ -205,7 +205,7 @@ namespace pbbs {
   // Parallel version
   template <typename InS, typename KeyS>
   sequence<size_t> count_sort(InS const &In,
-			      slice_t<typename InS::T*> Out,
+			      slice_t<typename InS::value_type*> Out,
 			      KeyS const &Keys,
 			      size_t num_buckets) {
     size_t n = In.size();

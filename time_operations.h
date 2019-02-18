@@ -82,7 +82,7 @@ double t_map_reduce_128(size_t n) {
     __builtin_prefetch (&S[(i+4)*stride], 0, 3);
     return S[i*stride];};
   auto T = pbbs::delayed_seq<size_t>(n, get);
-  time(t, pbbs::reduce_add(T););
+  time(t, pbbs::reduce(T, pbbs::addm<size_t>()););
   return t;
 }
 

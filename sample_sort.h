@@ -70,7 +70,7 @@ namespace pbbs {
   template<class SeqA, class SeqB, typename BinPred>
   void sort_small_(SeqA A, SeqB B, const BinPred& f,
 		   bool inplace = false, bool stable = false) {
-    using T = typename SeqA::T;
+    using T = typename SeqA::value_type;
     size_t n = A.size();
     if (stable) {
       if (inplace) {
@@ -102,7 +102,7 @@ namespace pbbs {
   template<typename s_size_t = size_t, class SeqA, class SeqB, typename BinPred>
   void sample_sort_ (SeqA A, SeqB B, const BinPred& f,
 		     bool inplace = false, bool stable = false) {
-    using T = typename SeqA::T;
+    using T = typename SeqA::value_type;
     size_t n = A.size();
 
     //if (n == 0) return A;
@@ -198,8 +198,8 @@ namespace pbbs {
 
   template<class Seq, typename BinPred>
   auto sample_sort (Seq const &A, const BinPred& f, bool stable = false)
-    -> sequence<typename Seq::T> {
-    using T = typename Seq::T;
+    -> sequence<typename Seq::value_type> {
+    using T = typename Seq::value_type;
     sequence<T> R = sequence<T>::no_init(A.size());
     if (A.size() < ((size_t) 1) << 32)
       sample_sort_<unsigned int>(A.slice(), R.slice(), f, false, stable);

@@ -129,9 +129,9 @@ namespace pbbs {
  
   template <class SeqA, class BinPred>
   std::tuple<size_t,size_t,bool> p_split3(SeqA const &A,
-					  slice_t<typename SeqA::T*> B,
+					  slice_t<typename SeqA::value_type*> B,
 					  const BinPred& f) {
-    using E = typename SeqA::T;
+    using E = typename SeqA::value_type;
     size_t n = A.size();
     sort5(A.begin(),n,f);
     E p1 = A[1];
@@ -179,8 +179,8 @@ namespace pbbs {
   }
 
   template <class SeqA, class F> 
-  sequence<typename SeqA::T> p_quicksort(SeqA const &In, const F& f) {
-    using T = typename SeqA::T;
+  sequence<typename SeqA::value_type> p_quicksort(SeqA const &In, const F& f) {
+    using T = typename SeqA::value_type;
     sequence<T> Out(In.size());
     p_quicksort_(In.slice(), Out.slice(), f);
     return Out;

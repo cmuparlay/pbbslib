@@ -34,8 +34,8 @@ namespace pbbs {
   }
 
   template <class SeqA, class F> 
-  sequence<typename SeqA::T> merge_sort(const SeqA &In, const F& f) {
-    using T = typename SeqA::T;
+  sequence<typename SeqA::value_type> merge_sort(const SeqA &In, const F& f) {
+    using T = typename SeqA::value_type;
     sequence<T> A(In);
     sequence<T> B(In.size());
     merge_sort_(A.slice(), B.slice(), f);
