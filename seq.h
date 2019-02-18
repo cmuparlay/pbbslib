@@ -23,6 +23,11 @@ private:
   iterator e; 
 };
 
+template <class Iter>
+slice_t<Iter> make_slice(Iter s, Iter e) {
+  return slice_t<Iter>(s,e);
+}
+
 template <typename T, typename F>
 struct delayed_sequence {
   using value_type = T;
@@ -39,6 +44,12 @@ private:
   const F f;
   const size_t s, e;
 };
+
+// used so second template argument can be inferred
+template <class T, class F>
+delayed_sequence<T,F> delayed_seq (size_t n, F f) {
+  return delayed_sequence<T,F>(n,f);
+}
 
 template <typename T>
 struct sequence {
@@ -104,13 +115,13 @@ public:
 
   template <typename Iter>
   sequence(slice_t<Iter> a) {
-    copy_here(a.start(), a.size());
+    copy_here(a.begin(), a.size());
   }
 
-  // template <class F>
-  // sequence(delayed_sequence<T,F> a) {
-  //   copy_here(a, a.size());
-  // }
+  template <class F>
+  sequence(delayed_sequence<T,F> a) {
+    copy_here(a, a.size());
+  }
   
   ~sequence() { clear();}
 
@@ -146,12 +157,9 @@ public:
 
 private:
   template <class Seq>
-  void copy_here(Seq a, size_t n) {
+  void copy_here(Seq const &a, size_t n) {
     s = pbbs::new_array_no_init<T>(n, true);
-    if (n > 0) {
-      //cout << "Yikes, copy: " << s << endl;
-      //abort();  
-    }
+    //if (n > 0) { cout << "Yikes, copy: " << s << endl;}
     parallel_for(0, n, [&] (size_t i) {
 	pbbs::assign_uninitialized(s[i], a[i]);});
   }
@@ -160,14 +168,4 @@ private:
   size_t n;
 };
 
-// used so second template argument can be inferred
-template <class T, class F>
-delayed_sequence<T,F> delayed_seq (size_t n, F f) {
-  return delayed_sequence<T,F>(n,f);
-}
-
-template <class Iter>
-slice_t<Iter> make_slice(Iter s, Iter e) {
-  return slice_t<Iter>(s,e);
-}
 }
