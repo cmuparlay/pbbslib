@@ -89,13 +89,13 @@ namespace pbbs {
 
 
   template<typename E, typename BinPred>
-  void seq_sort_inplace(slice_t<E*> A, BinPred f) {
+  void seq_sort_inplace(slice_t<E*> A, BinPred f, bool stable) {
 #if defined(OPENMP)
     quicksort_serial(A.begin(), A.size(), f);
 #else
-    if (is_pointer(A[0])) 
+    if (((sizeof(E) > 8) || is_pointer(A[0])) && !stable) 
       quicksort(A.begin(), A.size(), f);
-    else bucket_sort(A, f);
+    else bucket_sort(A, f, stable);
 #endif
   }
   
@@ -147,17 +147,17 @@ namespace pbbs {
 	  size_t start = std::min(n, i * block_size);
 	  size_t end = std::min(n, start + block_size);
 	  size_t l = end-start;
-	  if (stable)
-	    merge_sort_(A.slice(start,end), C.slice(start,end), f);
-	  else {
+	  //if (stable)
+	  //  merge_sort_(A.slice(start,end), C.slice(start,end), f);
+	  //else {
 	    if (inplace)
 	      for (size_t j = start;  j < start + l; j++) 
 		move_uninitialized(C[j], A[j]);
 	    else
 	      for (size_t j = start;  j < start + l; j++) 
 		assign_uninitialized(C[j], A[j]);
-	    seq_sort_inplace(C.slice(start,end), f);
-	  }
+	    seq_sort_inplace(C.slice(start,end), f, stable);
+	    //}
 	  merge_seq(C.begin() + start, pivots.begin(), counts + i*num_buckets,
 		    l, num_buckets-1, f);
 	}, 1);
@@ -181,13 +181,13 @@ namespace pbbs {
 	  // are equal
 	  if (i == 0 || i == num_buckets - 1 || f(pivots[i-1],pivots[i])) {
 	    // todo: using stable here breaks the permuted test??
-	    if (stable) {
+	    //if (stable) {
 	      // final argument means to do it inplace, using C as temp
-	      merge_sort_(B.slice(start,end), C.slice(start,end), f, true);
-	    }
-	    else {
-	      seq_sort_inplace(B.slice(start,end), f);
-	    }
+	    //  merge_sort_(B.slice(start,end), C.slice(start,end), f, true);
+	    //}
+	    //else {
+	    seq_sort_inplace(B.slice(start,end), f, stable);
+	      //}
 	  }
 	},1);
       t.next("second sort");
@@ -208,7 +208,7 @@ namespace pbbs {
   }
 
   template<class Iter, typename BinPred>
-  void sample_sort_inplace (slice_t<Iter> &A, const BinPred& f, bool stable = false) {
+  void sample_sort_inplace (slice_t<Iter> A, const BinPred& f, bool stable = false) {
     if (A.size() < ((size_t) 1) << 32)
       sample_sort_<unsigned int>(A.slice(), A.slice(), f, true, stable);
     else sample_sort_<size_t>(A.slice(), A.slice(), f, true, stable);

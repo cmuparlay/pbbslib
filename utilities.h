@@ -76,7 +76,7 @@ struct __mallopt {
   }
 };
 
-__mallopt __mallopt_var;
+//__mallopt __mallopt_var;
 #endif
 
 namespace pbbs {

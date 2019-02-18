@@ -34,20 +34,18 @@ namespace pbbs {
   }
 
   template <class SeqA, class F> 
-  sequence<typename SeqA::value_type> merge_sort(const SeqA &In, const F& f) {
+  sequence<typename SeqA::value_type>
+  merge_sort(const SeqA &In, const F& f) {
     using T = typename SeqA::value_type;
     sequence<T> A(In);
     sequence<T> B(In.size());
-    merge_sort_(A.slice(), B.slice(), f);
+    merge_sort_(A.slice(), B.slice(), f, false);
     return B;
   }
 
-  template <class T, class F>
-  sequence<T> merge_sort(sequence<T> &&In, const F& f) {
-    sequence<T> A(std::move(In));
-    sequence<T> B(A.size());
-    merge_sort_(A.slice(), B.slice(), f, true);
-    return A;
+  template <class T, class F> 
+  void merge_sort_inplace(slice_t<T*> In, const F& f) {
+    sequence<T> B(In.size());
+    merge_sort_(In.slice(), B.slice(), f, true);
   }
-
 }
