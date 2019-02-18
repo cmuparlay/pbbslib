@@ -44,6 +44,7 @@ template <typename T>
 struct sequence {
 public:
   using value_type = T;
+  using iterator = T*;
   
   sequence() : s(NULL), n(0) {}
 
