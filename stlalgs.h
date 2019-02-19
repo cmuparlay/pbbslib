@@ -81,22 +81,33 @@ size_t find_if(Seq S, UnaryPred p) {
 }
 
 // needs to return location, and take comparison
-template <class Seq>
-Seq::value_type max_element(Seq S) {
-  return pbbs::reduce(S, maxm<Seq::value_type>);}
-
-template <class Seq>
-Seq::value_type min_element(Seq S) {
-  return pbbs::reduce(S, minm<Seq::value_type>);}
-
-template <class Seq>
-std::pair<Seq::value_type, Seq::value_type>
-minmax_element(Seq S) {
-  auto SS = delayed_seq(S.size(), [&] (size_t i) {
-      make_pair(S[i],S[i]);});
-  return pbbs::reduce(SS, minmaxm<Seq::value_type>());
+template <class Seq, class Compare>
+size_t min_element(Seq S, Compare comp) {
+  auto SS = delayed_seq<size_t>(S.size(), [&] (size_t i) {
+      return i;});
+  auto f = [&] (size_t l, size_t r) {
+    return (!comp(S[r], S[l]) ? l : r);};
+  return pbbs::reduce(S, make_monoid(f, (size_t) S.size()));
 }
 
+template <class Seq, class Compare>
+size_t max_element(Seq S, Compare comp) {
+  using T = Seq::value_type;
+  return min_element(S, [&] (T a, T b) {return f(b, a);});
+}
+
+template <class Seq>
+std::pair<size_t, size_t>
+minmax_element(Seq S) {
+  size_t n = S.size();
+  using P = std::pair<size_t, size_t>
+  auto SS = delayed_seq(S.size(), [&] (size_t i) {
+      make_pair(i,i);});
+  auto f = [&] (P l, P r) {
+    return (P(!comp(S[r.first], S[l.first]) ? l.first : r.first,
+	      !comp(S[l.second], S[r.second]) ? l.second : r.second));};
+  return pbbs::reduce(SS, make_monoid(f, P(n,n)));
+}
 
 /*
 
