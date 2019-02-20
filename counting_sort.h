@@ -26,6 +26,8 @@
 #include "utilities.h"
 #include "sequence_ops.h"
 #include "transpose.h"
+#include <chrono>
+#include <thread>
 
 // TODO
 // Make sure works for inplace or not with regards to move_uninitialized
@@ -106,9 +108,8 @@ namespace pbbs {
   template <typename s_size_t, 
 	    typename InS, typename OutS, typename KeyS>
   sequence<size_t> count_sort_(InS& In, OutS& Out, KeyS& Keys,
-			       size_t num_buckets) {
-    timer t;
-    t.start();
+			       size_t num_buckets, bool is_nested=false) {
+    timer t("count sort", false);
     using T = typename InS::value_type;
     size_t n = In.size();
     size_t num_threads = num_workers();
@@ -119,10 +120,10 @@ namespace pbbs {
     // if not given, then use heuristic to choose num_blocks
     size_t sqrt = (size_t) ceil(pow(n,0.5));
     size_t num_blocks = 
-      (size_t) (n < (1<<24)) ? (sqrt/16) : ((n < (1<<28)) ? sqrt/2 : sqrt);
+      (size_t) (n < (1<<24)) ? (sqrt/16) : ((n < (1<<28)) ? sqrt/9 : sqrt/5);
     if (2*num_blocks < num_threads) num_blocks *= 2;
     if (sizeof(T) <= 4) num_blocks = num_blocks/2;
-
+    
     // if insufficient parallelism, sort sequentially
     if (n < SEQ_THRESHOLD || num_blocks == 1 || num_threads == 1) {
       return seq_count_sort(In,Out,Keys,num_buckets);}
@@ -131,7 +132,7 @@ namespace pbbs {
     size_t m = num_blocks * num_buckets;
     
     s_size_t *counts = new_array_no_init<s_size_t>(m,1);
-    if (n > 1000000000) t.next("head");
+    t.next("head");
 
     // sort each block
     parallel_for(0, num_blocks,  [&] (size_t i) {
@@ -139,9 +140,9 @@ namespace pbbs {
 	s_size_t end =  std::min(start + block_size, n);
 	seq_count_(In.slice(start,end), Keys.slice(start,end),
 		   counts + i*num_buckets, num_buckets);
-      },1);
+      }, 1, is_nested);
 
-    if (n > 1000000000) t.next("count");
+    t.next("count");
 
     sequence<size_t> bucket_offsets = sequence<size_t>::no_init(num_buckets+1);
     parallel_for(0, num_buckets, [&] (size_t i) {
@@ -153,6 +154,7 @@ namespace pbbs {
     bucket_offsets[num_buckets] = 0;
     size_t total = scan_inplace(bucket_offsets.slice(), addm<size_t>());
     if (total != n) abort();
+    
     sequence<s_size_t> dest_offsets = sequence<s_size_t>::no_init(num_blocks*num_buckets);
     parallel_for(0, num_buckets, [&] (size_t i) {
 	size_t v = bucket_offsets[i];
@@ -163,12 +165,17 @@ namespace pbbs {
 	}
       }, 1 + 1024/num_blocks);
 
+    s_size_t *counts2 = new_array_no_init<s_size_t>(m,1);
+    
     parallel_for(0, num_blocks, [&] (size_t i) {
 	size_t start = i * num_buckets;
 	for (size_t j= 0; j < num_buckets; j++)
-	  counts[start+j] = dest_offsets[j*num_blocks + i];
+	  counts2[start+j] = dest_offsets[j*num_blocks + i];
       }, 1 + 1024/num_buckets);
-
+    //parallel_for(0, n, [&] (size_t i) {Out[i] = In[0];}, 100000);
+    
+    t.next("buckets");
+    
     // transpose<s_size_t>(counts, dest_offsets.begin()).trans(num_blocks,
     // 							    num_buckets);
     // size_t sum = scan_inplace(dest_offsets, addm<s_size_t>());
@@ -182,8 +189,8 @@ namespace pbbs {
 	s_size_t end =  std::min(start + block_size, n);
 	seq_write_(In.slice(start,end), Out.begin(),
 		   Keys.slice(start,end),
-		   counts + i*num_buckets, num_buckets);
-      },1);
+		   counts2 + i*num_buckets, num_buckets);
+      }, 1, is_nested);
 
     //if (n > 1000000000) t.next("move");
     
@@ -194,25 +201,25 @@ namespace pbbs {
     // // last element is the total size n
     // bucket_offsets[num_buckets] = n;
 
-    //t.next("transpose");
-    //free_array(B);
-    if (n > 1000000000) {
-      //for (size_t i=0; i < 10; i++) cout << bucket_offsets[i] << endl;
-    }
+    t.next("transpose");
+    free_array(counts);
+    free_array(counts2);
+    //std::this_thread::sleep_for(std::chrono::seconds(1));
     return bucket_offsets;
   }
 
   // Parallel version
   template <typename InS, typename KeyS>
   sequence<size_t> count_sort(InS const &In,
-			      slice_t<typename InS::value_type*> Out,
+			      range<typename InS::value_type*> Out,
 			      KeyS const &Keys,
-			      size_t num_buckets) {
+			      size_t num_buckets,
+			      bool is_nested=false) {
     size_t n = In.size();
     size_t max32 = ((size_t) 1) << 32;
     if (n < max32 && num_buckets < max32)
       // use 4-byte counters when larger ones not needed
-      return count_sort_<uint32_t>(In, Out, Keys, num_buckets);
-    return count_sort_<size_t>(In, Out, Keys, num_buckets);
+      return count_sort_<uint32_t>(In, Out, Keys, num_buckets, is_nested);
+    return count_sort_<size_t>(In, Out, Keys, num_buckets, is_nested);
   }
 }

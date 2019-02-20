@@ -88,7 +88,7 @@ namespace pbbs {
   // In and Out cannot be the same, but In and Tmp should be same if inplace
   template <typename SeqIn, typename Slice, typename Get_Key>
   void integer_sort_r(SeqIn const &In, Slice Out, Slice Tmp, Get_Key const &g, 
-		      size_t key_bits, bool inplace) {
+		      size_t key_bits, bool inplace, bool is_nested=false) {
     size_t n = In.size();
     timer t;
 
@@ -107,7 +107,7 @@ namespace pbbs {
       size_t mask = num_buckets - 1;
       auto f = [&] (size_t i) {return g(In[i]) & mask;};
       auto get_bits = delayed_seq<size_t>(n, f);
-      count_sort(In.slice(), Out, get_bits, num_buckets);
+      count_sort(In.slice(), Out, get_bits, num_buckets, is_nested);
       if (inplace)
 	parallel_for(0, n, [&] (size_t i) {
 	    move_uninitialized(In[i], Out[i]);});
@@ -122,7 +122,7 @@ namespace pbbs {
       auto get_bits = delayed_seq<size_t>(n, f);
 
       // divide into buckets
-      sequence<size_t> offsets = count_sort(In.slice(), Out, get_bits, buckets);
+      sequence<size_t> offsets = count_sort(In.slice(), Out, get_bits, buckets, is_nested);
 
       // recursively sort each bucket
       parallel_for(0, buckets, [&] (size_t i) {
@@ -130,7 +130,7 @@ namespace pbbs {
 	  size_t end = offsets[i+1];
 	  auto a = Out.slice(start, end);
 	  auto b = Tmp.slice(start, end);
-	  integer_sort_r(a, b, a, g, shift_bits, !inplace);
+	  integer_sort_r(a, b, a, g, shift_bits, !inplace, true);
 	}, 1);
     }
   }
@@ -145,8 +145,8 @@ namespace pbbs {
   //    if set to 0, then a max is taken over the keys to determine
   template <typename SeqIn, typename IterOut, typename Get_Key>
   void integer_sort_(SeqIn const &In,
-		     slice_t<IterOut> Out,
-		     slice_t<IterOut> Tmp,
+		     range<IterOut> Out,
+		     range<IterOut> Tmp,
 		     Get_Key const &g, 
 		     size_t key_bits=0,
 		     bool inplace=false) {
@@ -174,7 +174,7 @@ namespace pbbs {
   }
 
   template <typename T, typename Get_Key>
-  void integer_sort_inplace(slice_t<T*> In,
+  void integer_sort_inplace(range<T*> In,
 			    Get_Key const &g,
 			    size_t key_bits=0) {
     sequence<T> Tmp = sequence<T>::no_init(In.size());

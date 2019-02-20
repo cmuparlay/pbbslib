@@ -43,7 +43,7 @@ timer b_t("sort",false);
 
 // returns true if all equal
 template <class T, class binOp>
-bool get_buckets(slice_t<T*> A, uchar* buckets, binOp f, size_t rounds) {
+bool get_buckets(range<T*> A, uchar* buckets, binOp f, size_t rounds) {
   size_t n = A.size();
   size_t num_buckets = (1 << rounds);
   size_t over_sample = (n > 8196) ? 8 : 2; 
@@ -88,7 +88,7 @@ bool get_buckets(slice_t<T*> A, uchar* buckets, binOp f, size_t rounds) {
 }
 
 template <class T, class binOp>
-void bucket_sort_r(slice_t<T*> in, slice_t<T*> out, binOp f,
+void bucket_sort_r(range<T*> in, range<T*> out, binOp f,
 		   bool stable, bool inplace) {
   size_t n = in.size();
   if (n < 512) {
@@ -125,7 +125,7 @@ void bucket_sort_r(slice_t<T*> in, slice_t<T*> out, binOp f,
 }
 
 template <class T, class binOp>
-void bucket_sort(slice_t<T*> in, binOp f, bool stable=false) {
+void bucket_sort(range<T*> in, binOp f, bool stable=false) {
   size_t n = in.size();
   sequence<T> tmp(n);
   bucket_sort_r(in.slice(), tmp.slice(), f, stable, true);

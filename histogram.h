@@ -24,6 +24,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <cstdint>
+#include <vector>
 #include <algorithm>
 #include "utilities.h"
 #include "counting_sort.h"
@@ -42,7 +43,7 @@ namespace pbbs {
   }
 
   template <typename Seq, typename Iter>
-  void _seq_count(Seq const &In, slice_t<Iter> counts) {
+  void _seq_count(Seq const &In, range<Iter> counts) {
     for (size_t i = 0; i < counts.size(); i++) counts[i] = 0;
     for (size_t j = 0; j < In.size(); j++) counts[In[j]]++;
   }
@@ -169,6 +170,7 @@ namespace pbbs {
       return  _count<s_size_t>(A, m);
     if (n < (1 << 13))
       return seq_histogram<s_size_t>(A , m);
+    cout << bits << endl;
 
     //timer t("histogram", false);
 

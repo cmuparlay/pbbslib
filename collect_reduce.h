@@ -199,7 +199,7 @@ namespace pbbs {
     else if (n < (1 << 23)) bits = (log2_up(n) - 3)/2;
     else if (n < (1 << 27)) bits = (log2_up(n) - 5)/2;
     // for large n selected so each bucket fits into cache
-    else bits = (log2_up(n) - 16);
+    else bits = (log2_up(n) - 17);
     size_t num_buckets = (1<<bits);
 
     // Returns a map (hash) from key to bucket.

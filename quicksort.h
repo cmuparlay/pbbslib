@@ -129,7 +129,7 @@ namespace pbbs {
  
   template <class SeqA, class BinPred>
   std::tuple<size_t,size_t,bool> p_split3(SeqA const &A,
-					  slice_t<typename SeqA::value_type*> B,
+					  range<typename SeqA::value_type*> B,
 					  const BinPred& f) {
     using E = typename SeqA::value_type;
     size_t n = A.size();
@@ -152,7 +152,7 @@ namespace pbbs {
   // cut_size: is when to revert to  quicksort.
   //    If -1 then it uses a default based on number of threads
   template <class Iter, class F> 
-  void p_quicksort_(slice_t<Iter> In, slice_t<Iter> Out, const F& f,
+  void p_quicksort_(range<Iter> In, range<Iter> Out, const F& f,
 		    bool inplace = false, long cut_size = -1) {
     size_t n = In.size();
     if (cut_size == -1)
@@ -187,7 +187,7 @@ namespace pbbs {
   }
 
   template <class T, class F> 
-  void p_quicksort_inplace(slice_t<T*> &In, const F& f) {
+  void p_quicksort_inplace(range<T*> &In, const F& f) {
     sequence<T> Tmp = sequence<T>::no_init(In.size());
     p_quicksort_(In.slice(), Tmp.slice(), f, true);
   }

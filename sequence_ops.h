@@ -47,7 +47,7 @@ namespace pbbs {
     parallel_for(0, l, body, 1, 0 != (fl & fl_conservative));
   }
 
-  template <class Seq, class Monoid>
+  template <SEQ Seq, class Monoid>
   auto reduce_serial(Seq const &A, Monoid m) -> typename Seq::value_type {
     using T = typename Seq::value_type;
     T r = A[0];
@@ -55,7 +55,7 @@ namespace pbbs {
     return r;
   }
 
-  template <class Seq, class Monoid>
+  template <SEQ Seq, class Monoid>
   auto reduce(Seq const &A, Monoid m, flags fl = no_flag)
     -> typename Seq::value_type
   {
@@ -76,8 +76,8 @@ namespace pbbs {
 
   const flags fl_scan_inclusive = (1 << 4);
 
-  template <class In_Seq, class Out_Seq, class Monoid>
-  auto scan_serial(In_Seq const &In, Out_Seq &Out,
+  template <SEQ In_Seq, RANGE Out_Seq, class Monoid>
+  auto scan_serial(In_Seq const &In, Out_Seq Out,
 		   Monoid const &m, typename In_Seq::value_type offset,
 		   flags fl = no_flag)  -> typename In_Seq::value_type
   {
@@ -100,8 +100,8 @@ namespace pbbs {
     return r;
   }
 
-  template <class In_Seq, class Out_Seq, class Monoid>
-  auto scan_(In_Seq const &In, Out_Seq &Out, Monoid const &m,
+  template <SEQ In_Seq, RANGE Out_Range, class Monoid>
+  auto scan_(In_Seq const &In, Out_Range Out, Monoid const &m,
 	     flags fl = no_flag) -> typename In_Seq::value_type
   {
     using T = typename In_Seq::value_type;
@@ -113,7 +113,7 @@ namespace pbbs {
     sliced_for (n, _block_size,
 		[&] (size_t i, size_t s, size_t e)
 		{ Sums[i] = reduce_serial(In.slice(s,e), m);});
-    T total = scan_serial(Sums, Sums, m, m.identity, 0);
+    T total = scan_serial(Sums, Sums.slice(), m, m.identity, 0);
     sliced_for (n, _block_size,
 		[&] (size_t i, size_t s, size_t e)
 		{ auto O = Out.slice(s,e);
@@ -121,18 +121,18 @@ namespace pbbs {
     return total;
   }
 
-  template <class T, class Monoid>
-  auto scan_inplace(slice_t<T*> In, Monoid m, flags fl = no_flag)
-    -> T
+  template <RANGE Range, class Monoid>
+  auto scan_inplace(Range In, Monoid m, flags fl = no_flag)
+    -> typename Range::value_type
   { return scan_(In, In, m, fl); }
 
-  template <class In_Seq, class Monoid>
+  template <SEQ In_Seq, class Monoid>
   auto scan(In_Seq const &In, Monoid m, flags fl = no_flag)
     ->  std::pair<sequence<typename In_Seq::value_type>, typename In_Seq::value_type>
   {
     using T = typename In_Seq::value_type;
     sequence<T> Out(In.size());
-    return std::make_pair(std::move(Out), scan_(In, Out, m, fl));
+    return std::make_pair(std::move(Out), scan_(In, Out.slice(), m, fl));
   }
 
   // do in place if rvalue reference to a sequence<T>
@@ -140,18 +140,18 @@ namespace pbbs {
   auto scan(sequence<T> &&In, Monoid m, flags fl = no_flag)
     ->  std::pair<sequence<T>, T> {
     sequence<T> Out = std::move(In);
-    T total = scan_(Out, Out, m, fl);
+    T total = scan_(Out, Out.slice(), m, fl);
     return std::make_pair(std::move(Out), total);
   }
 
-  template <class Seq>
+  template <SEQ Seq>
   size_t sum_bools_serial(Seq const &I) {
     size_t r = 0;
     for (size_t j=0; j < I.size(); j++) r += I[j];
     return r;
   }
 
-  template <class In_Seq, class Bool_Seq>
+  template <SEQ In_Seq, class Bool_Seq>
   auto pack_serial(In_Seq const &In, Bool_Seq const &Fl)
       -> sequence<typename In_Seq::value_type> {
     using T = typename In_Seq::value_type;
@@ -171,7 +171,7 @@ namespace pbbs {
       if (Fl[i]) assign_uninitialized(Out[k++], In[i]);
   }
 
-  template <class In_Seq, class Bool_Seq>
+  template <SEQ In_Seq, SEQ Bool_Seq>
   auto pack(In_Seq const &In, Bool_Seq const &Fl, flags fl = no_flag)
   //typename In_Seq::value_type* _Out = nullptr)
       -> sequence<typename In_Seq::value_type> {
@@ -194,7 +194,7 @@ namespace pbbs {
     return Out;
   }
 
-  template <class In_Seq, class F>
+  template <SEQ In_Seq, class F>
   auto filter(In_Seq const &In, F const &f, flags fl = no_flag)
   //typename In_Seq::value_type* _Out = nullptr)
     -> sequence<typename In_Seq::value_type>
@@ -220,15 +220,15 @@ namespace pbbs {
     return Out;
   }
 
-  template <class Idx_Type, class Bool_Seq>
+  template <class Idx_Type, SEQ Bool_Seq>
   sequence<Idx_Type> pack_index(Bool_Seq const &Fl, flags fl = no_flag) {
     auto identity = [] (size_t i) {return (Idx_Type) i;};
     return pack(delayed_seq<Idx_Type>(Fl.size(),identity), Fl, fl);
   }
 
-  template <class In_Seq, class Char_Seq>
+  template <SEQ In_Seq, SEQ Char_Seq>
   std::pair<size_t,size_t> split_three(In_Seq const &In,
-				       slice_t<typename In_Seq::value_type*> Out,
+				       range<typename In_Seq::value_type*> Out,
 				       Char_Seq const &Fl,
 				       flags fl = no_flag) {
     size_t n = In.size();
@@ -240,17 +240,13 @@ namespace pbbs {
     sequence<size_t> Sums0(l);
     sequence<size_t> Sums1(l);
     sliced_for (n, _block_size,
-		[&] (size_t i, size_t s, size_t e)
-		{
-		  size_t c0 = 0;
-		  size_t c1 = 0;
-		  Sums0[i] = Sums1[i] = 0;
+		[&] (size_t i, size_t s, size_t e) {
+		  size_t c0 = 0; size_t c1 = 0;
 		  for (size_t j=s; j < e; j++) {
 		    if (Fl[j] == 0) c0++;
 		    else if (Fl[j] == 1) c1++;
 		  }
-		  Sums0[i] = c0;
-		  Sums1[i] = c1;
+		  Sums0[i] = c0; Sums1[i] = c1;
 		}, fl);
     size_t m0 = scan_inplace(Sums0.slice(), addm<size_t>());
     size_t m1 = scan_inplace(Sums1.slice(), addm<size_t>());
@@ -267,6 +263,35 @@ namespace pbbs {
 		  }
 		}, fl);
     return std::make_pair(m0,m1);
+  }
+
+  template <SEQ In_Seq, SEQ Bool_Seq>
+  auto partition(In_Seq const &In,
+		 Bool_Seq const &Fl,
+		 flags fl = no_flag) -> std::pair<In_Seq, size_t> {
+    using T = typename In_Seq::value_type;
+    size_t n = In.size();
+    size_t l = num_blocks(n,_block_size);
+    sequence<size_t> Sums(l);
+    sliced_for (n, _block_size,
+		[&] (size_t i, size_t s, size_t e) {
+		  size_t c = 0;
+		  for (size_t j=s; j < e; j++)
+		    c += (Fl[j] == false);
+		  Sums[i] = c;
+		}, fl);
+    size_t m = scan_inplace(Sums.slice(), addm<size_t>());
+    sequence<T> Out = sequence<T>::no_init(n);
+    sliced_for (n, _block_size,
+		[&] (size_t i, size_t s, size_t e) {
+		  size_t c0 = Sums[i];
+		  size_t c1 = s + (m - c0);
+		  for (size_t j=s; j < e; j++) {
+		    if (Fl[j] == false) assign_uninitialized(Out[c0++],In[j]);
+		    else assign_uninitialized(Out[c1++],In[j]);
+		  }
+		}, fl);
+    return std::make_pair(Out, m);
   }
 }
 

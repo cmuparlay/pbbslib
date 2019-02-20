@@ -6,7 +6,7 @@ void mat_vec_mult(IntSeq const &starts,
 		  IntSeq const &columns,
 		  Seq const &values,
 		  Seq const &in,
-		  slice_t<typename Seq::value_type*> out,
+		  range<typename Seq::value_type*> out,
 		  Mult mult,
 		  Add add) {
   using E = typename Seq::value_type;

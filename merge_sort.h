@@ -11,8 +11,8 @@ namespace pbbs {
   // if inplace is true then the output is placed in In and Out is just used
   // as temp space.
   template <class Iter, class F> 
-  void merge_sort_(slice_t<Iter> In,
-		   slice_t<Iter> Out,
+  void merge_sort_(range<Iter> In,
+		   range<Iter> Out,
 		   const F& f,
 		   bool inplace=false) {
     size_t n = In.size();
@@ -44,7 +44,7 @@ namespace pbbs {
   }
 
   template <class T, class F> 
-  void merge_sort_inplace(slice_t<T*> In, const F& f) {
+  void merge_sort_inplace(range<T*> In, const F& f) {
     sequence<T> B(In.size());
     merge_sort_(In.slice(), B.slice(), f, true);
   }
