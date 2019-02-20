@@ -36,41 +36,24 @@ existing iterator rather than starting from indices.  Although I guess
 can start with iota.
 */
 
-
-template<class Seq, class UnaryPred>
-bool count_if(Seq S, UnaryPred p) {
-  auto BS = pbbs::delayed_seq<bool>(S.size(), [&] (size_t i) -> size_t {
-      return p(S[i]);});
+template<class Seq, class IntegerPred>
+bool count_if_index(size_t n, IntegerPred p) {
+  auto BS = pbbs::delayed_seq<bool>(n, [&] (size_t i) -> size_t {
+      return p(i);});
   return pbbs::reduce(BS, pbbs::addm<size_t>());
 }
 
-template<class Seq, class T>
-bool count(Seq S, T value) {
-  return count_if(S, [&] (size_t i) {return S[i] == value;});}
-
 template<class Seq, class UnaryPred>
-bool all_of(Seq S, UnaryPred p) { return count(S, p) == S.size();}
-
-template<class Seq, class UnaryPred>
-bool any_of(Seq S, UnaryPred p) { return count(S, p) > 1;}
-
-template<class Seq, class UnaryPred>
-bool none_of(Seq S, UnaryPred p) { return count(S, p) == 0;}
-
-template<class Seq, class UnaryPred>
-size_t find_if(Seq S, UnaryPred p) {
-  size_t n = S.size();
-  size_t granularity = 1000;
+size_t find_if_index(size_t n, IntegerPred p, granularity=1000) {
   size_t i;
   for (i = 0; i < std::min(granularity, n); i++)
-    if (p(S[i])) return i;
+    if (p(i)) return i;
   if (i < n) return i;
   size_t start = granularity;
-  while (start < S.size()) {
+  while (start < n) {
     size_t end = std::min(n,start+granularity);
-    auto SS = S.slice(start,end);
     auto f = [&] (size_t i) -> size_t {
-      return p(S[i+start]) ? n : i+start;};
+      return p(i+start) ? n : i+start;};
     i = pbbs::reduce(delayed_seq<size_t>(end-start, f),
 		     minm<size_t>());
     if (i < n) return i;
@@ -78,6 +61,76 @@ size_t find_if(Seq S, UnaryPred p) {
     granularity *= 2;
   }
   return n;
+}
+
+template<class Seq, class UnaryPred>
+bool count_if(Seq S, UnaryPred p) {
+  return count_if_index(S.size(), [&] (size_t i) {return p(S[i]);});}
+
+template<class Seq, class T>
+bool count(Seq S, T value) {
+  return count_if_index(S.size(), [&] (size_t i) {return S[i] == value;});}
+
+template<class Seq, class UnaryPred>
+bool all_of(Seq S, UnaryPred p) { return count_if(S, p) == S.size();}
+
+template<class Seq, class UnaryPred>
+bool any_of(Seq S, UnaryPred p) { return count_if(S, p) > 1;}
+
+template<class Seq, class UnaryPred>
+bool none_of(Seq S, UnaryPred p) { return count_if(S, p) == 0;}
+
+template<class Seq, class UnaryPred>
+size_t find_if(Seq S, UnaryPred p) {
+  return find_if_index(S.size, [&] (size_t i) {return p(S[i]);});}
+
+template<class Seq, class T>
+size_t find(Seq S, T value) {
+  return find_if(S, [&] (T x) {return x == value;});}
+
+template<class Seq, class BinaryPred>
+size_t adjacent_find(Seq S, BinaryPred pred) {
+  return find_if_index(S.size()-1, [&] (size_t i) {
+      return S[i] == S[i+1];});}
+
+template<class Seq, class BinaryPred>
+size_t mismatch(Seq S1, Seq S2, BinaryPred pred) {
+  return find_if_index(S.size(), [&] (size_t i) {
+      return S1[i] !== S2[i];});}
+
+template<class Seq, class BinaryPred>
+size_t search(Seq S1, Seq S2, BinaryPred pred) {
+  return find_if_index(S.size(), [&] (size_t i) {
+      size_t j;
+      for (j=0; j < S2.size(); j++)
+	if (S1[i+j] != S2[j]) break;
+      return (j == S2.size());
+    });}
+ 
+template <class Seq1, class Seq2, class BinaryPred>
+bool equal(Seq1 s1, Seq2 s2, BinaryPred p) {
+  return count_if_index(s1.size(), [&] (size_t i) {
+      return p(s1[i],s2[i]);});}
+
+template <class Seq1, class Seq2, class BinaryPred>
+bool equal(Seq1 s1, Seq2 s2) {
+  return count_if_index(s1.size(), [&] (size_t i) {
+      return s1[i] == s2[i];});}
+  
+template <class Seq1, class Seq2, class Compare>
+bool lexicographical_compare(Seq1 s1, Seq2 s2, Compare less) {
+  auto s = delayed_seq(s1.size(), [&] (size_t i) {
+      return less(s1[i], s2[i]) ? -1 : (less(s2[i], s1[i]) : 1 : 0);});
+  auto f = [&] (char a, char b) { return (a == 0) ? b : a;};
+  return reduce(s, make_monoid(f, (char) 0)) == -1; 
+}
+
+template <class Seq, class Eql>
+sequence<typename Seq::value_type>
+unique (Seq s, Eql eq) {
+  sequence<bool> b(s.size(), [&] (size_t i) {
+      return (i == 0) || !(s[i] == s[i-1]);});
+  return pack(s, b);
 }
 
 // needs to return location, and take comparison
@@ -109,16 +162,18 @@ minmax_element(Seq S) {
   return pbbs::reduce(SS, make_monoid(f, P(n,n)));
 }
 
+template <class Seq>
+sequence<typename Seq::value_type> reverse(Seq S) {
+  size_t n = S.size();
+  return sequence<typename Seq::value_type>(S.size(), [&] (size_t i) {
+      return S[n-i-1];});}
+
+
 /*
 
 Most of these are from the boost libraries, but the boost versions take ranges (as in slices).
 
 for_each
-
-mismatch (first position where differ
-find (finds first element)
-adjacent_find
-search (for a range of elements)
 copy
 copy_if
 copy_n
@@ -141,7 +196,6 @@ rotate
 rotate_copy
 shift_left
 shift_right
-unique (removes consecutive duplicate elements)
 is_partitioned
 partition
 partition_copy
@@ -162,8 +216,6 @@ set_symmetric_difference
 set_union
 is_heap
 is_heap_until
-equal (compares range)
-lexicographical_compare
 adjacent_difference
 reduce (requires commutativity)
 exclusive_scan
