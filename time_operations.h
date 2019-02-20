@@ -134,6 +134,17 @@ double t_split3(size_t n) {
   return t;
 }
 
+template<typename T>
+double t_partition(size_t n) {
+  pbbs::random r(0);
+  pbbs::sequence<T> In(n, [&] (size_t i) -> size_t {return r.ith_rand(i)%n;});
+  pbbs::sequence<T> Out;
+  auto f = pbbs::delayed_seq<bool>(n, [&] (size_t i) {return In[i] < n/((size_t) 2);});
+  size_t m;
+  time(t, std::tie(Out,m) = pbbs::partition(In, f););
+  return t;
+}
+
 #if defined(CILK)
 #include "reducer.h"
 double t_histogram_reducer(size_t n) {
@@ -278,23 +289,9 @@ double t_quicksort(size_t n) {
 }
 
 template<typename T>
-double t_count_sort_2(size_t n) {
+double t_count_sort_bits(size_t n, size_t bits) {
   pbbs::random r(0);
-  size_t num_buckets = (1<<2);
-  size_t mask = num_buckets - 1;
-  pbbs::sequence<T> in(n, [&] (size_t i) {return r.ith_rand(i);});
-  pbbs::sequence<T> out(n);
-  auto f = [&] (size_t i) {return in[i] & mask;};
-  auto keys = pbbs::delayed_seq<unsigned char>(n, f);
-
-  time(t, pbbs::count_sort(in, out.slice(), keys, num_buckets););
-  return t;
-}
-
-template<typename T>
-double t_count_sort_8(size_t n) {
-  pbbs::random r(0);
-  size_t num_buckets = (1<<8);
+  size_t num_buckets = (1<<bits);
   size_t mask = num_buckets - 1;
   pbbs::sequence<T> in(n, [&] (size_t i) {return r.ith_rand(i);});
   pbbs::sequence<T> out(n);
@@ -309,6 +306,12 @@ double t_count_sort_8(size_t n) {
   }
   return t;
 }
+
+template<typename T>
+double t_count_sort_8(size_t n) {return t_count_sort_bits<T>(n, 8);}
+
+template<typename T>
+double t_count_sort_2(size_t n) {return t_count_sort_bits<T>(n, 2);}
 
 template<typename T>
 double t_collect_reduce_pair_dense(size_t n) {

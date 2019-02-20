@@ -89,7 +89,7 @@ namespace pbbs {
 
 
   template<typename E, typename BinPred>
-  void seq_sort_inplace(slice_t<E*> A, BinPred f, bool stable) {
+  void seq_sort_inplace(range<E*> A, BinPred f, bool stable) {
 #if defined(OPENMP)
     quicksort_serial(A.begin(), A.size(), f);
 #else
@@ -208,7 +208,7 @@ namespace pbbs {
   }
 
   template<class Iter, typename BinPred>
-  void sample_sort_inplace (slice_t<Iter> A, const BinPred& f, bool stable = false) {
+  void sample_sort_inplace (range<Iter> A, const BinPred& f, bool stable = false) {
     if (A.size() < ((size_t) 1) << 32)
       sample_sort_<unsigned int>(A.slice(), A.slice(), f, true, stable);
     else sample_sort_<size_t>(A.slice(), A.slice(), f, true, stable);
@@ -216,7 +216,7 @@ namespace pbbs {
     
   template<typename E, typename BinPred, typename s_size_t>
   void sample_sort (E* A, s_size_t n, const BinPred& f, bool stable) {
-    slice_t<E*> B(A,A+n);
+    range<E*> B(A,A+n);
     sample_sort_inplace(B, f, stable);
   }
 }

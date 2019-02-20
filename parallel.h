@@ -128,7 +128,7 @@ inline void parallel_run(Job job, int num_threads=0) {
 fork_join_scheduler fj;
 
 // Calls fj.destroy() before the program exits
-void destroy_fj() {
+inline void destroy_fj() {
   fj.destroy();
 }
 

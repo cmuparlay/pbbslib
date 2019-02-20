@@ -2,19 +2,44 @@
 
 #include "utilities.h"
 
+#define hello foo
+
+#ifdef CONCEPTS
+template<typename T>
+concept bool Seq =
+  requires(T t, size_t u) {
+  typename T::value_type;
+  { t.size() } -> size_t;
+  { t.slice() };
+  { t[u] };
+};
+
+template<typename T>
+concept bool Range =
+  Seq<T> && requires(T t, size_t u) {
+  { t[u] } -> typename T::value_type&;
+  typename T::iterator;
+};
+#define SEQ Seq
+#define RANGE Range
+#else
+#define SEQ typename
+#define RANGE typename
+#endif
+
 namespace pbbs {
   
   template <typename Iterator>
-  struct slice_t {
+  struct range {
   public:
     using value_type = typename std::iterator_traits<Iterator>::value_type;
     using iterator = Iterator;
-    slice_t() {};
-    slice_t(iterator s, iterator e) : s(s), e(e) {};
+    range() {};
+    range(iterator s, iterator e) : s(s), e(e) {};
     value_type& operator[] (const size_t i) const {return s[i];}
-    slice_t slice(size_t ss, size_t ee) const {
-      return slice_t(s + ss, s + ee); }
-    slice_t slice() const {return slice_t(s,e);};
+    range slice(size_t ss, size_t ee) const {
+      return range(s + ss, s + ee); }
+    range slice() const {return range(s,e);};
     size_t size() const { return e - s;}
     iterator begin() const {return s;}
     iterator end() const {return e;}
@@ -24,8 +49,8 @@ namespace pbbs {
   };
 
   template <class Iter>
-  slice_t<Iter> make_slice(Iter s, Iter e) {
-    return slice_t<Iter>(s,e);
+  range<Iter> make_slice(Iter s, Iter e) {
+    return range<Iter>(s,e);
   }
 
   template <typename T, typename F>
@@ -55,7 +80,7 @@ namespace pbbs {
   struct sequence {
   public:
     using value_type = T;
-    using iterator = T*;
+    //using iterator = T*;
   
     sequence() : s(NULL), n(0) {}
 
@@ -114,7 +139,7 @@ namespace pbbs {
     };
 
     template <typename Iter>
-    sequence(slice_t<Iter> a) {
+    sequence(range<Iter> a) {
       copy_here(a.begin(), a.size());
     }
 
@@ -127,12 +152,12 @@ namespace pbbs {
 
     value_type& operator[] (const size_t i) const {return s[i];}
 
-    slice_t<value_type*> slice(size_t ss, size_t ee) const {
-      return slice_t<value_type*>(s + ss, s + ee);
+    range<value_type*> slice(size_t ss, size_t ee) const {
+      return range<value_type*>(s + ss, s + ee);
     }
 
-    slice_t<value_type*> slice() const {
-      return slice_t<value_type*>(s, s + n);
+    range<value_type*> slice() const {
+      return range<value_type*>(s, s + n);
     }
 
     void swap(sequence& b) {
@@ -170,10 +195,12 @@ namespace pbbs {
   };
 
   template <class Iter>
-  bool slice_eq(slice_t<Iter> a, slice_t<Iter> b) {
+  bool slice_eq(range<Iter> a, range<Iter> b) {
     return a.begin() == b.begin();}
 
   template <class SeqA, class SeqB>
   bool slice_eq(SeqA a, SeqB b) { return false;}
 
 }
+
+

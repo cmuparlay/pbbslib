@@ -42,7 +42,7 @@ namespace pbbs {
 
   template <typename Seq>
   void random_shuffle_(Seq const &In,
-		       slice_t<typename Seq::value_type*> Out,
+		       range<typename Seq::value_type*> Out,
 		       random r = default_random) {
     size_t n = In.size();
     if (n < SEQ_THRESHOLD) {

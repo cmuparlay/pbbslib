@@ -250,7 +250,7 @@ namespace pbbs {
 
     // returns all the current entries compacted into a sequence
     sequence<eType> entries() {
-      return filter(slice_t<eType*>(TA, TA+m),
+      return filter(range<eType*>(TA, TA+m),
 		    [&] (eType v) {return v != empty;});
     }
 

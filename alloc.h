@@ -65,7 +65,7 @@ struct mem_pool {
       size_t n = ((size_t) 1) << (bucket+log_base);
       //if (n > 10000000) cout << "free: " << a << ", " << n << endl;
       used -= n;
-      if (false) { //n > mem_size/64) { // fix to 64
+      if (n > mem_size/64) { // fix to 64
 	free(b);
 	allocated -= n;
       } else {
