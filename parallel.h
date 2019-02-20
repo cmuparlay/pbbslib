@@ -125,7 +125,12 @@ inline void parallel_run(Job job, int num_threads=0) {
 // Guy's scheduler (ABP)
 #elif defined(HOMEGROWN)
 #include "scheduler.h"
+
+#ifdef NOTMAIN
+extern fork_join_scheduler fj;
+#else
 fork_join_scheduler fj;
+#endif
 
 // Calls fj.destroy() before the program exits
 inline void destroy_fj() {

@@ -137,7 +137,7 @@ struct Deque {
 
 };
 
-thread_local int thread_id;
+//thread_local int thread_id;
 
 template <typename Job>
 struct scheduler {
@@ -146,6 +146,8 @@ public:
   // see comments under wait(..)
   static bool const conservative = false;
   int num_threads;
+
+  static thread_local int thread_id;
 
   scheduler() {
     init_num_workers();
@@ -276,6 +278,9 @@ private:
     return x;
   }
 };
+
+template<typename T>
+thread_local int scheduler<T>::thread_id = 0;
 
 struct fork_join_scheduler {
 
