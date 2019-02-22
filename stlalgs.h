@@ -140,7 +140,7 @@ size_t min_element(Seq const &S, Compare comp) {
 template <class Seq, class Compare>
 size_t max_element(Seq const &S, Compare comp) {
   using T = typename Seq::value_type;
-  return min_element(S, [&] (T a, T b) {return f(b, a);});
+  return min_element(S, [&] (T a, T b) {return comp(b, a);});
 }
 
 template <class Seq>

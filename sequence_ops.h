@@ -195,7 +195,7 @@ namespace pbbs {
   }
 
   template <SEQ In_Seq, class F>
-  auto filter(In_Seq const &In, F const &f, flags fl = no_flag)
+  auto filter(In_Seq const &In, F f, flags fl = no_flag)
   //typename In_Seq::value_type* _Out = nullptr)
     -> sequence<typename In_Seq::value_type>
   {

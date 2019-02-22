@@ -183,50 +183,61 @@ namespace pbbs {
   // val_bits specifies how many bits there are in the key
   //    if set to 0, then a max is taken over the keys to determine
   template <typename SeqIn, typename IterOut, typename Get_Key>
-  void integer_sort_(SeqIn const &In,
+    size_t integer_sort_(SeqIn const &In,
 		     range<IterOut> Out,
 		     range<IterOut> Tmp,
 		     Get_Key const &g, 
-		     size_t key_bits=0,
+		     size_t num_buckets=0,
 		     bool inplace=false) {
-    using T = typename SeqIn::value_type;
     if (slice_eq(In.slice(), Out)) {
       cout << "in integer_sort : input and output must be different locations"
 	   << endl;
       abort();}
-    if (key_bits == 0) {
-      using P = std::pair<size_t,size_t>;
-      auto get_key = [&] (size_t i) -> P {
-	size_t k =g(In[i]);
-	return P(k,k);};
-      auto keys = delayed_seq<P>(In.size(), get_key);
-      size_t min_val, max_val;
-      std::tie(min_val,max_val) = reduce(keys, minmaxm<size_t>());
-      key_bits = log2_up(max_val - min_val + 1);
-      if (min_val > max_val / 4) {
-	auto h = [&] (T a) {return g(a) - min_val;};
-	integer_sort_r(In, Out, Tmp, h, key_bits, inplace);
-	return;
-      }
+    if (num_buckets == 0) {
+      auto get_key = [&] (size_t i) {return g(In[i]);};
+      auto keys = delayed_seq<size_t>(In.size(), get_key);
+      num_buckets = reduce(keys, maxm<size_t>()) + 1;
     }
+    size_t key_bits = log2_up(num_buckets);
     integer_sort_r(In, Out, Tmp, g, key_bits, inplace);
+    return num_buckets;
   }
 
   template <typename T, typename Get_Key>
   void integer_sort_inplace(range<T*> In,
 			    Get_Key const &g,
-			    size_t key_bits=0) {
+			    size_t num_buckets=0) {
     sequence<T> Tmp = sequence<T>::no_init(In.size());
-    integer_sort_(In, Tmp.slice(), In, g, key_bits, true);
+    integer_sort_(In, Tmp.slice(), In, g, num_buckets, true);
   }
 
   template <typename Seq, typename Get_Key>
   sequence<typename Seq::value_type> integer_sort(Seq const &In, Get_Key const &g,
-						  size_t key_bits=0) {
+						  size_t num_buckets=0) {
     using T = typename Seq::value_type;
     sequence<T> Out = sequence<T>::no_init(In.size());
     sequence<T> Tmp = sequence<T>::no_init(In.size());
-    integer_sort_(In, Out.slice(), Tmp.slice(), g, key_bits, false);
+    integer_sort_(In, Out.slice(), Tmp.slice(), g, num_buckets, false);
     return Out;
   }
+  
+  template <typename Seq, typename Get_Key>
+  sequence<size_t>
+  get_offsets(Seq const &In, Get_Key const &g, size_t num_buckets) {
+    size_t n = In.size();
+    sequence<size_t> Off(num_buckets, n);
+    parallel_for (0, n-1, [&] (size_t i) {
+	if (g(In[i]) != g(In[i+1]))
+	  Off[g(In[i+1])] = i+1;
+      });
+    Off[g(In[0])] = 0;
+    for (int i=0; i < 10; i++) cout << i << ", " << g(In[i]) << ", " << Off[i] << endl;
+    // note that in reverse order
+    auto foo = Off.rslice();
+    for (int i=0; i < 10; i++) cout << i << ", " << foo[i] << ", " << Off[num_buckets-1-i] << endl;
+    scan_inplace(foo , minm<size_t>(), fl_scan_inclusive);
+    for (int i=0; i < 10; i++) cout << i << ", " << foo[i] << ", " << Off[num_buckets-1-i] << endl;
+    return Off;
+  }
+
 }

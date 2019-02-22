@@ -156,6 +156,15 @@ namespace pbbs {
       return range<value_type*>(s + ss, s + ee);
     }
 
+    range<std::reverse_iterator<value_type*>>
+    rslice(size_t ss, size_t ee) const {
+      auto i = std::make_reverse_iterator(s+n);
+      return range<decltype(i)>(i + ss, i + ee);
+    }
+
+    range<std::reverse_iterator<value_type*>>
+    rslice() const {return rslice(0, n);};
+
     range<value_type*> slice() const {
       return range<value_type*>(s, s + n);
     }
