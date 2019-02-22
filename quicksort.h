@@ -140,8 +140,11 @@ namespace pbbs {
     if (!f(A[3],A[4])) p2 = p1; // if few elements greater than p2, then set to p1
     auto flag = [&] (size_t i) {return f(A[i], p1) ? 0 : f(p2, A[i]) ? 2 : 1;};
     auto r = split_three(A, B.slice(),
-			 delayed_seq<unsigned char>(n, flag), fl_conservative);
+    			 delayed_seq<unsigned char>(n, flag), fl_conservative);
     return std::make_tuple(r.first, r.first + r.second, !f(p1,p2));
+    //sequence<size_t> r = count_sort(A, B.slice(),
+    //				    delayed_seq<unsigned char>(n, flag), 3, true);
+    //return std::make_tuple(r[0],r[0]+r[1], !f(p1,p2));
   }
 
   // The fully parallel version copies back and forth between two arrays

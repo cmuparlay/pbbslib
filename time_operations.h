@@ -141,7 +141,7 @@ double t_partition(size_t n) {
   pbbs::sequence<T> Out;
   auto f = pbbs::delayed_seq<bool>(n, [&] (size_t i) {return In[i] < n/((size_t) 2);});
   size_t m;
-  time(t, std::tie(Out,m) = pbbs::partition(In, f););
+  time(t, std::tie(Out,m) = pbbs::split_two(In, f););
   return t;
 }
 

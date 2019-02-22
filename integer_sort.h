@@ -81,6 +81,45 @@ namespace pbbs {
       seq_radix_sort_(In.slice(), Out, g, key_bits, inplace);
   }
 
+  // not used, can delete
+  template <typename SeqIn, typename Slice, typename Get_Key>
+  sequence<size_t> integer_sort_2(SeqIn const &In, Slice Out, Get_Key const &g, 
+				  size_t key_bits, bool is_nested=false) {
+    using T = typename SeqIn::value_type;
+    size_t n = In.size();
+    timer t;
+    size_t high_bits = key_bits/2;
+    size_t high_buckets = (1 << high_bits);
+    size_t high_mask = high_buckets - 1;
+    size_t low_bits = key_bits-high_bits;
+    size_t low_buckets = (1 << low_bits);
+    size_t low_mask = low_buckets - 1;
+    auto fh = [&] (size_t i) {return (g(In[i]) >> low_bits) & high_mask;};
+    auto get_high_bits = delayed_seq<size_t>(n, fh);
+    sequence<T> Tmp(n);
+
+    // divide into buckets
+    sequence<size_t> offsets = count_sort(In.slice(), Tmp.slice(),
+					  get_high_bits, high_buckets,
+					  is_nested);
+
+    sequence<size_t> result_offsets(high_buckets*low_buckets);
+    // recursively sort each bucket
+    parallel_for(0, high_buckets, [&] (size_t i) {
+	size_t start = offsets[i];
+	size_t end = offsets[i+1];
+	auto A = Tmp.slice(start, end);
+	auto B = Out.slice(start, end);
+	auto fl = [&] (size_t i) {return g(A[i]) & low_mask;};
+	auto get_low_bits = delayed_seq<size_t>(end-start, fl);
+	sequence<size_t> oin = count_sort(A, B, get_low_bits,
+					  low_buckets, true);
+	parallel_for(0, low_buckets, [&] (size_t j) {
+	    result_offsets[i*high_buckets + j] = oin[j];});
+      }, 1);
+    return result_offsets;
+  }
+
   // a top down recursive radix sort
   // g extracts the integer keys from In
   // key_bits specifies how many bits there are left
@@ -90,7 +129,7 @@ namespace pbbs {
   void integer_sort_r(SeqIn const &In, Slice Out, Slice Tmp, Get_Key const &g, 
 		      size_t key_bits, bool inplace, bool is_nested=false) {
     size_t n = In.size();
-    timer t;
+    timer t("integer sort",false);
 
     if (key_bits == 0) {
       if (!inplace)
@@ -102,7 +141,6 @@ namespace pbbs {
       
       // few bits, just do a single parallel count sort
     } else if (key_bits <= radix) {
-      t.start();
       size_t num_buckets = (1 << key_bits);
       size_t mask = num_buckets - 1;
       auto f = [&] (size_t i) {return g(In[i]) & mask;};
@@ -123,7 +161,7 @@ namespace pbbs {
 
       // divide into buckets
       sequence<size_t> offsets = count_sort(In.slice(), Out, get_bits, buckets, is_nested);
-
+      if (n > 10000000) t.next("first");
       // recursively sort each bucket
       parallel_for(0, buckets, [&] (size_t i) {
 	  size_t start = offsets[i];
@@ -132,6 +170,7 @@ namespace pbbs {
 	  auto b = Tmp.slice(start, end);
 	  integer_sort_r(a, b, a, g, shift_bits, !inplace, true);
 	}, 1);
+      if (n > 10000000) t.next("second");
     }
   }
 

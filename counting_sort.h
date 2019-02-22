@@ -44,22 +44,29 @@ namespace pbbs {
   void seq_count_(InSeq In, KeySeq Keys,
 		  s_size_t* counts, size_t num_buckets) {
     size_t n = In.size();
-
+    // use local counts to avoid false sharing
+    size_t local_counts[num_buckets];
     for (size_t i = 0; i < num_buckets; i++)
-      counts[i] = 0;
+      local_counts[i] = 0;
     for (size_t j = 0; j < n; j++) {
       size_t k = Keys[j];
       if (k >= num_buckets) abort();
-      counts[k]++;
+      local_counts[k]++;
     }
+    for (size_t i = 0; i < num_buckets; i++)
+      counts[i] = local_counts[i];
   }
 
   // write to destination, where offsets give start of each bucket
   template <typename s_size_t, typename InSeq, typename KeySeq>
   void seq_write_(InSeq In, typename InSeq::value_type* Out, KeySeq Keys,
 		  s_size_t* offsets, size_t num_buckets) {
+    // copy to local offsets to avoid false sharing
+    size_t local_offsets[num_buckets];
+    for (size_t i = 0; i < num_buckets; i++)
+      local_offsets[i] = offsets[i];
     for (size_t j = 0; j < In.size(); j++) {
-      size_t k = offsets[Keys[j]]++;
+      size_t k = local_offsets[Keys[j]]++;
       move_uninitialized(Out[k], In[j]);
     }
   }
@@ -114,14 +121,12 @@ namespace pbbs {
     size_t n = In.size();
     size_t num_threads = num_workers();
 
-    // pad to 16 buckets to avoid false sharing (does not affect results)
-    num_buckets = std::max(num_buckets, (size_t) 16);
-
     // if not given, then use heuristic to choose num_blocks
     size_t sqrt = (size_t) ceil(pow(n,0.5));
     size_t num_blocks = 
-      (size_t) (n < (1<<24)) ? (sqrt/16) : ((n < (1<<28)) ? sqrt/9 : sqrt/5);
-    if (2*num_blocks < num_threads) num_blocks *= 2;
+      (size_t) (n < (1<<24)) ? sqrt/17 : ((n < (1<<28)) ? sqrt/9 : sqrt/5);
+    if (is_nested) num_blocks = num_blocks / 6;
+    else if (2*num_blocks < num_threads) num_blocks *= 2;
     if (sizeof(T) <= 4) num_blocks = num_blocks/2;
     
     // if insufficient parallelism, sort sequentially
@@ -129,7 +134,13 @@ namespace pbbs {
       return seq_count_sort(In,Out,Keys,num_buckets);}
 
     size_t block_size = ((n-1)/num_blocks) + 1;
+    //size_t block_size = std::min<size_t>(std::max<size_t>(2173, num_buckets*113),
+    //					 371000/(sizeof(T)));
+			     
+    //num_blocks = ((n-1)/block_size) + 1;
+    //cout << num_blocks << endl;
     size_t m = num_blocks * num_buckets;
+    
     
     s_size_t *counts = new_array_no_init<s_size_t>(m,1);
     t.next("head");

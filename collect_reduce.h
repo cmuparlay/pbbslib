@@ -216,6 +216,7 @@ namespace pbbs {
     // first buckets based on hash using a counting sort
     sequence<size_t> bucket_offsets 
       = count_sort(A, B.slice(), get_buckets, num_buckets);
+      //= integer_sort_2(A, B.slice(), x, bits);
     //t.next("sort");
     
     // note that this is cache line alligned

@@ -39,6 +39,9 @@ test_scheduler_%:	test_scheduler.cpp scheduler.h
 
 test_schedulers: test_scheduler_OMP test_scheduler_CILK test_scheduler_HG
 
+stlalgs: $(AllFiles) stlalgs.h stlalgs.cpp
+	$(CC) $(CFLAGS) $(PFLAGS) stlalgs.cpp -o stlalgs
+
 all:	time_tests
 
 clean:

@@ -266,7 +266,7 @@ namespace pbbs {
   }
 
   template <SEQ In_Seq, SEQ Bool_Seq>
-  auto partition(In_Seq const &In,
+  auto split_two(In_Seq const &In,
 		 Bool_Seq const &Fl,
 		 flags fl = no_flag) -> std::pair<In_Seq, size_t> {
     using T = typename In_Seq::value_type;
