@@ -1,5 +1,7 @@
 #include "sequence_ops.h"
-using namespace pbbs;
+#include "sample_sort.h"
+
+namespace pbbs {
 
 template<class IntegerPred>
 bool count_if_index(size_t n, IntegerPred p) {
@@ -123,7 +125,7 @@ template <class Seq, class Eql>
 sequence<typename Seq::value_type>
 unique (Seq const &s, Eql eq) {
   sequence<bool> b(s.size(), [&] (size_t i) {
-      return (i == 0) || !(s[i] == s[i-1]);});
+      return (i == 0) || !eq(s[i],s[i-1]);});
   return pack(s, b);
 }
 
@@ -193,13 +195,33 @@ size_t remove_if(Seq const &S, UnaryPred f) {
 }
 
 template <class Seq, class Compare>
-size_t sort(Seq const &S, Compare less) {
+sequence<typename Seq::value_type>
+sort(Seq const &S, Compare less) {
   return sample_sort(S, less, false);}
 
 template <class Seq, class Compare>
-size_t stable_sort(Seq const &S, Compare less) {
+sequence<typename Seq::value_type>
+stable_sort(Seq const &S, Compare less) {
   return sample_sort(S, less, true);}
 
+template <class Seq, class Compare>
+sequence<typename Seq::value_type>
+remove_duplicates_ordered (Seq const &s, Compare less) {
+  using T = typename Seq::value_type;
+  return unique(stable_sort(s, less), [&] (T a, T b) {
+      return !less(a,b) && !less(b,a);});
+}
+
+template <class Seq1, class Seq2>
+sequence<typename Seq1::value_type>
+append (Seq1 const &s1, Seq2 const &s2) {
+  using T = typename Seq1::value_type;
+  size_t n1 = s1.size();
+  return sequence<T>(n1 + s2.size(), [&] (size_t i) {
+      return (i < n1) ? s1[i] : s2[i-n1];});
+}
+
+}
 // template <class Seq, class Compare>
 // std::pair<sequence<typename Seq::value_type>, size_t>
 // partition(Seq const &S, UnaryPred f) {

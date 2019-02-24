@@ -127,7 +127,7 @@ namespace pbbs {
   // In and Out cannot be the same, but In and Tmp should be same if inplace
   template <typename SeqIn, typename Slice, typename Get_Key>
   void integer_sort_r(SeqIn const &In, Slice Out, Slice Tmp, Get_Key const &g, 
-		      size_t key_bits, bool inplace, bool is_nested=false) {
+		      size_t key_bits, bool inplace, float parallelism=1.0) {
     size_t n = In.size();
     timer t("integer sort",false);
 
@@ -145,8 +145,9 @@ namespace pbbs {
       size_t mask = num_buckets - 1;
       auto f = [&] (size_t i) {return g(In[i]) & mask;};
       auto get_bits = delayed_seq<size_t>(n, f);
-      count_sort(In.slice(), Out, get_bits, num_buckets, is_nested);
-      if (inplace)
+      sequence<size_t> cnts = count_sort(In.slice(), Out, get_bits, num_buckets,
+					 parallelism, true);
+      if (inplace != (cnts.size() == 0))
 	parallel_for(0, n, [&] (size_t i) {
 	    move_uninitialized(In[i], Out[i]);});
       
@@ -160,7 +161,16 @@ namespace pbbs {
       auto get_bits = delayed_seq<size_t>(n, f);
 
       // divide into buckets
-      sequence<size_t> offsets = count_sort(In.slice(), Out, get_bits, buckets, is_nested);
+      sequence<size_t> offsets = count_sort(In.slice(), Out, get_bits, buckets,
+					    parallelism, true);
+
+      // if all but one bucket are empty, try again on lower bits
+      if (offsets.size() == 0) {
+	integer_sort_r(In, Out, Tmp, g, shift_bits, inplace,
+		       parallelism);
+	if (n > 10000000) t.next("isort");
+	return;
+      }
       if (n > 10000000) t.next("first");
       // recursively sort each bucket
       parallel_for(0, buckets, [&] (size_t i) {
@@ -168,7 +178,8 @@ namespace pbbs {
 	  size_t end = offsets[i+1];
 	  auto a = Out.slice(start, end);
 	  auto b = Tmp.slice(start, end);
-	  integer_sort_r(a, b, a, g, shift_bits, !inplace, true);
+	  integer_sort_r(a, b, a, g, shift_bits, !inplace,
+			 (parallelism * (end - start)) / n);
 	}, 1);
       if (n > 10000000) t.next("second");
     }
@@ -187,18 +198,19 @@ namespace pbbs {
 		     range<IterOut> Out,
 		     range<IterOut> Tmp,
 		     Get_Key const &g, 
-		     size_t num_buckets=0,
+		     size_t key_bits=0,
 		     bool inplace=false) {
     if (slice_eq(In.slice(), Out)) {
       cout << "in integer_sort : input and output must be different locations"
 	   << endl;
       abort();}
-    if (num_buckets == 0) {
+    size_t num_buckets = (1 << key_bits);
+    if (key_bits == 0) {
       auto get_key = [&] (size_t i) {return g(In[i]);};
       auto keys = delayed_seq<size_t>(In.size(), get_key);
       num_buckets = reduce(keys, maxm<size_t>()) + 1;
+      key_bits = log2_up(num_buckets);
     }
-    size_t key_bits = log2_up(num_buckets);
     integer_sort_r(In, Out, Tmp, g, key_bits, inplace);
     return num_buckets;
   }
@@ -206,18 +218,18 @@ namespace pbbs {
   template <typename T, typename Get_Key>
   void integer_sort_inplace(range<T*> In,
 			    Get_Key const &g,
-			    size_t num_buckets=0) {
+			    size_t key_bits=0) {
     sequence<T> Tmp = sequence<T>::no_init(In.size());
-    integer_sort_(In, Tmp.slice(), In, g, num_buckets, true);
+    integer_sort_(In, Tmp.slice(), In, g, key_bits, true);
   }
 
   template <typename Seq, typename Get_Key>
   sequence<typename Seq::value_type> integer_sort(Seq const &In, Get_Key const &g,
-						  size_t num_buckets=0) {
+						  size_t key_bits=0) {
     using T = typename Seq::value_type;
     sequence<T> Out = sequence<T>::no_init(In.size());
     sequence<T> Tmp = sequence<T>::no_init(In.size());
-    integer_sort_(In, Out.slice(), Tmp.slice(), g, num_buckets, false);
+    integer_sort_(In, Out.slice(), Tmp.slice(), g, key_bits, false);
     return Out;
   }
   
@@ -231,12 +243,8 @@ namespace pbbs {
 	  Off[g(In[i+1])] = i+1;
       });
     Off[g(In[0])] = 0;
-    for (int i=0; i < 10; i++) cout << i << ", " << g(In[i]) << ", " << Off[i] << endl;
     // note that in reverse order
-    auto foo = Off.rslice();
-    for (int i=0; i < 10; i++) cout << i << ", " << foo[i] << ", " << Off[num_buckets-1-i] << endl;
-    scan_inplace(foo , minm<size_t>(), fl_scan_inclusive);
-    for (int i=0; i < 10; i++) cout << i << ", " << foo[i] << ", " << Off[num_buckets-1-i] << endl;
+    scan_inplace(Off.rslice() , minm<size_t>(), fl_scan_inclusive);
     return Off;
   }
 

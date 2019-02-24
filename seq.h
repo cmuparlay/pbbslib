@@ -49,7 +49,7 @@ namespace pbbs {
   };
 
   template <class Iter>
-  range<Iter> make_slice(Iter s, Iter e) {
+  range<Iter> make_range(Iter s, Iter e) {
     return range<Iter>(s,e);
   }
 

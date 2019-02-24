@@ -115,11 +115,14 @@ namespace pbbs {
   template <typename s_size_t, 
 	    typename InS, typename OutS, typename KeyS>
   sequence<size_t> count_sort_(InS& In, OutS& Out, KeyS& Keys,
-			       size_t num_buckets, bool is_nested=false) {
+			       size_t num_buckets,
+			       float parallelism=1.0,
+			       bool skip_if_in_one = false) {
     timer t("count sort", false);
     using T = typename InS::value_type;
     size_t n = In.size();
     size_t num_threads = num_workers();
+    bool is_nested = parallelism < .5;
 
     // if not given, then use heuristic to choose num_blocks
     size_t sqrt = (size_t) ceil(pow(n,0.5));
@@ -129,18 +132,17 @@ namespace pbbs {
     else if (2*num_blocks < num_threads) num_blocks *= 2;
     if (sizeof(T) <= 4) num_blocks = num_blocks/2;
     
+    size_t par_lower = 1 + round(num_threads * parallelism * 9);
+    size_t size_lower = 1 + n * sizeof(T) / 700000;
+    size_t bucket_upper = n * sizeof(T) / (4 * num_buckets * sizeof(s_size_t));
+    num_blocks = std::min(bucket_upper, std::max(par_lower, size_lower));
+
     // if insufficient parallelism, sort sequentially
     if (n < SEQ_THRESHOLD || num_blocks == 1 || num_threads == 1) {
       return seq_count_sort(In,Out,Keys,num_buckets);}
 
     size_t block_size = ((n-1)/num_blocks) + 1;
-    //size_t block_size = std::min<size_t>(std::max<size_t>(2173, num_buckets*113),
-    //					 371000/(sizeof(T)));
-			     
-    //num_blocks = ((n-1)/block_size) + 1;
-    //cout << num_blocks << endl;
     size_t m = num_blocks * num_buckets;
-    
     
     s_size_t *counts = new_array_no_init<s_size_t>(m,1);
     t.next("head");
@@ -163,6 +165,14 @@ namespace pbbs {
 	bucket_offsets[i] = v;
       }, 1 + 1024/num_blocks);
     bucket_offsets[num_buckets] = 0;
+
+    // if all in one buckect, then no need to sort
+    size_t num_non_zero = 0;
+    for (size_t i =0 ; i < num_buckets; i++)
+      num_non_zero += (bucket_offsets[i] > 0);
+    if (skip_if_in_one && num_non_zero == 1)
+      return sequence<size_t>(0);
+
     size_t total = scan_inplace(bucket_offsets.slice(), addm<size_t>());
     if (total != n) abort();
     
@@ -225,12 +235,15 @@ namespace pbbs {
 			      range<typename InS::value_type*> Out,
 			      KeyS const &Keys,
 			      size_t num_buckets,
-			      bool is_nested=false) {
+			      float parallelism = 1.0,
+			      bool skip_if_in_one=false) {
     size_t n = In.size();
     size_t max32 = ((size_t) 1) << 32;
     if (n < max32 && num_buckets < max32)
       // use 4-byte counters when larger ones not needed
-      return count_sort_<uint32_t>(In, Out, Keys, num_buckets, is_nested);
-    return count_sort_<size_t>(In, Out, Keys, num_buckets, is_nested);
+      return count_sort_<uint32_t>(In, Out, Keys, num_buckets,
+				   parallelism, skip_if_in_one);
+    return count_sort_<size_t>(In, Out, Keys, num_buckets,
+			       parallelism, skip_if_in_one);
   }
 }
