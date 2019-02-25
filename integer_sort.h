@@ -232,20 +232,36 @@ namespace pbbs {
     integer_sort_(In, Out.slice(), Tmp.slice(), g, key_bits, false);
     return Out;
   }
-  
+
+  // Given a sorted sequence of integers in the range [0,..,num_buckets)
+  // returns a sequence of length num_buckets+1 with the offset for the
+  // start of each integer.   If an integer does not appear, its offset
+  // will be the same as the next (i.e. offset[i+1]-offset[i] specifies
+  // how many i there are.
+  // The last element contains the size of the input.
   template <typename Seq, typename Get_Key>
   sequence<size_t>
-  get_offsets(Seq const &In, Get_Key const &g, size_t num_buckets) {
+  get_counts(Seq const &In, Get_Key const &g, size_t num_buckets) {
     size_t n = In.size();
-    sequence<size_t> Off(num_buckets, n);
+    sequence<size_t> starts(n, (size_t) 0);
+    sequence<size_t> ends(n, (size_t) 0);
     parallel_for (0, n-1, [&] (size_t i) {
-	if (g(In[i]) != g(In[i+1]))
-	  Off[g(In[i+1])] = i+1;
-      });
-    Off[g(In[0])] = 0;
-    // note that in reverse order
-    scan_inplace(Off.rslice() , minm<size_t>(), fl_scan_inclusive);
-    return Off;
+	if (g(In[i]) != g(In[i+1])) {
+	  starts[g(In[i+1])] = i+1;
+	  ends[g(In[i])] = i+1;
+	};});
+    ends[g(In[n-1])] = n;
+    return sequence<size_t>(n, [&] (size_t i) {
+	return ends[i] - starts[i];});
+  }
+
+  template <typename Seq, typename Get_Key>
+  std::pair<sequence<typename Seq::value_type>,sequence<size_t>>
+  integer_sort_with_counts(Seq const &In, Get_Key const &g,
+			    size_t num_buckets=0) {
+    size_t key_bits = log2_up(num_buckets);
+    auto R = integer_sort(In, g, key_bits);
+    return std::make_pair(std::move(R), get_counts(R, g, num_buckets));
   }
 
 }

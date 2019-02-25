@@ -76,6 +76,8 @@ namespace pbbs {
     return delayed_sequence<T,F>(n,f);
   }
 
+  constexpr bool check_copy = false;
+  
   template <typename T>
   struct sequence {
   public:
@@ -87,6 +89,8 @@ namespace pbbs {
     // copy constructor
     sequence(const sequence& a) : n(a.n) {
       copy_here(a.s, a.n);
+      if (check_copy)
+	cout << "copy constructor: len: " << a.n << " sizeof: " << sizeof(T) << endl;
     }
 
     // move constructor
@@ -96,6 +100,8 @@ namespace pbbs {
     // copy assignment
     sequence& operator = (const sequence& a) {
       if (this != &a) {clear(); copy_here(a.s, a.n);}
+      if (check_copy)
+	cout << "copy assignment: len: " << a.n << " sizeof: " << sizeof(T) << endl;
       return *this;
     }
 
