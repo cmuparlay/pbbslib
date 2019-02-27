@@ -68,6 +68,7 @@ passed by value, it is copied.
 ******************************************************
 
 A range<Iterator> is both a Seq and a Range.  It supports:
+    
     typename value_type (shorthand T below)
     typename iterator, where iterator::value_type = value_type
        it must be a random access iterator
@@ -85,6 +86,7 @@ A range<Iterator> is both a Seq and a Range.  It supports:
 A delayed_sequence<T, IntegerFunc> is a Seq but not a Range.  It is associated
 with a function that emits the i-th element.  It is hence immutable, and there
 is not notion of a reference to its elements.   It supports:
+
     typename value_type (shorthand T below)
     delayed_sequence(size_t n, IntegerFunc f) :
       creates a delayed sequence of length n, where the i-th element is f(i)
