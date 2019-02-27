@@ -107,6 +107,7 @@ It includes:
   - parallel random number generation
 
 Algorithms:
+
   reduce
   scan
   scan_inplace
@@ -127,14 +128,14 @@ Algorithms:
 The following are loosely based on stl.   However none of them mutate
 their arguments, but rather are copy based.
 
-  all_of, any_of, none_of, count, count_if
-  find, find_if, find_if_not, find_first_of, find_end, search
-  mismatch, adjacent_find
-  equal, lexicographical_compare,
-  unique, remove_if
-  min_element, max_element, min_max_element
-  reverse, rotate,
-  is_sorted, is_sorted_until, is_partitioned
+  - all_of, any_of, none_of, count, count_if
+  - find, find_if, find_if_not, find_first_of, find_end, search
+  - mismatch, adjacent_find
+  - equal, lexicographical_compare,
+  - unique, remove_if
+  - min_element, max_element, min_max_element
+  - reverse, rotate,
+  - is_sorted, is_sorted_until, is_partitioned
   
 Utilities
   scheduler
