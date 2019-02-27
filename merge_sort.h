@@ -40,7 +40,7 @@ namespace pbbs {
     sequence<T> A(In);
     sequence<T> B(In.size());
     merge_sort_(A.slice(), B.slice(), f, false);
-    return B;
+    return std::move(B);
   }
 
   template <class T, class F> 

@@ -190,9 +190,9 @@ namespace pbbs {
   }
 
   template <class T, class F> 
-  void p_quicksort_inplace(range<T*> &In, const F& f) {
+  void p_quicksort_inplace(range<T*> In, const F& f) {
     sequence<T> Tmp = sequence<T>::no_init(In.size());
-    p_quicksort_(In.slice(), Tmp.slice(), f, true);
+    p_quicksort_(In, Tmp.slice(), f, true);
   }
 
 }

@@ -76,7 +76,7 @@ namespace pbbs {
     return delayed_sequence<T,F>(n,f);
   }
 
-  constexpr bool check_copy = false;
+  constexpr bool check_copy = true;
   
   template <typename T>
   struct sequence {
