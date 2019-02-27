@@ -43,6 +43,7 @@ does support mutation by first extracting a range.  It is designed so all
 its internal operations are parallel---including initialization of
 elements, destruction of elements, copy assignment and
 copy construction.    It supports the following functionality:
+    
     typename value_type (shorthand T below)
     sequence<T>(size_t n, IntegerFunc f) :
         applies f to i : [0,n) creating a sequence of length n
