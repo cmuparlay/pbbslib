@@ -13,7 +13,54 @@ some ideas from Boost.
 
 ******************************************************
 
+## PBBS includes:
+  - a library of algorithms, mostly based on sequences and ranges
+  - a scheduler (based on arbitrarily nested fork-join parallelism)
+  - a memory allocator (optimized for parallelism)
+  - parallel random number generation
+
+### Algorithms (all parallel):
+
+  - reduce, scan, scan_inplace
+  - pack, filter, pack_index
+  - merge
+  - random_shuffle
+  - histogram
+  - integer_sort, counting_sort, sort, sort_inplace, stable_sort
+  - collect_reduce
+  - kth_smallest
+
+It also includes the following, which are loosely based on the standard
+template library.   However none of them mutate
+their arguments, but rather are copy based.
+
+  - all_of, any_of, none_of, count, count_if
+  - find, find_if, find_if_not, find_first_of, find_end, search
+  - mismatch, adjacent_find
+  - equal, lexicographical_compare,
+  - unique, remove_if
+  - min_element, max_element, min_max_element
+  - reverse, rotate,
+  - is_sorted, is_sorted_until, is_partitioned
+  
+### Utilities
+  - scheduler
+  - parallel random number generator
+  - memory allocator
+  - monoid
+  - timer
+  - hashing
+  
+### Concurrency
+  - stack
+  
+******************************************************
+
+## Seqs and Ranges
+
 Much of The library revolves around the concepts of Seq and Range.
+
+###  Seq
 
 A Seq is a type supporting at least a.size(), a.split(),
 a.split(start,end) and and a[i], where the last can return an rval.
@@ -23,6 +70,7 @@ Seq.  A general Seq cannot be mutated (none of its functionality
 supports mutation).  Functions that take a Seq as an argument almost
 always take it as a const reference.
 
+### Range
 A Range can be thought of as a pair of iterators marking the start and
 end of the range.  It must support all the operations of Seq (it is
 also a Seq), and in addition, it must also support a.begin(), a.end()
@@ -32,17 +80,21 @@ are meant to reference a range (perhaps the full range) of an
 underlining container.  This is different from the concept of Range in
 boost.
 
-The library supports three specific types of Seq and Range.
-
 ******************************************************
 
-A sequence<T> is a Seq but not a Range.  It is similar to a vector<T>
-in that it is associated with the underlying memory for its contents.
-Unlike vector<T> it is generally meant to be immutable, although it
-does support mutation by first extracting a range.  It is designed so all
-its internal operations are parallel---including initialization of
-elements, destruction of elements, copy assignment and
-copy construction.    It supports the following functionality:
+## sequence, range and delayed_sequence
+
+The library supports three specific types of Seq and Range.
+
+### sequence<T>
+
+A sequence<T> is similar to a vector<T> in that it is associated with
+the underlying memory for its contents.  Unlike vector<T> it is
+generally meant to be immutable, although it does support mutation by
+first extracting a range.  It is designed so all its internal
+operations are parallel---including initialization of elements,
+destruction of elements, copy assignment and copy construction.  It
+supports the following functionality:
     
     typename value_type (shorthand T below)
     sequence<T>(size_t n, IntegerFunc f) :
@@ -62,12 +114,18 @@ copy construction.    It supports the following functionality:
     a[size_t i] -> T& : reference to i-th value of a
     a.swap(sequence<T> b) -> void : swaps contents of a and b
     a.clear() -> clears the contents setting length to zero.    
+
 If passed by rvalue reference it is moved clearing the rvalue.  If
-passed by value, it is copied.
+passed by value, it is copied.   
+
+A sequence is a Seq but not a Range.
 
 ******************************************************
 
-A range<Iterator> is both a Seq and a Range.  It supports:
+### range<Iterator>
+
+A range<Iterator> suppors random access into range, and slicing into
+subranges.   
     
     typename value_type (shorthand T below)
     typename iterator, where iterator::value_type = value_type
@@ -81,11 +139,15 @@ A range<Iterator> is both a Seq and a Range.  It supports:
     a.end() -> I : an iterator to the end of the range
     a[size_t i] -> value_type& : reference to i-th value of a
 
+A range<Iterator> is both a Seq and a Range.  
+
 ******************************************************
 
-A delayed_sequence<T, IntegerFunc> is a Seq but not a Range.  It is associated
-with a function that emits the i-th element.  It is hence immutable, and there
-is not notion of a reference to its elements.   It supports:
+### delayed_sequence<T, IntegerFunc>
+
+A delayed_sequence<T, IntegerFunc> is associated with a function that
+emits the i-th element.  It is hence immutable, and there is no
+notion of a reference to its elements.  It supports:
 
     typename value_type (shorthand T below)
     delayed_sequence(size_t n, IntegerFunc f) :
@@ -98,53 +160,6 @@ is not notion of a reference to its elements.   It supports:
     a.slice(size_t s, size_t e) -> delayed_sequence<T, IntegerFunc> :
         the range from [f(s), f(e))
 
-******************************************************
+A delayed_sequence is a Seq but not a Range
 
-It includes:
-  - a library of algorithms, mostly based on sequences and ranges
-  - a scheduler (based on arbitrarily nested fork-join parallelism)
-  - a memory allocator (optimized for parallelism)
-  - parallel random number generation
-
-Algorithms:
-
-  reduce
-  scan
-  scan_inplace
-  pack
-  filter
-  pack_index
-  merge
-  random_shuffle
-  histogram
-  integer_sort
-  counting_sort
-  sort
-  sort_inplace
-  collect_reduce
-  kth_smallest
-  transpose??
-
-The following are loosely based on stl.   However none of them mutate
-their arguments, but rather are copy based.
-
-  - all_of, any_of, none_of, count, count_if
-  - find, find_if, find_if_not, find_first_of, find_end, search
-  - mismatch, adjacent_find
-  - equal, lexicographical_compare,
-  - unique, remove_if
-  - min_element, max_element, min_max_element
-  - reverse, rotate,
-  - is_sorted, is_sorted_until, is_partitioned
-  
-Utilities
-  scheduler
-  parallel random number generator
-  memory allocator
-  monoid
-  timer
-  hashing
-  
-Concurrency
-  stack
  
