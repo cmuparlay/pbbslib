@@ -1,13 +1,15 @@
 #include "sequence_ops.h"
 #include "sample_sort.h"
+#include "kth_smallest.h"
 
 namespace pbbs {
 
 template<class IntegerPred>
-bool count_if_index(size_t n, IntegerPred p) {
-  auto BS = pbbs::delayed_seq<bool>(n, [&] (size_t i) -> size_t {
+size_t count_if_index(size_t n, IntegerPred p) {
+  auto BS = pbbs::delayed_seq<size_t>(n, [&] (size_t i) -> size_t {
       return p(i);});
-  return pbbs::reduce(BS, pbbs::addm<size_t>());
+  size_t r = pbbs::reduce(BS, pbbs::addm<size_t>());
+  return r;
 }
 
 template<class IntegerPred>
@@ -35,11 +37,11 @@ void for_each(Seq const &S, UnaryFunction f) {
   parallel_for(S.size_t(), [&] (size_t i) {f(S[i]);});}
 
 template<class Seq, class UnaryPred>
-bool count_if(Seq const &S, UnaryPred p) {
+size_t count_if(Seq const &S, UnaryPred p) {
   return count_if_index(S.size(), [&] (size_t i) {return p(S[i]);});}
 
 template<class Seq, class T>
-bool count(Seq const &S, T const &value) {
+size_t count(Seq const &S, T const &value) {
   return count_if_index(S.size(), [&] (size_t i) {return S[i] == value;});}
 
 template<class Seq, class UnaryPred>
@@ -198,6 +200,10 @@ template <class Seq, class Compare>
 sequence<typename Seq::value_type>
 sort(Seq const &S, Compare less) {
   return sample_sort(S, less, false);}
+
+template <class Iter, class Compare>
+void sort_inplace (range<Iter> A, const Compare& f) {
+  sample_sort_inplace(A, f); };
 
 template <class Seq, class Compare>
 sequence<typename Seq::value_type>

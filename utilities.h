@@ -274,7 +274,7 @@ namespace pbbs {
     return (n > 100) ? ceil(pow(n,0.5)) : 100;
   }
 
-  static void assert(int cond, std::string s) {
+  inline void assert(int cond, std::string s) {
     if (!cond) {std::cout << "PBBS assert error: " << s << std::endl;}
   }
 

@@ -55,7 +55,7 @@ struct mem_pool {
   }
 
   void afree(void* a) {
-    //cout << "free: " << (size_t) a << endl;
+    //cout << "free: " << a << endl;
     void* b = sub_header(a);
     size_t bucket = *((size_t*) b);
     if (bucket == small_size_tag) free(b);

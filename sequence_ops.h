@@ -64,8 +64,8 @@ namespace pbbs {
     size_t block_size = std::max(_block_size, 4 * (size_t) ceil(sqrt(n)));
     size_t l = num_blocks(n, block_size);
     if (l == 0) return m.identity;
-    if (l == 1 || (fl & fl_sequential))
-      return reduce_serial(A, m);
+    if (l == 1 || (fl & fl_sequential)) {
+      return reduce_serial(A, m); }
     sequence<T> Sums(l);
     sliced_for (n, block_size,
 		[&] (size_t i, size_t s, size_t e)
@@ -268,7 +268,8 @@ namespace pbbs {
   template <SEQ In_Seq, SEQ Bool_Seq>
   auto split_two(In_Seq const &In,
 		 Bool_Seq const &Fl,
-		 flags fl = no_flag) -> std::pair<In_Seq, size_t> {
+		 flags fl = no_flag)
+    -> std::pair<sequence<typename In_Seq::value_type>, size_t> {
     using T = typename In_Seq::value_type;
     size_t n = In.size();
     size_t l = num_blocks(n,_block_size);
@@ -291,7 +292,7 @@ namespace pbbs {
 		    else assign_uninitialized(Out[c1++],In[j]);
 		  }
 		}, fl);
-    return std::make_pair(Out, m);
+    return std::make_pair(std::move(Out), m);
   }
 }
 
