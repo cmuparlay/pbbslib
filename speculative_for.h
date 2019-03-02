@@ -97,13 +97,14 @@ long speculative_for(S step, long s, long e, long granularity,
     numberKeep = Ihold.size();
     numberDone += size - numberKeep;
 
+    // cout << size << " : " << numberKeep << " : " << numberDone << " : " << currentRoundSize << endl;
+
     // adjust round size based on number of failed attempts
     if (float(numberKeep)/float(size) > .2) 
       currentRoundSize = std::max(currentRoundSize/2, 
 				  std::max(maxRoundSize/64 + 1, numberKeep));
     else if (float(numberKeep)/float(size) < .1) 
       currentRoundSize = std::min(currentRoundSize * 2, maxRoundSize);
-    //cout << size << " : " << numberKeep << " : " << numberDone << endl;
   }
   return totalProcessed;
 }
