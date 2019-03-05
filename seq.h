@@ -190,8 +190,8 @@ namespace pbbs {
     void clear() {
       if (s != NULL) {
 	//if (n > 1000000000) cout << "delete: " << s << endl;
-	pbbs::delete_array<T>(s, n);
-	s = NULL; n = 0;
+        pbbs::delete_array<T>(s, n);
+        s = NULL; n = 0;
       }
     }
 
@@ -202,7 +202,7 @@ namespace pbbs {
       s = pbbs::new_array_no_init<T>(n, true);
       //if (n > 0) { cout << "Yikes, copy: " << s << endl;}
       parallel_for(0, n, [&] (size_t i) {
-	  pbbs::assign_uninitialized(s[i], a[i]);});
+	      pbbs::assign_uninitialized(s[i], a[i]);});
     }
   
     T *s; 
