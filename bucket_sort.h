@@ -39,8 +39,6 @@ void to_heap_order(T* In, T* Out,
   to_heap_order(In, Out, 2*root+2, m+1, r);
 }
 
-timer b_t("sort",false);
-
 // returns true if all equal
 template <class T, class binOp>
 bool get_buckets(range<T*> A, uchar* buckets, binOp f, size_t rounds) {
@@ -68,7 +66,6 @@ bool get_buckets(range<T*> A, uchar* buckets, binOp f, size_t rounds) {
   T* pivots2 = sample_set;
   to_heap_order(pivots, pivots2, 0, 0, num_pivots);
 
-  b_t.next("sample");
   for (size_t i=0; i < n; i++) {
     size_t j = 0;
     for (size_t k=0; k < rounds; k++) 
@@ -98,16 +95,13 @@ void bucket_sort_r(range<T*> in, range<T*> out, binOp f,
   if (n < num_buckets*32) {
     base_sort(in, out, f, stable, inplace);
   } else {
-    //b_t.start();
     size_t counts[num_buckets];
     sequence<uchar> bucketsm(n);
     uchar* buckets = bucketsm.begin();
     if (get_buckets(in, buckets, f, bits)) {
       base_sort(in, out, f, stable, inplace);
     } else {
-      b_t.next("get buckets");
       radix_step_(in.begin(), out.begin(), buckets, counts, n, num_buckets);
-      b_t.next("radix step");
       parallel_for (0, num_buckets, [&] (size_t j) {
 	  size_t start = counts[j];
 	  size_t end = (j == num_buckets-1) ? n : counts[j+1];
