@@ -200,26 +200,29 @@ namespace pbbs {
   }
 
   template <typename ET>
-  inline bool atomic_compare_and_swap(ET* ptr, ET oldv, ET newv) {
-    return __sync_bool_compare_and_swap(ptr, oldv, newv);
+  inline bool atomic_compare_and_swap(ET* a, ET oldval, ET newval) {
+    if (sizeof(ET) == 1) {
+      return __sync_bool_compare_and_swap(reinterpret_cast<uint8_t*>(a),
+					*reinterpret_cast<const uint8_t*>(&oldval),
+					*reinterpret_cast<const uint8_t*>(&newval));
+    } else if (sizeof(ET) == 4) {
+      return __sync_bool_compare_and_swap(reinterpret_cast<uint32_t*>(a),
+					*reinterpret_cast<const uint32_t*>(&oldval),
+					*reinterpret_cast<const uint32_t*>(&newval));
+    } else if (sizeof(ET) == 8) {
+      return __sync_bool_compare_and_swap(reinterpret_cast<uint64_t*>(a),
+					*reinterpret_cast<const uint64_t*>(&oldval),
+					*reinterpret_cast<const uint64_t*>(&newval));
+    } else {
+      std::cout << "Bad CAS Length" << sizeof(ET) << std::endl;
+      exit(0);
+    }
   }
-  
+
   template <typename ET>
   inline bool CAS_GCC(ET* ptr, const ET oldv, const ET newv) {
     return __sync_bool_compare_and_swap(ptr, oldv, newv);
   }
-
-  inline bool atomic_compare_and_swap(double* a, const double &oldval, const double &newval) {
-    return __sync_bool_compare_and_swap(reinterpret_cast<uint64_t*>(a),
-					*reinterpret_cast<const uint64_t*>(&oldval),
-					*reinterpret_cast<const uint64_t*>(&newval));
-  };
-
-  inline bool atomic_compare_and_swap(float* a, float &oldval, float &newval) {
-    return __sync_bool_compare_and_swap(reinterpret_cast<uint32_t*>(a),
-					*reinterpret_cast<const uint32_t*>(&oldval),
-					*reinterpret_cast<const uint32_t*>(&newval));
-  };
 
   template <typename E, typename EV>
   inline E fetch_and_add(E *a, EV b) {
