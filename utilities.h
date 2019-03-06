@@ -8,6 +8,7 @@
 #include <type_traits>
 #include <math.h>
 #include <atomic>
+#include <cstring>
 #include "parallel.h"
 
 using std::cout;
@@ -202,17 +203,20 @@ namespace pbbs {
   template <typename ET>
   inline bool atomic_compare_and_swap(ET* a, ET oldval, ET newval) {
     if (sizeof(ET) == 1) {
-      return __sync_bool_compare_and_swap(reinterpret_cast<uint8_t*>(a),
-					*reinterpret_cast<const uint8_t*>(&oldval),
-					*reinterpret_cast<const uint8_t*>(&newval));
+      uint8_t r_oval, r_nval;
+      std::memcpy(&r_oval, &oldval, sizeof(ET));
+      std::memcpy(&r_nval, &newval, sizeof(ET));
+      return __sync_bool_compare_and_swap(reinterpret_cast<uint8_t*>(a), r_oval, r_nval);
     } else if (sizeof(ET) == 4) {
-      return __sync_bool_compare_and_swap(reinterpret_cast<uint32_t*>(a),
-					*reinterpret_cast<const uint32_t*>(&oldval),
-					*reinterpret_cast<const uint32_t*>(&newval));
+      uint32_t r_oval, r_nval;
+      std::memcpy(&r_oval, &oldval, sizeof(ET));
+      std::memcpy(&r_nval, &newval, sizeof(ET));
+      return __sync_bool_compare_and_swap(reinterpret_cast<uint32_t*>(a), r_oval, r_nval);
     } else if (sizeof(ET) == 8) {
-      return __sync_bool_compare_and_swap(reinterpret_cast<uint64_t*>(a),
-					*reinterpret_cast<const uint64_t*>(&oldval),
-					*reinterpret_cast<const uint64_t*>(&newval));
+      uint64_t r_oval, r_nval;
+      std::memcpy(&r_oval, &oldval, sizeof(ET));
+      std::memcpy(&r_nval, &newval, sizeof(ET));
+      return __sync_bool_compare_and_swap(reinterpret_cast<uint64_t*>(a), r_oval, r_nval);
     } else {
       std::cout << "Bad CAS Length" << sizeof(ET) << std::endl;
       exit(0);
