@@ -165,10 +165,11 @@ namespace pbbs {
   }
 
   template <class Slice, class Slice2, RANGE Out_Seq>
-  void pack_serial_at(Slice In, Slice2 Fl, Out_Seq Out) {
+  size_t pack_serial_at(Slice In, Slice2 Fl, Out_Seq Out) {
     size_t k = 0;
     for (size_t i=0; i < In.size(); i++)
       if (Fl[i]) assign_uninitialized(Out[k++], In[i]);
+    return k;
   }
 
   template <SEQ In_Seq, SEQ Bool_Seq>
@@ -201,7 +202,7 @@ namespace pbbs {
     size_t n = In.size();
     size_t l = num_blocks(n, _block_size);
     if (l <= 1 || fl & fl_sequential) {
-      return pack_serial(In, Fl.slice(0, In.size()));
+      return pack_serial_at(In, Fl.slice(0, In.size()), Out);
     }
     sequence<size_t> Sums(l);
     sliced_for(n, _block_size, [&] (size_t i, size_t s, size_t e) {
@@ -209,7 +210,8 @@ namespace pbbs {
     });
     size_t m = scan_inplace(Sums.slice(), addm<size_t>());
     sliced_for(n, _block_size, [&](size_t i, size_t s, size_t e) {
-      pack_serial_at(In.slice(s, e),  Fl.slice(s, e), Out);
+      pack_serial_at(In.slice(s, e),  Fl.slice(s, e),
+                     Out.slice(Sums[i], (i == l-1) ? m : Sums[i+1]));
     });
     return m;
   }
@@ -255,7 +257,8 @@ namespace pbbs {
     size_t m = scan_inplace(Sums.slice(), addm<size_t>());
     pbbs::sliced_for (n, _block_size,
 		[&] (size_t i, size_t s, size_t e)
-		{ pack_serial_at(In.slice(s,e), Fl.slice(s,e), Out);});
+		{ pack_serial_at(In.slice(s,e), Fl.slice(s,e),
+                    make_range(Out.begin(), Out.begin() + Sums[i]));});
     return m;
   }
 
