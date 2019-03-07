@@ -268,6 +268,22 @@ namespace pbbs {
     return r;
   }
 
+  template <typename ET, typename F>
+  inline bool write_max(ET *a, ET b, F less) {
+    ET c; bool r=0;
+    do c = *a;
+    while (less(c,b) && !(r=CAS_GCC(a,c,b)));
+    return r;
+  }
+
+  template <typename ET, typename F>
+  inline bool write_max(std::atomic<ET> *a, ET b, F less) {
+    ET c; bool r=0;
+    do c = a->load();
+    while (less(c,b) && !(r=std::atomic_compare_exchange_strong(a, &c, b)));
+    return r;
+  }
+
   // returns the log base 2 rounded up (works on ints or longs or unsigned versions)
   template <class T>
   size_t log2_up(T i) {
