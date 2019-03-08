@@ -1,4 +1,4 @@
-#include <jemalloc/jemalloc.h>
+//#include <jemalloc/jemalloc.h>
 #include "utilities.h"
 #include "alloc.h"
 #include "get_time.h"
