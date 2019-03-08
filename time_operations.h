@@ -464,10 +464,12 @@ double t_mat_vec_mult(size_t n) {
 }
 
 template<typename T>
-double t_make_range_min(size_t n) {
+double t_range_min(size_t n) {
   pbbs::sequence<T> In(n, [&] (size_t i) {return 5;});
   In[n/2] = 0;
-  time(t, auto foo = pbbs::range_min(In, std::less<T>()); parallel_for(0, n-1, [&] (size_t i) {foo.query(0,i);}););
+  time(t,
+       auto foo = pbbs::make_range_min(In, std::less<T>());
+       parallel_for(0, n-1, [&] (size_t i) {foo.query(0,i);}););
   if (foo.query(0,n-1) != n/2 || foo.query(0,n/2-1) != 0 ||
       foo.query(0,n/2) != n/2 || foo.query(n/2+1, n-1) != n/2+1) {
     cout << "error in range min query " << endl;
