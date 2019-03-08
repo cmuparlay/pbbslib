@@ -28,7 +28,7 @@ concept bool Range =
 #endif
 
 namespace pbbs {
-  
+
   template <typename Iterator>
   struct range {
   public:
@@ -44,12 +44,12 @@ namespace pbbs {
     iterator begin() const {return s;}
     iterator end() const {return e;}
   private:
-    iterator s; 
-    iterator e; 
+    iterator s;
+    iterator e;
   };
 
   template <class Iter>
-  range<Iter> make_slice(Iter s, Iter e) {
+  range<Iter> make_range(Iter s, Iter e) {
     return range<Iter>(s,e);
   }
 
@@ -76,17 +76,21 @@ namespace pbbs {
     return delayed_sequence<T,F>(n,f);
   }
 
+  constexpr bool check_copy = true;
+
   template <typename T>
   struct sequence {
   public:
     using value_type = T;
     //using iterator = T*;
-  
+
     sequence() : s(NULL), n(0) {}
 
     // copy constructor
     sequence(const sequence& a) : n(a.n) {
       copy_here(a.s, a.n);
+      if (check_copy)
+	cout << "copy constructor: len: " << a.n << " sizeof: " << sizeof(T) << endl;
     }
 
     // move constructor
@@ -96,6 +100,8 @@ namespace pbbs {
     // copy assignment
     sequence& operator = (const sequence& a) {
       if (this != &a) {clear(); copy_here(a.s, a.n);}
+      if (check_copy)
+	cout << "copy assignment: len: " << a.n << " sizeof: " << sizeof(T) << endl;
       return *this;
     }
 
@@ -147,7 +153,7 @@ namespace pbbs {
     sequence(delayed_sequence<T,F> a) {
       copy_here(a, a.size());
     }
-  
+
     ~sequence() { clear();}
 
     value_type& operator[] (const size_t i) const {return s[i];}
@@ -155,6 +161,15 @@ namespace pbbs {
     range<value_type*> slice(size_t ss, size_t ee) const {
       return range<value_type*>(s + ss, s + ee);
     }
+
+    range<std::reverse_iterator<value_type*>>
+    rslice(size_t ss, size_t ee) const {
+      auto i = std::make_reverse_iterator(s+n);
+      return range<decltype(i)>(i + ss, i + ee);
+    }
+
+    range<std::reverse_iterator<value_type*>>
+    rslice() const {return rslice(0, n);};
 
     range<value_type*> slice() const {
       return range<value_type*>(s, s + n);
@@ -175,8 +190,8 @@ namespace pbbs {
     void clear() {
       if (s != NULL) {
 	//if (n > 1000000000) cout << "delete: " << s << endl;
-	pbbs::delete_array<T>(s, n);
-	s = NULL; n = 0;
+        pbbs::delete_array<T>(s, n);
+        s = NULL; n = 0;
       }
     }
 
@@ -185,12 +200,13 @@ namespace pbbs {
     void copy_here(Seq const &a, size_t an) {
       n = an;
       s = pbbs::new_array_no_init<T>(n, true);
+      cout << "s = " << s << " n = " << n << endl;
       //if (n > 0) { cout << "Yikes, copy: " << s << endl;}
       parallel_for(0, n, [&] (size_t i) {
-	  pbbs::assign_uninitialized(s[i], a[i]);});
+	      pbbs::assign_uninitialized(s[i], a[i]);});
     }
-  
-    T *s; 
+
+    T *s;
     size_t n;
   };
 

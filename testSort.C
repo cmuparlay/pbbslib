@@ -4,9 +4,10 @@ int main (int argc, char *argv[]) {
   //using T = size_t;
   //using T = __int128;
   //using T = double;
-  using T = std::pair<double,double>;
+  using E = double;
+  using T = std::pair<E,E>;
   timer t;
-  size_t n = 50000;
+  size_t n = 25000;
   size_t blocks = 100000000/n;
   size_t rounds = 10;
   size_t total = n * blocks;
@@ -19,16 +20,17 @@ int main (int argc, char *argv[]) {
     out = in;
     t.start();
     parallel_for (0, blocks, [&] (size_t i) {
-	slice_t<T*> a = out.slice(i*n,(i+1)*n);
+	range<T*> a = out.slice(i*n,(i+1)*n);
 	//sample_sort_inplace(a, less);
 	bucket_sort(a, less, false);
+	//quicksort(a.begin(), a.size(), less);
       }, 1);
     double tm = t.stop();
     cout << "time = " << tm << endl;
-    parallel_for (0, blocks, [&] (size_t i) {
-	parallel_for (0, n-1, [&] (size_t j) {
-	    if (less(out[i*n+j+1],out[i*n+j])) abort();
-	  });});
+    // parallel_for (0, blocks, [&] (size_t i) {
+    // 	parallel_for (0, n-1, [&] (size_t j) {
+    // 	    if (less(out[i*n+j+1],out[i*n+j])) abort();
+    // 	  });});
   }
   //for (size_t i = 0; i < 10; i++)
   //  cout << in[i] << ", " << out[i] << endl;

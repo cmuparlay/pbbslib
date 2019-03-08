@@ -62,6 +62,7 @@ namespace pbbs {
   }
 
   // wrapper to reduce copies and avoid modifying In when not inplace
+  // In and Tmp can be the same, but Out must be different
   template <class SeqIn, class Slice, class GetKey>
   void seq_radix_sort(SeqIn const &In, Slice Out, Slice Tmp, GetKey const &g,
 		      size_t key_bits, bool inplace=true) {
@@ -81,6 +82,7 @@ namespace pbbs {
       seq_radix_sort_(In.slice(), Out, g, key_bits, inplace);
   }
 
+
   // a top down recursive radix sort
   // g extracts the integer keys from In
   // key_bits specifies how many bits there are left
@@ -88,9 +90,9 @@ namespace pbbs {
   // In and Out cannot be the same, but In and Tmp should be same if inplace
   template <typename SeqIn, typename Slice, typename Get_Key>
   void integer_sort_r(SeqIn const &In, Slice Out, Slice Tmp, Get_Key const &g, 
-		      size_t key_bits, bool inplace, bool is_nested=false) {
+		      size_t key_bits, bool inplace, float parallelism=1.0) {
     size_t n = In.size();
-    timer t;
+    timer t("integer sort",false);
 
     if (key_bits == 0) {
       if (!inplace)
@@ -102,13 +104,13 @@ namespace pbbs {
       
       // few bits, just do a single parallel count sort
     } else if (key_bits <= radix) {
-      t.start();
       size_t num_buckets = (1 << key_bits);
       size_t mask = num_buckets - 1;
       auto f = [&] (size_t i) {return g(In[i]) & mask;};
       auto get_bits = delayed_seq<size_t>(n, f);
-      count_sort(In.slice(), Out, get_bits, num_buckets, is_nested);
-      if (inplace)
+      sequence<size_t> cnts = count_sort(In.slice(), Out, get_bits, num_buckets,
+					 parallelism, true);
+      if (inplace != (cnts.size() == 0))
 	parallel_for(0, n, [&] (size_t i) {
 	    move_uninitialized(In[i], Out[i]);});
       
@@ -122,16 +124,27 @@ namespace pbbs {
       auto get_bits = delayed_seq<size_t>(n, f);
 
       // divide into buckets
-      sequence<size_t> offsets = count_sort(In.slice(), Out, get_bits, buckets, is_nested);
+      sequence<size_t> offsets = count_sort(In.slice(), Out, get_bits, buckets,
+					    parallelism, true);
 
+      // if all but one bucket are empty, try again on lower bits
+      if (offsets.size() == 0) {
+	integer_sort_r(In, Out, Tmp, g, shift_bits, inplace,
+		       parallelism);
+	if (n > 10000000) t.next("isort");
+	return;
+      }
+      if (n > 10000000) t.next("first");
       // recursively sort each bucket
       parallel_for(0, buckets, [&] (size_t i) {
 	  size_t start = offsets[i];
 	  size_t end = offsets[i+1];
 	  auto a = Out.slice(start, end);
 	  auto b = Tmp.slice(start, end);
-	  integer_sort_r(a, b, a, g, shift_bits, !inplace, true);
+	  integer_sort_r(a, b, a, g, shift_bits, !inplace,
+			 (parallelism * (end - start)) / n);
 	}, 1);
+      if (n > 10000000) t.next("second");
     }
   }
 
@@ -144,33 +157,25 @@ namespace pbbs {
   // val_bits specifies how many bits there are in the key
   //    if set to 0, then a max is taken over the keys to determine
   template <typename SeqIn, typename IterOut, typename Get_Key>
-  void integer_sort_(SeqIn const &In,
+    size_t integer_sort_(SeqIn const &In,
 		     range<IterOut> Out,
 		     range<IterOut> Tmp,
 		     Get_Key const &g, 
 		     size_t key_bits=0,
 		     bool inplace=false) {
-    using T = typename SeqIn::value_type;
     if (slice_eq(In.slice(), Out)) {
       cout << "in integer_sort : input and output must be different locations"
 	   << endl;
       abort();}
+    size_t num_buckets = (1 << key_bits);
     if (key_bits == 0) {
-      using P = std::pair<size_t,size_t>;
-      auto get_key = [&] (size_t i) -> P {
-	size_t k =g(In[i]);
-	return P(k,k);};
-      auto keys = delayed_seq<P>(In.size(), get_key);
-      size_t min_val, max_val;
-      std::tie(min_val,max_val) = reduce(keys, minmaxm<size_t>());
-      key_bits = log2_up(max_val - min_val + 1);
-      if (min_val > max_val / 4) {
-	auto h = [&] (T a) {return g(a) - min_val;};
-	integer_sort_r(In, Out, Tmp, h, key_bits, inplace);
-	return;
-      }
+      auto get_key = [&] (size_t i) {return g(In[i]);};
+      auto keys = delayed_seq<size_t>(In.size(), get_key);
+      num_buckets = reduce(keys, maxm<size_t>()) + 1;
+      key_bits = log2_up(num_buckets);
     }
     integer_sort_r(In, Out, Tmp, g, key_bits, inplace);
+    return num_buckets;
   }
 
   template <typename T, typename Get_Key>
@@ -190,4 +195,36 @@ namespace pbbs {
     integer_sort_(In, Out.slice(), Tmp.slice(), g, key_bits, false);
     return Out;
   }
+
+  // Given a sorted sequence of integers in the range [0,..,num_buckets)
+  // returns a sequence of length num_buckets+1 with the offset for the
+  // start of each integer.   If an integer does not appear, its offset
+  // will be the same as the next (i.e. offset[i+1]-offset[i] specifies
+  // how many i there are.
+  // The last element contains the size of the input.
+  template <typename Seq, typename Get_Key>
+  sequence<size_t>
+  get_counts(Seq const &In, Get_Key const &g, size_t num_buckets) {
+    size_t n = In.size();
+    sequence<size_t> starts(n, (size_t) 0);
+    sequence<size_t> ends(n, (size_t) 0);
+    parallel_for (0, n-1, [&] (size_t i) {
+	if (g(In[i]) != g(In[i+1])) {
+	  starts[g(In[i+1])] = i+1;
+	  ends[g(In[i])] = i+1;
+	};});
+    ends[g(In[n-1])] = n;
+    return sequence<size_t>(n, [&] (size_t i) {
+	return ends[i] - starts[i];});
+  }
+
+  template <typename Seq, typename Get_Key>
+  std::pair<sequence<typename Seq::value_type>,sequence<size_t>>
+  integer_sort_with_counts(Seq const &In, Get_Key const &g,
+			    size_t num_buckets=0) {
+    size_t key_bits = log2_up(num_buckets);
+    auto R = integer_sort(In, g, key_bits);
+    return std::make_pair(std::move(R), get_counts(R, g, num_buckets));
+  }
+
 }

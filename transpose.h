@@ -28,7 +28,7 @@ namespace pbbs {
 
   constexpr const size_t TRANS_THRESHHOLD = PAR_GRANULARITY/4;
 
-  size_t split(size_t n) {
+  inline size_t split(size_t n) {
     return n/2;
     //return ((((size_t) 1) << log2_up(n) != n) ? n/2 : (7*(n+1))/16);
   }

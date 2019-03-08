@@ -141,7 +141,7 @@ double t_partition(size_t n) {
   pbbs::sequence<T> Out;
   auto f = pbbs::delayed_seq<bool>(n, [&] (size_t i) {return In[i] < n/((size_t) 2);});
   size_t m;
-  time(t, std::tie(Out,m) = pbbs::partition(In, f););
+  time(t, std::tie(Out,m) = pbbs::split_two(In, f););
   return t;
 }
 
@@ -270,8 +270,7 @@ template<typename T>
 double t_merge_sort(size_t n) {
   pbbs::random r(0);
   pbbs::sequence<T> in(n, [&] (size_t i) {return r.ith_rand(i)%n;});
-  pbbs::sequence<T> out;
-  time(t, out = pbbs::merge_sort(std::move(in), std::less<T>()););
+  time(t, pbbs::merge_sort_inplace(in.slice(), std::less<T>()););
   //for (size_t i = 1; i < n; i++)
   //  if (std::less<T>()(in[i],in[i-1])) {cout << i << endl; abort();}
   return t;
@@ -281,8 +280,7 @@ template<typename T>
 double t_quicksort(size_t n) {
   pbbs::random r(0);
   pbbs::sequence<T> in(n, [&] (size_t i) {return r.ith_rand(i)%n;});
-  pbbs::sequence<T> out;
-  time(t, out = pbbs::p_quicksort(in, std::less<T>()););
+  time(t, pbbs::p_quicksort_inplace(in.slice(), std::less<T>()););
   //for (size_t i = 1; i < n; i++)
   //  if (std::less<T>()(in[i],in[i-1])) {cout << i << endl; abort();}
   return t;

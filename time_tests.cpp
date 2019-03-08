@@ -1,3 +1,4 @@
+#include <jemalloc/jemalloc.h>
 #include "utilities.h"
 #include "alloc.h"
 #include "get_time.h"
@@ -178,8 +179,6 @@ int main (int argc, char *argv[]) {
   bool half_length = P.getOption("-halflen");
   int num_tests = 33;
 
-  std::atomic<int> a;
-  cout << sizeof(a) << endl;
   cout << "n = " << n << endl;
   cout << "rounds = " << rounds << endl;
   cout << "num threads = " << num_workers() << endl;

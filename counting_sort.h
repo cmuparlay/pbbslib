@@ -44,22 +44,29 @@ namespace pbbs {
   void seq_count_(InSeq In, KeySeq Keys,
 		  s_size_t* counts, size_t num_buckets) {
     size_t n = In.size();
-
+    // use local counts to avoid false sharing
+    size_t local_counts[num_buckets];
     for (size_t i = 0; i < num_buckets; i++)
-      counts[i] = 0;
+      local_counts[i] = 0;
     for (size_t j = 0; j < n; j++) {
       size_t k = Keys[j];
       if (k >= num_buckets) abort();
-      counts[k]++;
+      local_counts[k]++;
     }
+    for (size_t i = 0; i < num_buckets; i++)
+      counts[i] = local_counts[i];
   }
 
   // write to destination, where offsets give start of each bucket
   template <typename s_size_t, typename InSeq, typename KeySeq>
   void seq_write_(InSeq In, typename InSeq::value_type* Out, KeySeq Keys,
 		  s_size_t* offsets, size_t num_buckets) {
+    // copy to local offsets to avoid false sharing
+    size_t local_offsets[num_buckets];
+    for (size_t i = 0; i < num_buckets; i++)
+      local_offsets[i] = offsets[i];
     for (size_t j = 0; j < In.size(); j++) {
-      size_t k = offsets[Keys[j]]++;
+      size_t k = local_offsets[Keys[j]]++;
       move_uninitialized(Out[k], In[j]);
     }
   }
@@ -108,22 +115,28 @@ namespace pbbs {
   template <typename s_size_t, 
 	    typename InS, typename OutS, typename KeyS>
   sequence<size_t> count_sort_(InS& In, OutS& Out, KeyS& Keys,
-			       size_t num_buckets, bool is_nested=false) {
+			       size_t num_buckets,
+			       float parallelism=1.0,
+			       bool skip_if_in_one = false) {
     timer t("count sort", false);
     using T = typename InS::value_type;
     size_t n = In.size();
     size_t num_threads = num_workers();
-
-    // pad to 16 buckets to avoid false sharing (does not affect results)
-    num_buckets = std::max(num_buckets, (size_t) 16);
+    bool is_nested = parallelism < .5;
 
     // if not given, then use heuristic to choose num_blocks
     size_t sqrt = (size_t) ceil(pow(n,0.5));
     size_t num_blocks = 
-      (size_t) (n < (1<<24)) ? (sqrt/16) : ((n < (1<<28)) ? sqrt/9 : sqrt/5);
-    if (2*num_blocks < num_threads) num_blocks *= 2;
+      (size_t) (n < (1<<24)) ? sqrt/17 : ((n < (1<<28)) ? sqrt/9 : sqrt/5);
+    if (is_nested) num_blocks = num_blocks / 6;
+    else if (2*num_blocks < num_threads) num_blocks *= 2;
     if (sizeof(T) <= 4) num_blocks = num_blocks/2;
     
+    size_t par_lower = 1 + round(num_threads * parallelism * 9);
+    size_t size_lower = 1 + n * sizeof(T) / 700000;
+    size_t bucket_upper = n * sizeof(T) / (4 * num_buckets * sizeof(s_size_t));
+    num_blocks = std::min(bucket_upper, std::max(par_lower, size_lower));
+
     // if insufficient parallelism, sort sequentially
     if (n < SEQ_THRESHOLD || num_blocks == 1 || num_threads == 1) {
       return seq_count_sort(In,Out,Keys,num_buckets);}
@@ -152,6 +165,14 @@ namespace pbbs {
 	bucket_offsets[i] = v;
       }, 1 + 1024/num_blocks);
     bucket_offsets[num_buckets] = 0;
+
+    // if all in one buckect, then no need to sort
+    size_t num_non_zero = 0;
+    for (size_t i =0 ; i < num_buckets; i++)
+      num_non_zero += (bucket_offsets[i] > 0);
+    if (skip_if_in_one && num_non_zero == 1)
+      return sequence<size_t>(0);
+
     size_t total = scan_inplace(bucket_offsets.slice(), addm<size_t>());
     if (total != n) abort();
     
@@ -214,12 +235,15 @@ namespace pbbs {
 			      range<typename InS::value_type*> Out,
 			      KeyS const &Keys,
 			      size_t num_buckets,
-			      bool is_nested=false) {
+			      float parallelism = 1.0,
+			      bool skip_if_in_one=false) {
     size_t n = In.size();
     size_t max32 = ((size_t) 1) << 32;
     if (n < max32 && num_buckets < max32)
       // use 4-byte counters when larger ones not needed
-      return count_sort_<uint32_t>(In, Out, Keys, num_buckets, is_nested);
-    return count_sort_<size_t>(In, Out, Keys, num_buckets, is_nested);
+      return count_sort_<uint32_t>(In, Out, Keys, num_buckets,
+				   parallelism, skip_if_in_one);
+    return count_sort_<size_t>(In, Out, Keys, num_buckets,
+			       parallelism, skip_if_in_one);
   }
 }
