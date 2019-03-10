@@ -48,7 +48,7 @@ namespace pbbs {
   		     bool hasState=1, long maxTries=-1) {
     if (maxTries < 0) maxTries = 100 + 200*granularity;
     long maxRoundSize = (e-s)/granularity+1;
-    long currentRoundSize = maxRoundSize;
+    long currentRoundSize = maxRoundSize/4;
     pbbs::sequence<idxT> I(maxRoundSize);
     pbbs::sequence<bool> keep(maxRoundSize);
     pbbs::sequence<idxT> Ihold;
