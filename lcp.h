@@ -26,7 +26,7 @@ namespace pbbs {
     sequence<Uint> remain = pack_index<Uint>(map<bool>(L, [&] (Uint l) {
 	  return l == n;}));
     t.next("pack");
-  
+
     if (remain.size() == 0) { t2.next("total"); return  L;}
     //cout << "len: " << len << " remain: " << remain.size() << endl;
 
@@ -63,5 +63,5 @@ namespace pbbs {
     t2.next("total");
     return L;
   }
-    
+
 }

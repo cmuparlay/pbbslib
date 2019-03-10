@@ -69,15 +69,17 @@ struct maybe {
 #if defined(__APPLE__)
 void* aligned_alloc(size_t a, size_t n) {return malloc(n);}
 #else
-// #include <malloc.h>
-// struct __mallopt {
-//   __mallopt() {
-//     mallopt(M_MMAP_MAX,0);
-//     mallopt(M_TRIM_THRESHOLD,-1);
-//   }
-// };
+#ifdef USEMALLOC
+#include <malloc.h>
+struct __mallopt {
+  __mallopt() {
+    mallopt(M_MMAP_MAX,0);
+    mallopt(M_TRIM_THRESHOLD,-1);
+  }
+};
 
-// //__mallopt __mallopt_var;
+__mallopt __mallopt_var;
+#endif
 #endif
 
 namespace pbbs {
