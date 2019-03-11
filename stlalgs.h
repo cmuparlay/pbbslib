@@ -149,9 +149,9 @@ size_t max_element(Seq const &S, Compare comp) {
   return min_element(S, [&] (T a, T b) {return comp(b, a);});
 }
 
-template <class Seq>
+template <class Seq, class Compare>
 std::pair<size_t, size_t>
-minmax_element(Seq const &S) {
+minmax_element(Seq const &S, Compare comp) {
   size_t n = S.size();
   using P = std::pair<size_t, size_t>;
   auto SS = delayed_seq<P>(S.size(), [&] (size_t i) {
