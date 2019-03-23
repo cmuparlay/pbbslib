@@ -44,6 +44,8 @@
 
 namespace pbbs {
 
+  constexpr bool verbose = false;
+  
   using namespace std;
 
   using uchar = unsigned char;
@@ -150,8 +152,8 @@ namespace pbbs {
   }
 
   template <class indexT>
-  sequence<indexT> suffix_array(sequence<uchar> ss) { 
-    sa_timer.start();
+  sequence<indexT> suffix_array(sequence<uchar> const &ss) { 
+    if (verbose) sa_timer.start();
     size_t n = ss.size();
   
     // renumber characters densely
@@ -159,7 +161,7 @@ namespace pbbs {
     size_t pad = 48;
     sequence<indexT> flags(256, (indexT) 0);
     parallel_for (0, n, [&] (size_t i) {
-	if (!flags[ss[i]]) flags[ss[i]] = 1;});
+	if (!flags[ss[i]]) flags[ss[i]] = 1;}, 1000);
     auto add = [&] (indexT a, indexT b) {return a + b;};
     indexT m;
     std::tie(flags, m) = scan(flags, make_monoid(add,(indexT) 1));
@@ -168,6 +170,8 @@ namespace pbbs {
     sequence<uchar> s(n + pad, [&] (size_t i) {
 	return (i < n) ? flags[ss[i]] : 0;});
 
+    if (verbose) cout << "distinct characters = " << m-1 << endl;
+    
     // pack characters into 128-bit word, along with the location i
     // 96 bits for characters, and 32 for location
     double logm = log2((double) m);
@@ -178,7 +182,7 @@ namespace pbbs {
 	for (indexT j=1; j < nchars; j++) r = r*m + s[i+j];
 	return (r << 32) + i;
       });
-    sa_timer.next("copy");
+    sa_timer.next("copy into 128bit int");
   
     // sort based on packed words
     sample_sort_inplace(Cl.slice(), std::less<uint128>());
@@ -246,6 +250,9 @@ namespace pbbs {
 			C.slice(start, start+l));
 	}, 100);
       sa_timer.next("split");
+
+      if (verbose)
+	cout << "length: " << offset << " keys remaining: " << nKeys << endl;
 
       offset = 2 * offset;
     }
