@@ -49,7 +49,7 @@ using namespace std;
   };
 
   template <typename indexT>
-    void splitSegment(seg<indexT> *segOut, indexT start, indexT l,
+  void splitSegment(range<seg<indexT>*> segOut, indexT start, indexT l,
 		      pbbs::sequence<indexT> &ranks,
 		      ipair<indexT> *Cs) {
   if (l < 5000) { // sequential version
@@ -197,16 +197,16 @@ template <class indexT>
     pbbs::sequence<indexT> offsets(nSegs);
     parallel_for (0, nSegs, [&] (size_t i) {
 	indexT start = Segs[i].start;
-	ipair<indexT> *Ci = C + start;
 	indexT l = Segs[i].length;
+	auto Ci = make_range(C + start, C + start + l);
 	offsets[i] = l;
 	parallel_for (0, l, [&] (size_t j) {
 	    indexT o = Ci[j].second+offset;
 	    Ci[j].first = (o >= n) ? 0 : ranks[o]; 
 	  }, 100);
 	auto less = [&] (ipair<indexT> A, ipair<indexT> B) {return A.first < B.first;};
-	if (l >= n/10) pbbs::sample_sort_inplace(pbbs::range<ipair<indexT>*>(Ci, Ci+l), less);
-	else pbbs::quicksort(Ci, l, less);
+	if (l >= n/10) pbbs::sample_sort_inplace(Ci, less);
+	else pbbs::quicksort(Ci, less);
       }); 
     sa_timer.next("sort");
 
@@ -214,7 +214,10 @@ template <class indexT>
 
     parallel_for (0, nSegs, [&] (size_t i) {
 	indexT start = Segs[i].start;
-	splitSegment(segOuts.begin() + offsets[i], start, Segs[i].length, 
+	indexT l = Segs[i].length;
+	indexT o = offsets[i];
+	splitSegment(segOuts.slice(o, o + l), //
+		     start, l,
 		     ranks, C + start);
       }, 100);
     sa_timer.next("split");
