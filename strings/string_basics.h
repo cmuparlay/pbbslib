@@ -35,7 +35,7 @@ namespace pbbs {
 
   // Writes a character sequence to a file, returns 0 if successful
   template <class CharSeq>
-  int char_seq_to_file(CharSeq S, char const *fileName);
+  int char_seq_to_file(CharSeq const &S, char const *fileName);
 
   // Returns a sequence of character ranges, one per token
   // The tokens are the longest contiguous subsequences of non space characters.
@@ -79,7 +79,7 @@ namespace pbbs {
   }
 
   template <class CharSeq>
-  int char_seq_to_file(CharSeq S, char const *fileName) {
+  int char_seq_to_file(CharSeq const &S, char const *fileName) {
     size_t n = S.size();
     std::ofstream file (fileName, std::ios::out | std::ios::binary);
     if (!file.is_open()) {

@@ -228,6 +228,13 @@ append (Seq1 const &s1, Seq2 const &s2) {
       return (i < n1) ? s1[i] : s2[i-n1];});
 }
 
+  template <class Index, class BoolSeq>
+  std::pair<sequence<Index>,Index> enumerate (BoolSeq const &s) {
+    return scan(delayed_seq<Index>(s.size(),
+				   [&] (size_t i) -> Index {return s[i];}),
+		addm<Index>());
+  }
+
 }
 // template <class Seq, class Compare>
 // std::pair<sequence<typename Seq::value_type>, size_t>

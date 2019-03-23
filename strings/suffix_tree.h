@@ -29,13 +29,19 @@
 #include "integer_sort.h"
 #include "lcp.h"
 #include "cartesian_tree.h"
+#include "histogram.h"
 
 namespace pbbs {
 
 
   template <class Uint>
   struct suffix_tree {
-    using edge = Uint;
+    struct edge {
+      Uint child;
+      unsigned char c;
+      bool is_leaf;
+    };
+
     using Pair = std::pair<Uint,Uint>;
 
     struct node {
@@ -71,9 +77,16 @@ namespace pbbs {
       sequence<Uint> LCPs_ = LCP(S, SA);
       sequence<Uint> LCPs(n, [&] (size_t i) {
 	  return (i==0) ? 0 : LCPs_[i-1];}); // shift by 1
-      t.next("LCP");
       LCPs_.clear();
+      t.next("LCP");
+      suffix_tree_from_SA_LCP(SA, LCPs, S);
+    }      
 
+    void suffix_tree_from_SA_LCP(sequence<Uint> const &SA,
+				 sequence<Uint> const &LCPs,
+				 sequence<unsigned char> const &S) {
+      timer t("suffix tree", true);
+      n = SA.size();
       sequence<Uint> Parents = cartesian_tree(LCPs);
       t.next("Cartesian Tree");
       
@@ -82,79 +95,129 @@ namespace pbbs {
 
       // A cluster is a set of connected nodes in the CT with the same LCP
       // Each cluster needs to be converted into a single node.
-      // The following points each node to the root of its cluster
-      sequence<Uint> Roots = Parents;
-      sequence<bool> is_root(n);
-      parallel_for(0, n, [&] (Uint i) {
-	  Uint root = i;
-	  while (root != 0 && root != Roots[root] && LCPs[Roots[root]] == LCPs[root]) 
-	    root = Roots[root];
-	  is_root[i] = (root == i);
-	  Roots[i] = root;
-	}, 1000);
-      t.next("Cluster roots");
-      is_root[0] = false;
-      
-      // cout << "next " << endl;
-      //for (size_t i=0; i < n; i++)
-      //cout << i << ", " << Parents[i] << ", " << Roots[i] << ", " << is_root[i] << ", " << LCPs[i] << endl;
-
-      auto ie = delayed_seq<Pair>(n, [&] (size_t i) {
-	  return Pair(Roots[Parents[i]], 2*i);});
-
-      // edges from internal nodes to their parents
-      auto internal_edges = pack(ie, is_root);
-      //for (size_t i=0; i < idxs.size(); i++)
-      //cout << internal_edges[i].first << ", " << internal_edges[i].second << endl;
-      t.next("Internal edges");
-      Parents.clear();
-      is_root.clear();
-
-      // edges from leaf nodes to their parents
-      sequence<Pair> leaf_edges(n, [&] (size_t i) {
-	  // for each element of SA find larger LCP on either side
-	  Uint parent = (i==n-1) ? i : (LCPs[i] > LCPs[i+1] ? i : i+1);
-	  // get cluster root
-	  parent = Roots[parent];
-	  return Pair(parent, 2*i + 1);
+      // The following marks the roots of each cluster and has Roots point to self
+      sequence<Uint> Roots(n);
+      sequence<bool> is_root(n, [&] (Uint i) {
+	  bool is_root_i = (i == 0) || (LCPs[Parents[i]] != LCPs[i]);
+	  Roots[i] = is_root_i ? i : Parents[i];
+	  return is_root_i;
 	});
-      t.next("Leaf edges");
-      Roots.clear();
-      
-      //for (size_t i=0; i < n; i++)
-      //cout << leaf_edges[i].first << ", " << leaf_edges[i].second << endl;
 
-      // sort all edges by parent
-      auto sc = integer_sort_with_counts<Uint>(append(internal_edges, leaf_edges),
-					       [&] (Pair p) {return p.first;},
-					       n);
-      internal_edges.clear();
-      leaf_edges.clear();
+      // this shortcuts each node to point to its root
+      parallel_for(0, n, [&] (Uint i) {
+	  if (!is_root[i]) {
+	    Uint root = Roots[i];
+	    while (!is_root[root]) root = Roots[root];
+	    Roots[i] = root;
+	  }});
+      t.next("Cluster roots");
+
+      sequence<Uint> new_labels;
+      Uint num_internal;
+      std::tie(new_labels, num_internal) = enumerate<Uint>(is_root);
+      t.next("Relabel roots");
+      cout << "num internal: " << num_internal << endl;
+      
+      // interleave potential internal nodes and leaves
+      auto edges = delayed_seq<Pair>(2*n, [&] (size_t j) {
+	  if (j & 1) { // is leaf (odd)
+	    Uint i = j/2;
+	    // for each element of SA find larger LCP on either side
+	    // the root of it will be the parent in the suffix tree
+	    Uint parent = (i==n-1) ? i : (LCPs[i] > LCPs[i+1] ? i : i+1);
+	    return Pair(new_labels[Roots[parent]], j);
+	  } else { // is internal node (even)
+	    Uint i = j/2;
+	    Uint parent = Parents[i];
+	    return Pair(new_labels[Roots[parent]], 2 * new_labels[i]);
+	  }
+	});
+
+      // keep if leaf or root internal node (except the overall root).
+      sequence<bool> flags(2*n, [&] (size_t j) {
+	  return (j & 1)  || (is_root[j/2] && (j != 0));});
+
+      sequence<Pair> all_edges = pack(edges, flags);
+      t.next("generate edges");
+      flags.clear();
+      Roots.clear();
+      new_labels.clear();
+      
+      auto get_first = [&] (Pair p) {return p.first;};
+
+      sequence<Pair> sorted_edges =
+	integer_sort(all_edges, get_first, log2_up(num_internal));
       t.next("Sort edges");
-      sequence<Pair> sorted_edges = std::move(sc.first);
-      num_edges = sorted_edges.size();
-      sequence<Uint> offsets = std::move(sc.second);
+      // sort all edges by parent
+
+      sequence<Uint> offsets = get_counts<Uint>(sorted_edges, get_first, num_internal);
+      //sequence<size_t> h = histogram<size_t>(offsets, 200);
+      //int i = 2;
+      //int total = 0;
+      //while (h[i] > 0) cout << i  << " : " << h[i] << ", " << (total += h[i++]) << endl;
+      
       scan_inplace(offsets.slice(), addm<Uint>());
-      t.next("Scan edges");
-      cout << "n = " << n << " m = " << num_edges << endl;
+      t.next("Get Counts");
+
+      cout << "n = " << n << " m = " << num_internal << endl;
       
-      //for (size_t i=0; i < num_edges; i++)
+      //for (size_t i=0; i < sorted_edges.size(); i++)
       //  cout << sorted_edges[i].first << ", " << sorted_edges[i].second << endl;
-      
-      Edges = sequence<edge>(sorted_edges.size(), [&] (size_t i) {
-	  return sorted_edges[i].second;});
+
+      // tag edges with character from s
+      sequence<Uint> root_indices = pack_index<Uint>(is_root);
+      Edges = map<edge>(sorted_edges, [&] (Pair p) {
+	  Uint child = p.second;
+	  Uint i = child/2;
+	  bool is_leaf = child & 1;
+	  int depth = (is_leaf ?
+		       ((i==n-1) ? LCPs[i] : std::max(LCPs[i], LCPs[i+1])) :
+		       LCPs[Parents[root_indices[i]]]);
+	  int start = is_leaf ? SA[i] : SA[root_indices[i]];
+	  //cout << i << ", " << depth << ", " << is_leaf << ", " << SA[i] << endl;
+	  edge e = {i, S[start+depth], is_leaf};
+	  return e;
+	});
       t.next("project edges");
       sorted_edges.clear();
-      
-      Nodes = sequence<node>(n, [&] (size_t i) {
-	  Uint lcp = LCPs[i];
+      Parents.clear();
+
+      //for (size_t i=0; i < Edges.size(); i++)
+      //  cout << Edges[i].child << ", " << Edges[i].c << ", " << Edges[i].is_leaf << endl;
+
+      Nodes = sequence<node>(num_internal, [&] (size_t i) {
+	  Uint lcp = LCPs[root_indices[i]];
 	  Uint offset = offsets[i];
-	  Uint location = SA[i];
+	  Uint location = SA[root_indices[i]];
 	  node r = {lcp, location, offset};
 	  //cout << i << ", " << offset << ", " << location << ", " << lcp << endl;
 	  return r;
 	});
       t.next("Make nodes");
     }
+
+    // enum ftype {leaf_t, internal_t, none_t};
+    
+    // pair<Uint,char> find_child(Uint i, uchar c) {
+    //   node node = Nodes[i];
+    //   Uint start = node.offset;
+    //   Uint end = Nodes[i+1].offset;
+    //   for (Uint j=start; j < end; j++) {
+    // 	if (Edges[j].c == c)
+    // 	  if (Edges[j].is_leaf) return make_pair(Edges[j].child, leaf_t);
+    // 	  else return make_pair(Edges[j].child, internal_t);
+    //   }
+    //   return make_pair(0, none_t);
+    // }
+
+    // pair<Uint,char> find(char* s) {
+    //   Uint i = 0;
+    //   ftype a;
+    //   do {
+    // 	std::bind(i,a) = find_child(i, *s);
+    // 	if (a == none_t) return pair(i,none_t);
+    // 	return pair(i,none_t);
+    //   }
+    // }	
   };
 }
