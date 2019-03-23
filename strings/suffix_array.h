@@ -45,6 +45,7 @@ using namespace std;
     indexT start;
     indexT length;
     seg<indexT>(indexT s, indexT l) : start(s), length(l) {}
+    seg<indexT>() {}
   };
 
   template <typename indexT>
@@ -70,7 +71,6 @@ using namespace std;
     segOut[l-1] = seg<indexT>(name+start,l-name);
 
   } else { // parallel version
-    //indexT *names = pbbs::new_array_no_init<indexT>(l);
     pbbs::sequence<indexT> names(l);
 
     // mark start of each segment with equal keys
@@ -131,13 +131,13 @@ ipair<indexT>* splitSegmentTop(seg<indexT> *segOut, size_t n,
   segOut[n-1] = seg<indexT>(names[n-1],n-names[n-1]);
 
   sa_timer.next("segments");
-  //pbbs::free_array(names);
   return C;
 }
 
 template <class indexT>
-sequence<indexT> suffixArrayInternal(uchar* ss, size_t n) { 
+  sequence<indexT> suffix_array(pbbs::sequence<uchar> ss) { 
   sa_timer.start();
+  size_t n = ss.size();
   
   // renumber characters densely
   // start numbering at 1 leaving 0 to indicate end-of-string
@@ -172,8 +172,8 @@ sequence<indexT> suffixArrayInternal(uchar* ss, size_t n) {
 
   // identify segments of equal values
   pbbs::sequence<indexT> ranks(n);
-  seg<indexT> *segOuts = pbbs::new_array_no_init<seg<indexT>>(n);
-  ipair<indexT> *C = splitSegmentTop(segOuts, n, ranks, Cl.begin());
+  pbbs::sequence<seg<indexT>> segOuts(n);
+  ipair<indexT> *C = splitSegmentTop(segOuts.begin(), n, ranks, Cl.begin());
   Cl.clear();
   sa_timer.next("split");
 
@@ -187,8 +187,8 @@ sequence<indexT> suffixArrayInternal(uchar* ss, size_t n) {
     }
 
     auto is_seg = [&] (seg<indexT> s) {return s.length > 1;};
-    pbbs::sequence<seg<indexT>> Segs = pbbs::filter(pbbs::range<seg<indexT>*>(segOuts,segOuts+nKeys),
-					    is_seg);
+    pbbs::sequence<seg<indexT>> Segs = pbbs::filter(segOuts.slice(0,nKeys),
+						    is_seg);
     indexT nSegs = Segs.size();
     if (nSegs == 0) break;
 
@@ -214,7 +214,7 @@ sequence<indexT> suffixArrayInternal(uchar* ss, size_t n) {
 
     parallel_for (0, nSegs, [&] (size_t i) {
 	indexT start = Segs[i].start;
-	splitSegment(segOuts + offsets[i], start, Segs[i].length, 
+	splitSegment(segOuts.begin() + offsets[i], start, Segs[i].length, 
 		     ranks, C + start);
       }, 100);
     sa_timer.next("split");
@@ -223,12 +223,8 @@ sequence<indexT> suffixArrayInternal(uchar* ss, size_t n) {
   }
   parallel_for (0, n, [&] (size_t i) {ranks[i] = C[i].second;});
   pbbs::free_array(C);
-  pbbs::free_array(segOuts);
+  //pbbs::free_array(segOuts);
   return ranks;
 }
 
-template <class indexT>
-pbbs::sequence<indexT> suffix_array(pbbs::sequence<unsigned char> const &s) {
-  return suffixArrayInternal<indexT>(s.begin(), s.size());
-}
 }
