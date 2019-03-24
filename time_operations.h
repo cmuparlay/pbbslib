@@ -226,7 +226,7 @@ double t_write_min(size_t n) {
 template<typename T>
 double t_shuffle(size_t n) {
   pbbs::sequence<T> in(n, [&] (size_t i) {return i;});
-  time(t, pbbs::random_shuffle(in,n););
+  time(t, pbbs::random_shuffle(in, n););
   return t;
 }
 
@@ -235,7 +235,7 @@ double t_histogram(size_t n) {
   pbbs::random r(0);
   pbbs::sequence<T> in(n, [&] (size_t i) {return r.ith_rand(i)%n;});
   pbbs::sequence<T> out;
-  time(t, out = pbbs::histogram<T>(in,n););
+  time(t, out = pbbs::histogram<T>(in, n););
   return t;
 }
 
@@ -244,7 +244,7 @@ double t_histogram_few(size_t n) {
   pbbs::random r(0);
   pbbs::sequence<T> in(n, [&] (size_t i) {return r.ith_rand(i)%256;});
   pbbs::sequence<T> out;
-  time(t, out = pbbs::histogram<T>(in,256););
+  time(t, out = pbbs::histogram<T>(in, 256););
   return t;
 }
 
@@ -252,7 +252,7 @@ template<typename T>
 double t_histogram_same(size_t n) {
   pbbs::sequence<T> in(n, (T) 10311);
   pbbs::sequence<T> out;
-  time(t, out = pbbs::histogram<T>(in,n););
+  time(t, out = pbbs::histogram<T>(in, n););
   return t;
 }
 
@@ -318,9 +318,7 @@ double t_collect_reduce_pair_dense(size_t n) {
   pbbs::random r(0);
   pbbs::sequence<par> S(n, [&] (size_t i) -> par {
       return par(r.ith_rand(i) % n, 1);});
-  auto get_index = [] (par e) {return e.first;};
-  auto get_val = [] (par e) {return e.second;};
-  time(t, pbbs::collect_reduce<T>(S, n, get_index, get_val, pbbs::addm<T>()););
+  time(t, pbbs::collect_reduce(S, pbbs::addm<T>(), n););
   return t;
 }
 
@@ -330,46 +328,45 @@ double t_collect_reduce_pair_sparse(size_t n) {
   pbbs::random r(0);
   pbbs::sequence<par> S(n, [&] (size_t i) -> par {
       return par(r.ith_rand(i) % n, 1);});
-  time(t, pbbs::collect_reduce_pair(S, pbbs::addm<T>()););
+  time(t, pbbs::collect_reduce_sparse(S, pbbs::addm<T>()););
   return t;
 }
 
 template<typename T>
 double t_collect_reduce_8(size_t n) {
+  using par = std::pair<T,T>;
   pbbs::random r(0);
   size_t num_buckets = (1<<8);
-  size_t mask = num_buckets - 1;
-  pbbs::sequence<T> in(n, [&] (size_t i) {return r.ith_rand(i);});
-  auto bucket = [&] (size_t i) {return in[i] & mask;};
-  auto keys = pbbs::delayed_seq<unsigned char>(n, bucket);
-  time(t, pbbs::collect_reduce<T>(in, keys, num_buckets, pbbs::addm<T>()););
+  pbbs::sequence<par> S(n, [&] (size_t i) {
+      return par(r.ith_rand(i) % num_buckets, 1);});
+  time(t, pbbs::collect_reduce(S, pbbs::addm<T>(), num_buckets););
   return t;
 }
 
-template<typename T>
-double t_collect_reduce_8_tuple(size_t n) {
-  pbbs::random r(0);
-  size_t num_buckets = (1<<8);
-  size_t mask = num_buckets - 1;
-  using sums = std::tuple<float,float,float,float>;
+// template<typename T>
+// double t_collect_reduce_8_tuple(size_t n) {
+//   pbbs::random r(0);
+//   size_t num_buckets = (1<<8);
+//   size_t mask = num_buckets - 1;
+//   using sums = std::tuple<float,float,float,float>;
 
-  auto bucket = [&] (size_t i) -> uchar { return r.ith_rand(i) & mask; };
-  auto keys = pbbs::delayed_seq<unsigned char>(n, bucket);
+//   auto bucket = [&] (size_t i) -> uchar { return r.ith_rand(i) & mask; };
+//   auto keys = pbbs::delayed_seq<unsigned char>(n, bucket);
 
-  auto sum = [] (sums a, sums b) -> sums {
-    return sums(std::get<0>(a)+std::get<0>(b), std::get<1>(a)+std::get<1>(b),
-		std::get<2>(a)+std::get<2>(b), std::get<3>(a)+std::get<3>(b));
-  };
+//   auto sum = [] (sums a, sums b) -> sums {
+//     return sums(std::get<0>(a)+std::get<0>(b), std::get<1>(a)+std::get<1>(b),
+// 		std::get<2>(a)+std::get<2>(b), std::get<3>(a)+std::get<3>(b));
+//   };
 
-  pbbs::sequence<sums> in(n, [&] (size_t i) -> sums {
-      return sums(1.0,1.0,1.0,1.0);});
+//   pbbs::sequence<sums> in(n, [&] (size_t i) -> sums {
+//       return sums(1.0,1.0,1.0,1.0);});
 
-  auto monoid = make_monoid(sum, sums(0.0,0.0,0.0,0.0));
+//   auto monoid = make_monoid(sum, sums(0.0,0.0,0.0,0.0));
 
-  time(t,
-       pbbs::collect_reduce<sums>(in, keys, num_buckets, monoid););
-  return t;
-}
+//   time(t,
+//        pbbs::collect_reduce<sums>(in, keys, num_buckets, monoid););
+//   return t;
+// }
 
 
 template<typename T>

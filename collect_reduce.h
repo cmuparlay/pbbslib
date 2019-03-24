@@ -28,42 +28,58 @@
 #include "transpose.h"
 #include "histogram.h"
 
-// TODO
-//  make few buckets special case of many buckets
-//  collect_reduce mutates inputs
+// Supports functions that take a seq of key-value pairs, collects all the
+// keys with the same value, and sums them up with a binary function (monoid)
+//
+// For the first one the keys must be integers in the range [0,num_buckets).
+// It returns a sequence of length num_buckets, one sum per possible key value.
+//
+//   template <typename Seq, typename M>
+//   sequence<typename Seq::value_type::second_type>
+//   collect_reduce(Seq const &A, M const &monoid, size_t num_buckets);
+//
+// For the second one keys can be any integer values
+// It returns a sequence of key-value pairs.  If a key appeared at least
+//   once, an entry with the sum for that key will appear in the output.
+// The output is not necessarily sorted by key value
+//
+//   template <typename Seq, typename M>
+//   sequence<typename Seq::value_type>
+//   collect_reduce_sparse(Seq const &A, M const &monoid);
 
 namespace pbbs {
 
   // the following parameters can be tuned
   constexpr const size_t CR_SEQ_THRESHOLD = 8192;
 
-  template<class OutVal, class InSeq, class KeySeq, class M>
-  void _seq_collect_reduce(InSeq In, KeySeq Keys, OutVal* Out, size_t num_buckets, M monoid) {
-    size_t n = In.size();
+  template <class Seq, class OutSeq, class M>
+  void seq_collect_reduce_few(Seq const &A, OutSeq &&Out, M const &monoid, size_t num_buckets) {
+    size_t n = A.size();
     for (size_t i = 0; i < num_buckets; i++) Out[i] = monoid.identity;
     for (size_t j = 0; j < n; j++) {
-      size_t k = Keys[j];
-      Out[k] = monoid.f(Out[k],In[j]);
+      size_t k = A[j].first;
+      Out[k] = monoid.f(Out[k],A[j].second);
     }
   }
 
-  template<class OutVal, class InSeq, class KeySeq, class M>
-  sequence<OutVal> seq_collect_reduce(InSeq In, KeySeq Keys,
-				      size_t num_buckets, M monoid) {
-    OutVal* Out = new_array<OutVal>(num_buckets);
-    _seq_collect_reduce(In, Keys, Out, num_buckets, monoid);
-    return sequence<OutVal>(Out,num_buckets);
-  }
+  template <class Seq, class M>
+  sequence <typename Seq::value_type::second_type>
+  seq_collect_reduce_few(Seq const &A, M const &monoid, size_t num_buckets) {
+      using val_type = typename Seq::value_type::second_type;
+      sequence<val_type> Out(num_buckets);
+      seq_collect_reduce_few(A, Out, monoid, num_buckets);
+      return Out;
+    }
 
-  // this one is for few buckets (e.g. less than 2^16)
-  //  In is the sequence of values to be reduced
-  //  Keys is the sequence of bucket numbers
-  //  num_buckets is the number of buckets (all keys need to be less)
+  // This one is for few buckets (e.g. less than 2^16)
+  //  A is a sequence of key-value pairs
   //  monoid has fields m.identity and m.f (a binary associative function)
-  template<class OutVal, class InSeq, class KeySeq, class M>
-  sequence<OutVal> collect_reduce(InSeq const &In, KeySeq const &Keys,
-				  size_t num_buckets, M monoid) {
-    size_t n = In.size();
+  //  all keys must be smaller than num_buckets
+  template <typename Seq, typename M>
+  sequence<typename Seq::value_type::second_type>
+  collect_reduce_few(Seq const &A, M const &monoid, size_t num_buckets) {
+    using val_type = typename Seq::value_type::second_type;
+    size_t n = A.size();
     timer t;
     t.start();
     
@@ -76,91 +92,83 @@ namespace pbbs {
 
     num_blocks = 1 << log2_up(num_blocks);
 
-    sequence<OutVal> Out(num_buckets);
+    sequence<val_type> Out(num_buckets);
 
-    // if insufficient parallelism, sort sequentially
+    // if insufficient parallelism, do sequentially
     if (n < CR_SEQ_THRESHOLD || num_blocks == 1 || num_threads == 1)
-      return seq_collect_reduce<OutVal>(In,Keys,num_buckets, monoid);
+      return seq_collect_reduce_few(A, monoid, num_buckets);
 
     size_t block_size = ((n-1)/num_blocks) + 1;
     size_t m = num_blocks * num_buckets;
 
-    OutVal *OutM = new_array<OutVal>(m);
-    
-    auto block_f = [&] (size_t i) {
-      size_t start = std::min(i * block_size, n);
-      size_t end =  std::min(start + block_size, n);
-      _seq_collect_reduce<OutVal>(In.slice(start,end), Keys.slice(start,end),
-				  OutM + i*num_buckets, num_buckets, monoid);
-    };
-    parallel_for (0, num_blocks, block_f, 1);
-    
-    auto sum_buckets = [&] (size_t i) {
-      OutVal o_val = monoid.identity;
-      for (size_t j = 0; j < num_blocks; j++)
-	o_val = monoid.f(o_val, OutM[i + j*num_buckets]);
-      Out[i] = o_val;
-    };
-    parallel_for(0, num_buckets, sum_buckets, 1);
-    delete_array(OutM, m);
+    sequence<val_type> OutM(m);
+
+    sliced_for(n, block_size, [&] (size_t i, size_t start, size_t end) {
+	seq_collect_reduce_few(A.slice(start,end),
+			       OutM.slice(i*num_buckets,(i+1)*num_buckets),
+			       monoid, num_buckets);
+      });
+
+    parallel_for (0, num_blocks, [&] (size_t i) {
+	val_type o_val = monoid.identity;
+	for (size_t j = 0; j < num_blocks; j++)
+	  o_val = monoid.f(o_val, OutM[i + j*num_buckets]);
+	Out[i] = o_val;
+      }, 1);
+
     return Out;
   }
 
-  // this one is for many buckets but no more than len(A) buckets
-  //      (e.g. more than 2^16)
-  //  A is the input sequence
-  //  m is the number of buckets
-  //  get_index is a function that gets the bucket from an element of A
-  //  get_val is a function that gets the value from an element of A
-  //  monoid has fields m.identity and m.f (a binary associative function)
-  template <typename OT, typename Seq, typename F, typename G, typename M>
-  sequence<OT> collect_reduce(Seq const &A, size_t m,
-			      F get_index, G get_val, M monoid) {
+  template <typename Seq, typename M>
+  sequence<typename Seq::value_type::second_type>
+  collect_reduce(Seq const &A, M const &monoid, size_t num_buckets) {
     using T = typename Seq::value_type;
+    using val_type = typename T::second_type;
     size_t n = A.size();
     size_t bits;
 
     if (n < (1 << 27)) bits = (log2_up(n) - 7)/2;
-    // for large n selected so each bucket fits into cache
+    // for large n selected so each block fits into cache
     else bits = (log2_up(n) - 17);
-    size_t num_buckets = (1<<bits);
+    size_t num_blocks = (1<<bits);
+    if (num_buckets <= 4 * num_blocks) 
+      return collect_reduce_few(A, monoid, num_buckets);
 
-    // Returns a map (hash) from key to bucket.
-    // Keys with many elements (big) have their own bucket while
-    // others share a bucket.
-    // Keys that share low 4 bits get same bucket unless big.
+    // Returns a map (hash) from key to block.
+    // Keys with many elements (big) have their own block while
+    // others share a block.
+    // Keys that share low 4 bits get same block unless big.
     // This is to avoid false sharing.
-    auto get_i = [&] (size_t i) -> size_t {return get_index(A[i]);};
+    auto get_i = [&] (size_t i) -> size_t {return A[i].first;};
     auto s = delayed_seq<size_t>(n,get_i);
     get_bucket<decltype(s)> x(s, bits-1);
-    auto get_buckets = delayed_seq<size_t>(n, x);
-    //sequence<size_t> get_buckets(n, [&] (size_t i) {return 0;});
-    sequence<T> B(n);
-
-    // first buckets based on hash using a counting sort
-    sequence<size_t> bucket_offsets 
-      = count_sort(A, B.slice(), get_buckets, num_buckets);
+    auto get_blocks = delayed_seq<size_t>(n, x);
+    sequence<T> B = sequence<T>::no_init(n);
+    
+    // first partition into blocks based on hash using a counting sort
+    sequence<size_t> block_offsets 
+      = count_sort(A, B.slice(), get_blocks, num_blocks);
 
     // note that this is cache line alligned
-    sequence<OT> sums(m, monoid.identity);
+    sequence<val_type> sums(num_buckets, monoid.identity);
        
-    // now process each bucket in parallel
-    parallel_for(0, num_buckets, [&] (size_t i) {
-	size_t start = bucket_offsets[i];
-	size_t end = bucket_offsets[i+1];
+    // now process each block in parallel
+    parallel_for(0, num_blocks, [&] (size_t i) {
+	size_t start = block_offsets[i];
+	size_t end = block_offsets[i+1];
 
-	// small buckets have indices in bottom half
-	if (i < num_buckets/2)
+	// small blocks have indices in bottom half
+	if (i < num_blocks/2)
 	  for (size_t i = start; i < end; i++) {
-	    size_t j = get_index(B[i]);
-	    sums[j] = monoid.f(sums[j], get_val(B[i]));
+	    size_t j = B[i].first;
+	    sums[j] = monoid.f(sums[j], B[i].second);
 	  }
 
-	// large buckets have indices in top half
+	// large blocks have indices in top half
 	else if (end > start) {
-	  auto x = [&] (size_t i) {return get_val(B[i]);};
+	  auto x = [&] (size_t i) {return B[i].second;};
 	  auto vals = delayed_seq<size_t>(n, x);
-	  sums[get_index(B[i])] = reduce(vals, monoid);
+	  sums[B[i].first] = reduce(vals, monoid);
 	}
       }, 1);
     return sums;
@@ -171,7 +179,7 @@ namespace pbbs {
   //  monoid has fields m.identity and m.f (a binary associative function)
   template <typename Seq, typename M>
   sequence<typename Seq::value_type>
-  collect_reduce_pair(Seq const &A, M const &monoid) {
+  collect_reduce_sparse(Seq const &A, M const &monoid) {
     using T = typename Seq::value_type;
     using key_type = typename T::first_type;
     using val_type = typename T::second_type;
@@ -216,7 +224,6 @@ namespace pbbs {
     // first buckets based on hash using a counting sort
     sequence<size_t> bucket_offsets 
       = count_sort(A, B.slice(), get_buckets, num_buckets);
-      //= integer_sort_2(A, B.slice(), x, bits);
     //t.next("sort");
     
     // note that this is cache line alligned
@@ -293,13 +300,5 @@ namespace pbbs {
     parallel_for(0, num_tables, copy_f, 1);
     //t.next("copy");
     return result;
-  }
-
-  template <typename K, typename V, typename M>
-  sequence<V> collect_reduce(sequence<std::pair<K,V>> const &A, size_t m, M monoid) {
-    using P = std::pair<K,V>;
-    auto get_index = [] (P v) {return v.first;};
-    auto get_val = [] (P v) {return v.second;};
-    return collect_reduce<V>(A, m, get_index, get_val, monoid);
   }
 }

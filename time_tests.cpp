@@ -147,17 +147,17 @@ double pick_test(size_t id, size_t n, size_t rounds,
   case 26:
     return run_multiple(n,rounds,1,"quicksort long", t_quicksort<long>, half_length, "Gelts/sec");
   case 27:
-    return run_multiple(n,rounds,1,"collect reduce 8bit long", t_collect_reduce_8<long>, half_length,"Gelts/sec");
+    return run_multiple(n,rounds,1,"collect reduce 256 buckets uint", t_collect_reduce_8<uint>, half_length,"Gelts/sec");
   case 28:
     return run_multiple(n,rounds,ebytes(64,0),"strided read, 128 bytes", t_map_reduce_128, half_length);
   case 29:
-    return run_multiple(n,rounds,1,"collect reduce sparse uints", t_collect_reduce_pair_sparse<uint>, half_length, "Gelts/sec");
+    return run_multiple(n,rounds,1,"collect reduce sparse uint", t_collect_reduce_pair_sparse<uint>, half_length, "Gelts/sec");
   case 30:
     return run_multiple(n,rounds,1,"remove duplicates", t_remove_duplicates<long>, half_length, "Gelts/sec");
   case 31:
     return run_multiple(n,rounds,1,"add to bag long", t_bag<long>, half_length, "Gelts/sec");
   case 32:
-    return run_multiple(n,rounds,1,"collect reduce dense uints", t_collect_reduce_pair_dense<uint>, half_length, "Gelts/sec");
+    return run_multiple(n,rounds,1,"collect reduce dense uint", t_collect_reduce_pair_dense<uint>, half_length, "Gelts/sec");
 
     // these are not part of standard suite
   case 50:
