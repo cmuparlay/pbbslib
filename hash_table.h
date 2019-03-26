@@ -284,7 +284,7 @@ namespace pbbs {
   template <class T>
   struct hashInt {
     using eType = T;
-    using kType = T
+    using kType = T;
     eType empty() {return -1;}
     kType getKey(eType v) {return v;}
     T hash(kType v) {return v * 999029;} //hash64_2(v);}
