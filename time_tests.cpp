@@ -115,21 +115,21 @@ double pick_test(size_t id, size_t n, size_t rounds,
   case 10:
     return run_multiple(n,rounds,1,"random shuffle long", t_shuffle<long>, half_length, "Gelts/sec");
   case 11:
-    return run_multiple(n,rounds,1,"histogram int", t_histogram<int>, half_length, "Gelts/sec");
+    return run_multiple(n,rounds,1,"histogram uint", t_histogram<uint>, half_length, "Gelts/sec");
   case 12:
-    return run_multiple(n,rounds,1,"histogram same int", t_histogram_same<int>, half_length, "Gelts/sec");
+    return run_multiple(n,rounds,1,"histogram same uint", t_histogram_same<uint>, half_length, "Gelts/sec");
   case 13:
-    return run_multiple(n,rounds,1,"histogram few int", t_histogram_few<int>, half_length, "Gelts/sec");
+    return run_multiple(n,rounds,1,"histogram few uint", t_histogram_few<uint>, half_length, "Gelts/sec");
   case 14:
-    return run_multiple(n,rounds,1,"integer sort<int,int>", t_integer_sort_pair<uint>, half_length, "Gelts/sec");
+    return run_multiple(n,rounds,1,"integer sort<uint,uint>", t_integer_sort_pair<uint>, half_length, "Gelts/sec");
   case 15:
-    return run_multiple(n,rounds,1,"integer sort int", t_integer_sort<uint>, half_length, "Gelts/sec");
+    return run_multiple(n,rounds,1,"integer sort uint", t_integer_sort<uint>, half_length, "Gelts/sec");
   case 16:
     return run_multiple(n,rounds,1,"integer sort 128 bits", t_integer_sort_128, half_length, "Gelts/sec");
   case 17:
     return run_multiple(n,rounds,1,"sort long", t_sort<long>, half_length, "Gelts/sec");
   case 18:
-    return run_multiple(n,rounds,1,"sort int", t_sort<int>, half_length, "Gelts/sec");
+    return run_multiple(n,rounds,1,"sort uint", t_sort<uint>, half_length, "Gelts/sec");
   case 19:
     return run_multiple(n,rounds,1,"sort 128 bits", t_sort<__int128>, half_length, "Gelts/sec");
   case 20:

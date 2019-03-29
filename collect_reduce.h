@@ -119,18 +119,26 @@ namespace pbbs {
     return Out;
   }
 
+  template <typename E>
+  struct pair_hasheq_mask_low {
+    static size_t hash(E a) {return hash64_2(a.first & ~((size_t) 15));}
+    static bool eql(E a, E b) {return a.first == b.first;}
+  };
+
   template <typename Seq, typename M>
   sequence<typename Seq::value_type::second_type>
   collect_reduce(Seq const &A, M const &monoid, size_t num_buckets) {
     using T = typename Seq::value_type;
     using val_type = typename T::second_type;
     size_t n = A.size();
-    size_t bits;
-
-    if (n < (1 << 27)) bits = (log2_up(n) - 7)/2;
-    // for large n selected so each block fits into cache
-    else bits = (log2_up(n) - 17);
+    
+    // #bits is selected so each block fits into L3 cache
+    //   assuming an L3 cache of size 1M per thread
+    // the counting sort uses 2 x input size due to copy
+    size_t cache_per_thread = 1000000;
+    size_t bits = log2_up(2 * (size_t) sizeof(val_type) * n / cache_per_thread);
     size_t num_blocks = (1<<bits);
+    
     if (num_buckets <= 4 * num_blocks) 
       return collect_reduce_few(A, monoid, num_buckets);
 
@@ -139,16 +147,22 @@ namespace pbbs {
     // others share a block.
     // Keys that share low 4 bits get same block unless big.
     // This is to avoid false sharing.
-    auto get_i = [&] (size_t i) -> size_t {return A[i].first;};
-    auto s = delayed_seq<size_t>(n,get_i);
-    get_bucket<decltype(s)> x(s, bits-1);
-    auto get_blocks = delayed_seq<size_t>(n, x);
-    sequence<T> B = sequence<T>::no_init(n);
-    
-    // first partition into blocks based on hash using a counting sort
-    sequence<size_t> block_offsets 
-      = count_sort(A, B.slice(), get_blocks, num_blocks);
+    //auto get_i = [&] (size_t i) -> size_t {return A[i].first;};
+    //auto s = delayed_seq<size_t>(n,get_i);
 
+    get_bucket<T,pair_hasheq_mask_low<T>> gb(A, pair_hasheq_mask_low<T>(), bits);
+    //get_bucket<decltype(s)> x(s, bits-1);
+    //auto get_blocks = delayed_seq<size_t>(n, x);
+    sequence<T> B = sequence<T>::no_init(n);
+    sequence<T> Tmp = sequence<T>::no_init(n);
+
+    // first partition into blocks based on hash using a counting sort
+    sequence<size_t> block_offsets;
+    //bool single_block;
+    //std::tie(block_offsets, single_block)
+      //= count_sort(A, B.slice(), Tmp.slice(), get_blocks, num_blocks);
+    block_offsets = integer_sort_(A, B.slice(), Tmp.slice(), gb, 
+				  bits, num_blocks, false);
     // note that this is cache line alligned
     sequence<val_type> sums(num_buckets, monoid.identity);
        
@@ -156,9 +170,10 @@ namespace pbbs {
     parallel_for(0, num_blocks, [&] (size_t i) {
 	size_t start = block_offsets[i];
 	size_t end = block_offsets[i+1];
-
+	size_t cut =  gb.heavy_hitters ? num_buckets/2 : num_buckets;
+	
 	// small blocks have indices in bottom half
-	if (i < num_blocks/2)
+	if (i < cut)
 	  for (size_t i = start; i < end; i++) {
 	    size_t j = B[i].first;
 	    sums[j] = monoid.f(sums[j], B[i].second);
@@ -186,8 +201,7 @@ namespace pbbs {
     key_type empty = (key_type) -1;
     val_type identity = monoid.identity;
     
-    timer t;
-    t.start();
+    timer t("collect_reduce_sparse", true);
     size_t n = A.size();
 
     if (n < 1000) {
@@ -201,13 +215,12 @@ namespace pbbs {
       };
       return sequence<T>(j, [&] (size_t i) {return B[i];});
     }
-      
-    size_t bits;
-    if (n < (1 << 19)) bits = (log2_up(n))/2;
-    else if (n < (1 << 23)) bits = (log2_up(n) - 3)/2;
-    else if (n < (1 << 27)) bits = (log2_up(n) - 5)/2;
-    // for large n selected so each bucket fits into cache
-    else bits = (log2_up(n) - 17);
+
+    // #bits is selected so each block fits into L3 cache
+    //   assuming an L3 cache of size 1M per thread
+    // the counting sort uses 2 x input size due to copy
+    size_t cache_per_thread = 1000000;
+    size_t bits = log2_up(2 * (size_t) sizeof(T) * n / cache_per_thread);
     size_t num_buckets = (1<<bits);
 
     // Returns a map (hash) from key to bucket.
@@ -215,16 +228,15 @@ namespace pbbs {
     // others share a bucket.
     // Keys that share low 4 bits get same bucket unless big.
     // This is to avoid false sharing.
-    auto get_i = [&] (size_t i) -> size_t {return A[i].first;};
-    auto s = delayed_seq<size_t>(n,get_i);
-    get_bucket<decltype(s)> x(s, bits-1);
-    auto get_buckets = delayed_seq<size_t>(n, x);
     sequence<T> B = sequence<T>::no_init(n);
+    sequence<T> Tmp = sequence<T>::no_init(n);
     
     // first buckets based on hash using a counting sort
-    sequence<size_t> bucket_offsets 
-      = count_sort(A, B.slice(), get_buckets, num_buckets);
-    //t.next("sort");
+    get_bucket<T,pair_hasheq_mask_low<T>> gb(A, pair_hasheq_mask_low<T>(), bits);
+    sequence<size_t> bucket_offsets =
+      integer_sort_(A.slice(), B.slice(), Tmp.slice(), gb,
+		    bits, num_buckets, false);
+    t.next("sort to blocks");
     
     // note that this is cache line alligned
     size_t num_tables = num_buckets/2;
@@ -235,7 +247,6 @@ namespace pbbs {
     size_t total_table_size = table_size * num_tables;
     sequence<T> table = sequence<T>::no_init(total_table_size);
     sequence<size_t> sizes(num_tables + 1);
-    //t.next("alloc");
 	
     // now in parallel process each bucket sequentially
     auto hash_f = [&] (size_t i) {
@@ -282,11 +293,10 @@ namespace pbbs {
 
     };
     parallel_for(0, num_tables, hash_f, 1);
-    //t.next("hash");
+    t.next("hash into tables");
 
     sizes[num_tables] = 0;
     size_t total = scan_inplace(sizes.slice(), addm<size_t>());
-    //t.next("scan");
 
     // copy packed tables into contiguous result
     sequence<T> result = sequence<T>::no_init(total);
@@ -298,7 +308,7 @@ namespace pbbs {
 	move_uninitialized(result[d_offset+j], table[s_offset+j]);
     };
     parallel_for(0, num_tables, copy_f, 1);
-    //t.next("copy");
+    t.next("pack to bottom");
     return result;
   }
 }

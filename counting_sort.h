@@ -114,7 +114,8 @@ namespace pbbs {
   // Parallel internal counting sort specialized to type for bucket counts
   template <typename s_size_t, 
 	    typename InS, typename OutS, typename KeyS>
-  sequence<size_t> count_sort_(InS& In, OutS& Out, KeyS& Keys,
+  std::pair<sequence<size_t>, bool>
+  count_sort_(InS& In, OutS& Out, KeyS& Keys,
 			       size_t num_buckets,
 			       float parallelism=1.0,
 			       bool skip_if_in_one = false) {
@@ -133,13 +134,15 @@ namespace pbbs {
     if (sizeof(T) <= 4) num_blocks = num_blocks/2;
     
     size_t par_lower = 1 + round(num_threads * parallelism * 9);
-    size_t size_lower = 1 + n * sizeof(T) / 700000;
+    size_t size_lower = 1; // + n * sizeof(T) / 2000000;
     size_t bucket_upper = n * sizeof(T) / (4 * num_buckets * sizeof(s_size_t));
     num_blocks = std::min(bucket_upper, std::max(par_lower, size_lower));
+    num_blocks = num_blocks;
+    //cout << num_blocks << ", " << par_lower << ", " << size_lower << ", " << bucket_upper << endl;
 
     // if insufficient parallelism, sort sequentially
     if (n < SEQ_THRESHOLD || num_blocks == 1 || num_threads == 1) {
-      return seq_count_sort(In,Out,Keys,num_buckets);}
+      return std::make_pair(seq_count_sort(In,Out,Keys,num_buckets),false);}
 
     size_t block_size = ((n-1)/num_blocks) + 1;
     size_t m = num_blocks * num_buckets;
@@ -166,14 +169,14 @@ namespace pbbs {
       }, 1 + 1024/num_blocks);
     bucket_offsets[num_buckets] = 0;
 
-    // if all in one buckect, then no need to sort
+    // if all in one bucket, then no need to sort
     size_t num_non_zero = 0;
     for (size_t i =0 ; i < num_buckets; i++)
       num_non_zero += (bucket_offsets[i] > 0);
-    if (skip_if_in_one && num_non_zero == 1)
-      return sequence<size_t>(0);
-
     size_t total = scan_inplace(bucket_offsets.slice(), addm<size_t>());
+    if (skip_if_in_one && num_non_zero == 1)
+      return std::make_pair(std::move(bucket_offsets), true);
+
     if (total != n) abort();
     
     sequence<s_size_t> dest_offsets = sequence<s_size_t>::no_init(num_blocks*num_buckets);
@@ -193,7 +196,6 @@ namespace pbbs {
 	for (size_t j= 0; j < num_buckets; j++)
 	  counts2[start+j] = dest_offsets[j*num_blocks + i];
       }, 1 + 1024/num_buckets);
-    //parallel_for(0, n, [&] (size_t i) {Out[i] = In[0];}, 100000);
     
     t.next("buckets");
     
@@ -226,17 +228,18 @@ namespace pbbs {
     free_array(counts);
     free_array(counts2);
     //std::this_thread::sleep_for(std::chrono::seconds(1));
-    return bucket_offsets;
+    return std::make_pair(std::move(bucket_offsets),false);
   }
 
   // Parallel version
   template <typename InS, typename KeyS>
-  sequence<size_t> count_sort(InS const &In,
-			      range<typename InS::value_type*> Out,
-			      KeyS const &Keys,
-			      size_t num_buckets,
-			      float parallelism = 1.0,
-			      bool skip_if_in_one=false) {
+  std::pair<sequence<size_t>, bool>
+  count_sort(InS const &In,
+	     range<typename InS::value_type*> Out,
+	     KeyS const &Keys,
+	     size_t num_buckets,
+	     float parallelism = 1.0,
+	     bool skip_if_in_one=false) {
     size_t n = In.size();
     size_t max32 = ((size_t) 1) << 32;
     if (n < max32 && num_buckets < max32)
