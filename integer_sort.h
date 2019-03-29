@@ -107,7 +107,7 @@ namespace pbbs {
       return sequence<size_t>();
       
       // for small inputs or little parallelism use sequential radix sort
-    } else if ((n < (1 << 15) || parallelism < .0001) && !return_offsets) {
+    } else if ((n < (1 << 17) || parallelism < .0001) && !return_offsets) {
       seq_radix_sort(In, Out, Tmp, g, key_bits, inplace);
       return sequence<size_t>();
       
