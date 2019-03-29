@@ -96,7 +96,7 @@ namespace pbbs {
     size_t n = In.size();
     timer t("integer sort",false);
     size_t cache_per_thread = 1000000;
-    size_t base_bits = std::max<size_t>(14, log2_up(2 * (size_t) sizeof(T) * n / cache_per_thread));
+    size_t base_bits = std::min<size_t>(13, log2_up(2 * (size_t) sizeof(T) * n / cache_per_thread));
     sequence<size_t> offsets;
     bool one_bucket;
     bool return_offsets = (num_buckets > 0);

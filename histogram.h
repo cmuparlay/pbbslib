@@ -188,8 +188,9 @@ namespace pbbs {
       return  _count<s_size_t>(A, m);
     if (n < (1 << 13))
       return seq_histogram<s_size_t>(A , m);
+    cout << bits << endl;
 
-    timer t("histogram", false);
+    timer t("histogram", true);
 
     sequence<T> B(n);
     sequence<T> Tmp(n);
