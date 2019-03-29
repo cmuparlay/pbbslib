@@ -96,7 +96,7 @@ namespace pbbs {
     size_t n = In.size();
     timer t("integer sort",false);
     size_t cache_per_thread = 1000000;
-    size_t base_bits = log2_up(2 * (size_t) sizeof(T) * n / cache_per_thread);
+    size_t base_bits = std::max<size_t>(14, log2_up(2 * (size_t) sizeof(T) * n / cache_per_thread));
     sequence<size_t> offsets;
     bool one_bucket;
     bool return_offsets = (num_buckets > 0);
@@ -106,8 +106,8 @@ namespace pbbs {
 	parallel_for(0, In.size(), [&] (size_t i) {Out[i] = In[i];});
       return sequence<size_t>();
       
-      // for small inputs use sequential radix sort
-    } else if (n < (1 << 15) && !return_offsets) {
+      // for small inputs or little parallelism use sequential radix sort
+    } else if ((n < (1 << 15) || parallelism < .0001) && !return_offsets) {
       seq_radix_sort(In, Out, Tmp, g, key_bits, inplace);
       return sequence<size_t>();
       
@@ -157,7 +157,7 @@ namespace pbbs {
 	  auto a = Out.slice(start, end);
 	  auto b = Tmp.slice(start, end);
 	  sequence<size_t> r = integer_sort_r(a, b, a, g, shift_bits, num_inner_buckets,
-					      !inplace, (parallelism * (end - start)) / n);
+					      !inplace, (parallelism * (end - start)) / (n+1));
 	  if (return_offsets) {
 	    size_t bstart = std::min(i * num_inner_buckets, num_buckets);
 	    size_t bend = std::min((i+1) * num_inner_buckets, num_buckets);

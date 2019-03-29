@@ -125,20 +125,12 @@ namespace pbbs {
     size_t num_threads = num_workers();
     bool is_nested = parallelism < .5;
 
-    // if not given, then use heuristic to choose num_blocks
-    size_t sqrt = (size_t) ceil(pow(n,0.5));
-    size_t num_blocks = 
-      (size_t) (n < (1<<24)) ? sqrt/17 : ((n < (1<<28)) ? sqrt/9 : sqrt/5);
-    if (is_nested) num_blocks = num_blocks / 6;
-    else if (2*num_blocks < num_threads) num_blocks *= 2;
-    if (sizeof(T) <= 4) num_blocks = num_blocks/2;
-    
+    // pick number of blocks for sufficient parallelism but to make sure
+    // cost on counts is not to high (i.e. bucket upper).
     size_t par_lower = 1 + round(num_threads * parallelism * 9);
     size_t size_lower = 1; // + n * sizeof(T) / 2000000;
-    size_t bucket_upper = n * sizeof(T) / (4 * num_buckets * sizeof(s_size_t));
-    num_blocks = std::min(bucket_upper, std::max(par_lower, size_lower));
-    num_blocks = num_blocks;
-    //cout << num_blocks << ", " << par_lower << ", " << size_lower << ", " << bucket_upper << endl;
+    size_t bucket_upper = 1 + n * sizeof(T) / (4 * num_buckets * sizeof(s_size_t));
+    size_t num_blocks = std::min(bucket_upper, std::max(par_lower, size_lower));
 
     // if insufficient parallelism, sort sequentially
     if (n < SEQ_THRESHOLD || num_blocks == 1 || num_threads == 1) {

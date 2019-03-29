@@ -121,8 +121,8 @@ namespace pbbs {
 
   template <typename E>
   struct pair_hasheq_mask_low {
-    static size_t hash(E a) {return hash64_2(a.first & ~((size_t) 15));}
-    static bool eql(E a, E b) {return a.first == b.first;}
+    static inline size_t hash(E a) {return hash64_2(a.first & ~((size_t) 15));}
+    static inline bool eql(E a, E b) {return a.first == b.first;}
   };
 
   template <typename Seq, typename M>
@@ -150,7 +150,8 @@ namespace pbbs {
     //auto get_i = [&] (size_t i) -> size_t {return A[i].first;};
     //auto s = delayed_seq<size_t>(n,get_i);
 
-    get_bucket<T,pair_hasheq_mask_low<T>> gb(A, pair_hasheq_mask_low<T>(), bits);
+    using hasheq = pair_hasheq_mask_low<T>;
+    get_bucket<T,hasheq> gb(A, hasheq(), bits);
     //get_bucket<decltype(s)> x(s, bits-1);
     //auto get_blocks = delayed_seq<size_t>(n, x);
     sequence<T> B = sequence<T>::no_init(n);
@@ -189,6 +190,12 @@ namespace pbbs {
     return sums;
   }
 
+  template <typename E>
+  struct pair_hasheq {
+    static inline size_t hash(E a) {return hash64_2(a.first);}
+    static inline bool eql(E a, E b) {return a.first == b.first;}
+  };
+    
   // this one is for more buckets than the length of A (i.e. sparse)
   //  A is a sequence of key-value pairs
   //  monoid has fields m.identity and m.f (a binary associative function)
@@ -201,7 +208,7 @@ namespace pbbs {
     key_type empty = (key_type) -1;
     val_type identity = monoid.identity;
     
-    timer t("collect_reduce_sparse", true);
+    timer t("collect_reduce_sparse", false);
     size_t n = A.size();
 
     if (n < 1000) {
@@ -232,24 +239,25 @@ namespace pbbs {
     sequence<T> Tmp = sequence<T>::no_init(n);
     
     // first buckets based on hash using a counting sort
-    get_bucket<T,pair_hasheq_mask_low<T>> gb(A, pair_hasheq_mask_low<T>(), bits);
+    using hasheq = pair_hasheq<T>;
+    get_bucket<T,hasheq> gb(A, hasheq(), bits);
     sequence<size_t> bucket_offsets =
       integer_sort_(A.slice(), B.slice(), Tmp.slice(), gb,
 		    bits, num_buckets, false);
     t.next("sort to blocks");
     
     // note that this is cache line alligned
-    size_t num_tables = num_buckets/2;
+    size_t num_tables = gb.heavy_hitters ? num_buckets/2 : num_buckets;
     size_t sz = n / num_tables;
     float factor = 1.2;
     if (sz < 128000) factor += (17 - log2_up(sz))*.15;
-    uint table_size = (factor * sz);
+    size_t table_size = (factor * sz);
     size_t total_table_size = table_size * num_tables;
     sequence<T> table = sequence<T>::no_init(total_table_size);
     sequence<size_t> sizes(num_tables + 1);
 	
     // now in parallel process each bucket sequentially
-    auto hash_f = [&] (size_t i) {
+    parallel_for(0, num_tables, [&] (size_t i) {
       T* my_table = table.begin() + i * table_size;
 
       // clear tables
@@ -264,7 +272,7 @@ namespace pbbs {
 	     << ", " << total_table_size << ", " << n << endl;
       for (size_t i = start; i < end; i++) {
 	size_t idx = B[i].first;
-	size_t j = ((uint) hash64_2(idx)) % table_size;
+	size_t j = ((uint) hasheq().hash(B[i])) % table_size;
 	while (my_table[j].first != empty &&
 	       my_table[j].first != idx)
 	  j = (j + 1 == table_size) ? 0 : j + 1;
@@ -272,16 +280,19 @@ namespace pbbs {
 	my_table[j] = T(idx, monoid.f(v, B[i].second));
       }
 
-      // now insert large bucket (ones with single item)
-      size_t start_l = bucket_offsets[num_tables + i];
-      size_t len = bucket_offsets[num_tables + i + 1] - start_l;
-      if (len > 0) {
-	auto f = [&] (size_t i) -> val_type {return B[i+start_l].second;};
-	auto s = delayed_seq<val_type>(len, f);
-	val_type x = reduce(s, monoid);
-	size_t k = 0;
-	while (my_table[k].first != empty) k++;
-	my_table[k] = T(B[start_l].first, x);
+      // now if there are any "heavy hitters" (buckets with a single item)
+      // insert them
+      if (gb.heavy_hitters) {
+	size_t start_l = bucket_offsets[num_tables + i];
+	size_t len = bucket_offsets[num_tables + i + 1] - start_l;
+	if (len > 0) {
+	  auto f = [&] (size_t i) -> val_type {return B[i+start_l].second;};
+	  auto s = delayed_seq<val_type>(len, f);
+	  val_type x = reduce(s, monoid);
+	  size_t k = 0;
+	  while (my_table[k].first != empty) k++;
+	  my_table[k] = T(B[start_l].first, x);
+	}
       }
 
       // pack tables down to bottom
@@ -291,8 +302,7 @@ namespace pbbs {
 	  my_table[j++] = my_table[i];
       sizes[i] = j;
 
-    };
-    parallel_for(0, num_tables, hash_f, 1);
+    }, 0);
     t.next("hash into tables");
 
     sizes[num_tables] = 0;
@@ -308,7 +318,7 @@ namespace pbbs {
 	move_uninitialized(result[d_offset+j], table[s_offset+j]);
     };
     parallel_for(0, num_tables, copy_f, 1);
-    t.next("pack to bottom");
+    t.next("copy subresults");
     return result;
   }
 }
