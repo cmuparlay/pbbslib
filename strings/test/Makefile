@@ -1,5 +1,5 @@
 CC = g++
-INCLUDE = -I../ -I../../
+INCLUDE = -I../../
 CFLAGS = -mcx16 -O3 -std=c++14 -DHOMEGROWN $(INCLUDE)
 LFLAGS = -pthread
 OBJS = suffix_array_test.o suffix_array.o
