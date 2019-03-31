@@ -166,8 +166,8 @@ namespace pbbs {
     for (size_t i =0 ; i < num_buckets; i++)
       num_non_zero += (bucket_offsets[i] > 0);
     size_t total = scan_inplace(bucket_offsets.slice(), addm<size_t>());
-    if (skip_if_in_one && num_non_zero == 1)
-      return std::make_pair(std::move(bucket_offsets), true);
+    if (skip_if_in_one && num_non_zero == 1) {
+      return std::make_pair(std::move(bucket_offsets), true);}
 
     if (total != n) abort();
     

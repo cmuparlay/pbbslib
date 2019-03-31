@@ -190,23 +190,14 @@ namespace pbbs {
     return sums;
   }
 
-  template <typename E>
-  struct pair_hasheq {
-    static inline size_t hash(E a) {return hash64_2(a.first);}
-    static inline bool eql(E a, E b) {return a.first == b.first;}
-  };
-    
   // this one is for more buckets than the length of A (i.e. sparse)
   //  A is a sequence of key-value pairs
   //  monoid has fields m.identity and m.f (a binary associative function)
-  template <typename Seq, typename M>
+  template <typename Seq, typename HashEq, typename M>
   sequence<typename Seq::value_type>
-  collect_reduce_sparse(Seq const &A, M const &monoid) {
+  collect_reduce_sparse(Seq const &A, HashEq hasheq, M const &monoid) {
     using T = typename Seq::value_type;
-    using key_type = typename T::first_type;
     using val_type = typename T::second_type;
-    key_type empty = (key_type) -1;
-    val_type identity = monoid.identity;
     
     timer t("collect_reduce_sparse", false);
     size_t n = A.size();
@@ -227,7 +218,7 @@ namespace pbbs {
     //   assuming an L3 cache of size 1M per thread
     // the counting sort uses 2 x input size due to copy
     size_t cache_per_thread = 1000000;
-    size_t bits = log2_up(2 * (size_t) sizeof(T) * n / cache_per_thread);
+    size_t bits = log2_up((size_t) ((1.2 * 2 * sizeof(T) * n) / (float) cache_per_thread));
     size_t num_buckets = (1<<bits);
 
     // Returns a map (hash) from key to bucket.
@@ -239,8 +230,7 @@ namespace pbbs {
     sequence<T> Tmp = sequence<T>::no_init(n);
     
     // first buckets based on hash using a counting sort
-    using hasheq = pair_hasheq<T>;
-    get_bucket<T,hasheq> gb(A, hasheq(), bits);
+    get_bucket<T,HashEq> gb(A, hasheq, bits);
     sequence<size_t> bucket_offsets =
       integer_sort_(A.slice(), B.slice(), Tmp.slice(), gb,
 		    bits, num_buckets, false);
@@ -248,10 +238,11 @@ namespace pbbs {
     
     // note that this is cache line alligned
     size_t num_tables = gb.heavy_hitters ? num_buckets/2 : num_buckets;
-    size_t sz = n / num_tables;
+    size_t bucket_size = (n - 1) / num_tables + 1;
     float factor = 1.2;
-    if (sz < 128000) factor += (17 - log2_up(sz))*.15;
-    size_t table_size = (factor * sz);
+    if (bucket_size < 128000)
+      factor += (17 - log2_up(bucket_size))*.15;
+    size_t table_size = (factor * bucket_size);
     size_t total_table_size = table_size * num_tables;
     sequence<T> table = sequence<T>::no_init(total_table_size);
     sequence<size_t> sizes(num_tables + 1);
@@ -260,9 +251,10 @@ namespace pbbs {
     parallel_for(0, num_tables, [&] (size_t i) {
       T* my_table = table.begin() + i * table_size;
 
+      sequence<bool> flags(table_size, false);
       // clear tables
-      for (size_t i = 0; i < table_size; i++)
-	assign_uninitialized(my_table[i], T(empty, identity));
+      //for (size_t i = 0; i < table_size; i++)
+      // assign_uninitialized(my_table[i], T(empty, identity));
 
       // insert small bucket (ones with multiple different items)
       size_t start = bucket_offsets[i];
@@ -270,14 +262,17 @@ namespace pbbs {
       if ((end-start) > table_size)
 	cout << "error in collect_reduce: " << (end-start) << ", " << table_size
 	     << ", " << total_table_size << ", " << n << endl;
-      for (size_t i = start; i < end; i++) {
-	size_t idx = B[i].first;
-	size_t j = ((uint) hasheq().hash(B[i])) % table_size;
-	while (my_table[j].first != empty &&
-	       my_table[j].first != idx)
-	  j = (j + 1 == table_size) ? 0 : j + 1;
-	val_type v = my_table[j].second;
-	my_table[j] = T(idx, monoid.f(v, B[i].second));
+      for (size_t j = start; j < end; j++) {
+	size_t idx = B[j].first;
+	size_t k = ((uint) hasheq.hash(B[j])) % table_size;
+	while (flags[k] && my_table[k].first != idx)
+	  k = (k + 1 == table_size) ? 0 : k + 1;
+	if (flags[k])
+	  my_table[k] = T(idx, monoid.f(my_table[k].second, B[j].second));
+	else {
+	  flags[k] = true;
+	  assign_uninitialized(my_table[k], T(idx, B[j].second));
+	}
       }
 
       // now if there are any "heavy hitters" (buckets with a single item)
@@ -289,17 +284,18 @@ namespace pbbs {
 	  auto f = [&] (size_t i) -> val_type {return B[i+start_l].second;};
 	  auto s = delayed_seq<val_type>(len, f);
 	  val_type x = reduce(s, monoid);
-	  size_t k = 0;
-	  while (my_table[k].first != empty) k++;
-	  my_table[k] = T(B[start_l].first, x);
+	  size_t j = 0;
+	  while (flags[j])
+	    j = (j + 1 == table_size) ? 0 : j + 1;
+	  assign_uninitialized(my_table[j], T(B[start_l].first, x));
 	}
       }
 
       // pack tables down to bottom
       size_t j=0;
       for (size_t i = 0; i < table_size; i++)
-	if (my_table[i].first != empty) 
-	  my_table[j++] = my_table[i];
+	if (flags[i]) 
+	  move_uninitialized(my_table[j++], my_table[i]);
       sizes[i] = j;
 
     }, 0);

@@ -67,13 +67,13 @@ namespace pbbs {
     sequence<s_size_t> block_counts(m);
 
     // count each block
-    auto block_f = [&] (size_t i) {
+    parallel_for(0, num_blocks, [&] (size_t i) {
       size_t start = std::min(i * block_size, n);
       size_t end = std::min((i+1) * block_size, n);
       auto bc = block_counts.slice(i*num_buckets,(i+1)*num_buckets);
       _seq_count(In.slice(start,end), bc);
-    };
-    parallel_for(0, num_blocks, block_f, 1);
+    }, 1);
+
 
     auto bucket_f = [&] (size_t j) {
       size_t sum = 0;
@@ -123,7 +123,7 @@ namespace pbbs {
       // insert sample into hash table with one less than the
       // count of how many times appears (since it starts with -1)
       for (size_t i = 0; i < count; i++) {
-	E& s = A[hash64(i)%n];
+	E s = A[hash64(i)%n];
 	size_t idx = heq.hash(s) & table_mask;
 	while (1) {
 	  if (hash_table[idx].second == -1) {
@@ -137,17 +137,19 @@ namespace pbbs {
 	}
       }
 
-      // keep in the hash table if at least two copies and give kept items
+      // keep in the hash table if at least three copies and give kept items
       // consecutive numbers.   k will be total kept items.
       size_t k = 0;
       for (size_t i = 0; i < table_size; i++) {
-	if (hash_table[i].second > 0)
-	  hash_table[i].second = k++;
+	if (hash_table[i].second > 1) {
+	  E key = hash_table[i].first;
+	  size_t idx = heq.hash(key) & table_mask;
+	  hash_table[idx] = std::make_pair(key, k++);
+	}
 	else hash_table[i].second = -1;
       }
 
       heavy_hitters = (k > 0);
-      //bucket_mask = num_buckets - 1; 
       bucket_mask = heavy_hitters ? num_buckets-1 : 2*num_buckets-1;
     }
 
@@ -189,7 +191,7 @@ namespace pbbs {
     if (n < (1 << 13))
       return seq_histogram<s_size_t>(A , m);
 
-    timer t("histogram", true);
+    timer t("histogram", false);
 
     sequence<T> B(n);
     sequence<T> Tmp(n);
@@ -216,16 +218,15 @@ namespace pbbs {
     parallel_for(0, num_buckets, [&] (size_t i) {
       size_t start = bucket_offsets[i];
       size_t end = bucket_offsets[i+1];
-      //size_t cut =  num_buckets/2; 
       size_t cut =  gb.heavy_hitters ? num_buckets/2 : num_buckets;
       // small buckets have indices in bottom half
       if (i < cut)
-	for (size_t i = start; i < end; i++)
-	  counts[B[i]]++;
+	for (size_t j = start; j < end; j++)
+	  counts[B[j]]++;
 
       // large buckets have indices in top half
       else if (end > start) {
-	counts[B[i]] = end-start;
+	counts[B[start]] = end-start;
       }
     }, 1);
     t.next("within buckets ");

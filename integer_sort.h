@@ -68,7 +68,9 @@ namespace pbbs {
 		      size_t key_bits, bool inplace=true) {
     bool odd = ((key_bits-1)/radix) & 1;
     size_t n = In.size();
-    if (slice_eq(In.slice(), Tmp)) { // not inplace
+    if (slice_eq(In.slice(), Tmp)) { // inplace
+      seq_radix_sort_(Tmp.slice(), Out, g, key_bits, inplace);
+    } else {
       if (odd) {
 	for (size_t i=0; i < n; i++) 
 	  move_uninitialized(Tmp[i], In[i]);
@@ -78,8 +80,7 @@ namespace pbbs {
 	  move_uninitialized(Out[i], In[i]);
 	seq_radix_sort_(Out, Tmp, g, key_bits, true);
       }
-    }	else
-      seq_radix_sort_(In.slice(), Out, g, key_bits, inplace);
+    }
   }
 
 
@@ -96,7 +97,9 @@ namespace pbbs {
     size_t n = In.size();
     timer t("integer sort",false);
     size_t cache_per_thread = 1000000;
-    size_t base_bits = std::min<size_t>(13, log2_up(2 * (size_t) sizeof(T) * n / cache_per_thread));
+    size_t base_bits = log2_up(2 * (size_t) sizeof(T) * n / cache_per_thread);
+    // keep between 8 and 13
+    base_bits = std::max<size_t>(8, std::min<size_t>(13, base_bits));
     sequence<size_t> offsets;
     bool one_bucket;
     bool return_offsets = (num_buckets > 0);
@@ -117,12 +120,13 @@ namespace pbbs {
       auto f = [&] (size_t i) {return g(In[i]) & mask;};
       auto get_bits = delayed_seq<size_t>(n, f);
       size_t num_bkts = (num_buckets == 0) ? (1 << key_bits) : num_buckets;
+      // only uses one bucket optimization (last argument) if inplace
       std::tie(offsets, one_bucket) = count_sort(In.slice(), Out, get_bits,
 						 num_bkts,
-						 parallelism, true);
-      if (inplace != one_bucket)
+						 parallelism, inplace);
+      if (inplace && !one_bucket)
 	parallel_for(0, n, [&] (size_t i) {
-	    move_uninitialized(In[i], Out[i]);});
+	    move_uninitialized(Tmp[i], Out[i]);});
       if (return_offsets) return offsets;
       else return sequence<size_t>();
       
@@ -139,10 +143,10 @@ namespace pbbs {
       // divide into buckets
       std::tie(offsets, one_bucket) = count_sort(In.slice(), Out, get_bits,
 						 num_outer_buckets,
-						 parallelism, true);
+						 parallelism, !return_offsets);
 
       // if all but one bucket are empty, try again on lower bits
-      if (one_bucket && !return_offsets) {
+      if (one_bucket) {
 	return integer_sort_r(In, Out, Tmp, g, shift_bits, 0, inplace,
 			      parallelism);
       }

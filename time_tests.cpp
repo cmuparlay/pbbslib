@@ -26,9 +26,10 @@ void report_time(double t, std::string name) {
 }
 
 template<typename F>
-std::vector<double> repeat(size_t n, size_t rounds, F test) {
+std::vector<double> repeat(size_t n, size_t rounds, bool check, F test) {
+  if (check) test(n, true);
   std::vector<double> R;
-  for (size_t i=0; i < rounds; i++) R.push_back(test(n));
+  for (size_t i=0; i < rounds; i++) R.push_back(test(n, false));
   return R;
 }
 
@@ -51,10 +52,12 @@ double sumf(double a, double b) {return a+ b;};
 double minf(double a, double b) {return (a < b) ? a : b;};
 double maxf(double a, double b) {return (a > b) ? a : b;};
 
+bool global_check = false;
+
 template<typename F>
 bool run_multiple(size_t n, size_t rounds, float bytes_per_elt,
 		  std::string name, F test, bool half_length=1, std::string x="bw") {
-  std::vector<double> t = repeat(n, rounds, test);
+  std::vector<double> t = repeat(n, rounds, global_check, test);
 
   double mint = reduce(t, minf);
   double maxt = reduce(t, maxf);
@@ -65,7 +68,7 @@ bool run_multiple(size_t n, size_t rounds, float bytes_per_elt,
   if (half_length)
     do {
       l = round(l * .8);
-      tt = reduce(repeat(l, rounds, test),minf);
+      tt = reduce(repeat(l, rounds, global_check, test),minf);
     } while (tt != 0.0 && l/tt > rate/2 && l > 1);
 
   double bandwidth = rate * bytes_per_elt / 1e9;
@@ -179,6 +182,7 @@ int main (int argc, char *argv[]) {
   int rounds = P.getOptionIntValue("-r", 5);
   int test_num = P.getOptionIntValue("-t", -1);
   bool half_length = P.getOption("-halflen");
+  global_check = P.getOption("-check");
   int num_tests = 33;
 
   cout << "n = " << n << endl;
