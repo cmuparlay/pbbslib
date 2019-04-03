@@ -24,7 +24,7 @@ CC = g++
 PFLAGS = $(CILKFLAGS)
 endif
 
-EXAMPLES = mcss
+EXAMPLES = mcss word_counts
 
 # object files
 % : %.cpp

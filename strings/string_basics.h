@@ -129,19 +129,25 @@ namespace pbbs {
   template <class Seq, class UnaryPred>
   sequence<char*> tokenize(Seq  &S, UnaryPred const &is_space) {
     size_t n = S.size();
+    timer t("tokenize",true);
 
-    // clear spaces (side
+    // clear spaces
     parallel_for (0, n, [&] (size_t i) {
 	if (is_space(S[i])) S[i] = 0;}, 10000);
-
+    t.next("clear");
+    
     auto StartFlags = delayed_seq<bool>(n, [&] (long i) {
 	return (i==0) ? S[i] : S[i] && !S[i-1];});
 
     // offset for each start of word
     sequence<long> Starts = pbbs::pack_index<long>(StartFlags);
-
-    return sequence<char*>(Starts.size(), [&] (size_t i) {
+    t.next("pack index");
+    
+    auto r = sequence<char*>(Starts.size(), [&] (size_t i) {
 	return S.begin() + Starts[i];});
+    t.next("offsets");
+    
+    return r;
   }
 
   

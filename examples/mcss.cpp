@@ -21,7 +21,6 @@ typename Seq::T mcss(Seq const &A) {
 	      max(sa + ab, sb),
 	      ta + tb);
   };
-  //auto S = sequence<TT>(A.size(), [&] (size_t i) {
   auto S = delayed_seq<TT>(A.size(), [&] (size_t i) {
       return TT(A[i],A[i],A[i],A[i]);});
   TT r = reduce(S, make_monoid(f, TT(0,0,0,0)));

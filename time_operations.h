@@ -422,11 +422,13 @@ double t_integer_sort(size_t n, bool check) {
 typedef unsigned __int128 long_int;
 double t_integer_sort_128(size_t n, bool check) {
   pbbs::random r(0);
-  size_t bits = 128;
+  size_t bits = pbbs::log2_up(n);
   pbbs::sequence<long_int> S(n, [&] (size_t i) -> long_int {
       return r.ith_rand(2*i) + (((long_int) r.ith_rand(2*i+1)) << 64) ;});
   auto identity = [] (long_int a) {return a;};
-  time(t, pbbs::integer_sort_inplace(S.slice(),identity,bits););
+  pbbs::sequence<long_int> out;
+  time(t, out = pbbs::integer_sort(S.slice(),identity,bits););
+  //time(t, pbbs::count_sort(in, out.slice(), keys, num_buckets););
   return t;
 }
 
@@ -500,3 +502,29 @@ double t_range_min(size_t n, bool check) {
   }
   return t;
 }
+
+template<typename T>
+double t_find_mid(size_t n, bool check) {
+  pbbs::sequence<T> In(n, [&] (size_t i) {return 0;});
+  In[n/2] = 1;
+  size_t idx;
+  time(t, idx = pbbs::find(In, 1););
+  if (check)
+    if (idx != n/2)
+      cout << "error in find " << endl;      
+  return t;
+}
+
+template<typename T>
+double t_lexicograhic_compare(size_t n, bool check) {
+  pbbs::sequence<T> In1(n, [&] (size_t i) {return 0;});
+  pbbs::sequence<T> In2(n, [&] (size_t i) {return 0;});
+  In1[n/2] = 1;
+  bool ls;
+  time(t, ls = pbbs::lexicographical_compare(In1, In2, std::less<T>()););
+  if (check)
+    if (ls)
+      cout << "error in lexicographical_compare " << endl;      
+  return t;
+}
+

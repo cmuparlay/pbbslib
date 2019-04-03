@@ -161,6 +161,10 @@ double pick_test(size_t id, size_t n, size_t rounds,
     return run_multiple(n,rounds,1,"add to bag long", t_bag<long>, half_length, "Gelts/sec");
   case 32:
     return run_multiple(n,rounds,1,"collect reduce dense uint", t_collect_reduce_pair_dense<uint>, half_length, "Gelts/sec");
+  case 33:
+    return run_multiple(n,rounds,ebytes(4,0),"find mid long", t_find_mid<long>, half_length);
+
+
 
     // these are not part of standard suite
   case 50:
