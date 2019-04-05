@@ -40,7 +40,7 @@ struct unionFind {
 
   vertexId find(vertexId i) {
     if (is_root(i)) return i;
-    vertexId p = parents[i];     
+    vertexId p = parents[i];
     if (is_root(p)) return p;
 
     // find root, shortcutting along the way
@@ -59,7 +59,7 @@ struct unionFind {
   // of the negative number is its rank.
   // Otherwise it is the vertexId of its parent.
   // cannot be called union since reserved in C
-  void union_roots(vertexId u, vertexId v) { 
+  void union_roots(vertexId u, vertexId v) {
     if (parents[v] < parents[u]) std::swap(u,v);
     // now u has higher rank (higher negative number)
     parents[u] += parents[v]; // update rank of root
@@ -70,7 +70,7 @@ struct unionFind {
   // when no cycles are created (e.g. only link from larger
   // to smaller vertexId).
   // Does not use ranks.
-  void link(vertexId u, vertexId v) { 
+  void link(vertexId u, vertexId v) {
     parents[u] = v;}
 
   // returns true if successful

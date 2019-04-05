@@ -35,7 +35,7 @@ namespace pbbs {
   //  query(i,j) finds the minimum in the range from i to j inclusive of both
   //    and returns its index
   // Assuming less takes constant time:
-  //   Build takes O(n log n / block_size) time 
+  //   Build takes O(n log n / block_size) time
   //   Query takes O(block_size) time
   template <class Seq, class Compare, class Uint=uint>
   class range_min {
@@ -54,7 +54,7 @@ namespace pbbs {
 	for (long k = i+1; k <= j; k++)
 	  r = min_index(r, k);
 	return r;
-      } 
+      }
       long block_i = i/block_size;
       long block_j = j/block_size;
       Uint minl = i;
@@ -74,9 +74,9 @@ namespace pbbs {
       Uint outOfBlockMin;
       block_i++;
       block_j--;
-      if (block_j == block_i) 
+      if (block_j == block_i)
 	outOfBlockMin = table[0][block_i];
-      else if(block_j == block_i + 1) 
+      else if(block_j == block_i + 1)
 	outOfBlockMin = table[1][block_i];
       else {
 	long k = pbbs::log2_up(block_j - block_i + 1) - 1;
@@ -104,11 +104,11 @@ namespace pbbs {
       // minimums within each block
       sliced_for(n, block_size, [&] (size_t i, size_t start, size_t end) {
 	  long k = start;
-	  for (size_t j = start+1; j < end; j++) 
+	  for (size_t j = start+1; j < end; j++)
 	    k = min_index(j, k);
 	  table[0][i] = k;
 	});
-    
+
       // minimum across layers
       long dist = 1;
       for (long j = 1; j < depth; j++) {

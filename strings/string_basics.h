@@ -135,22 +135,22 @@ namespace pbbs {
     parallel_for (0, n, [&] (size_t i) {
 	if (is_space(S[i])) S[i] = 0;}, 10000);
     t.next("clear");
-    
+
     auto StartFlags = delayed_seq<bool>(n, [&] (long i) {
 	return (i==0) ? S[i] : S[i] && !S[i-1];});
 
     // offset for each start of word
     sequence<long> Starts = pbbs::pack_index<long>(StartFlags);
     t.next("pack index");
-    
+
     auto r = sequence<char*>(Starts.size(), [&] (size_t i) {
 	return S.begin() + Starts[i];});
     t.next("offsets");
-    
+
     return r;
   }
 
-  
+
   template <class Seq, class BoolSeq>
   sequence<range<char*>> partition_at(Seq const &S, BoolSeq const &StartFlags) {
     size_t n = S.size();
@@ -160,7 +160,7 @@ namespace pbbs {
     sequence<long> Starts = pbbs::pack_index<long>(StartFlags);
     return sequence<range<char*>>(Starts.size(), [&] (size_t i) {
 	long end = (i==Starts.size()-1) ? n : Starts[i+1];
-	return range<char*>(S.slice(Starts[i],end));});			    
+	return range<char*>(S.slice(Starts[i],end));});
   }
 
 }

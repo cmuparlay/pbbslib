@@ -13,7 +13,7 @@ struct mem_pool {
   std::atomic<long> allocated{0};
   std::atomic<long> used{0};
   size_t mem_size{getMemorySize()};
-  
+
   mem_pool() {
     buckets = new concurrent_stack<void*>[num_buckets];
   };

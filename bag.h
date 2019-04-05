@@ -121,7 +121,7 @@ private:
            [&] () {(x->right).flatten_rec(start + nl);});
       node_alloc::free(x);
     }
-  }	     
+  }
 
 };
 }

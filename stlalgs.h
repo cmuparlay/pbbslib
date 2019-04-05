@@ -107,17 +107,17 @@ namespace pbbs {
 	  if (S1[(n1-i-n2)+j] != S2[j]) break;
 	return (j == S2.size());});
     return n1 - idx - n2;}
-	 
+
   template <class Seq1, class Seq2, class BinaryPred>
   bool equal(Seq1 s1, Seq2 s2, BinaryPred p) {
     return count_if_index(s1.size(), [&] (size_t i) {
 	return p(s1[i],s2[i]);});}
 
   template <class Seq1, class Seq2>
-  bool equal(Seq1 s1, Seq2 s2) {  
+  bool equal(Seq1 s1, Seq2 s2) {
     return count_if_index(s1.size(), [&] (size_t i) {
 	return s1[i] == s2[i];});}
-  
+
   template <class Seq1, class Seq2, class Compare>
   bool lexicographical_compare(Seq1 s1, Seq2 s2, Compare less) {
     size_t m = std::min(s1.size(), s2.size());
@@ -301,7 +301,7 @@ iota
 accumulate (does not require associativity
 inner_product
 
-*/	  
+*/
 
 /*
 Duck Typing

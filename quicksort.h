@@ -55,7 +55,7 @@ namespace pbbs {
   void sort5(E* A, size_t n, const BinPred& f) {
     size_t size = 5;
     size_t m = n/(size+1);
-    for (size_t l = 0; l < size; l++) 
+    for (size_t l = 0; l < size; l++)
       std::swap(A[l],A[m*(l+1)]);
     insertion_sort(A, size, f);
   }
@@ -70,11 +70,11 @@ namespace pbbs {
     E p2 = A[3];
     if (!f(A[0],A[1])) p1 = p2; // if few elements less than p1, then set to p2
     if (!f(A[3],A[4])) p2 = p1; // if few elements greater than p2, then set to p1
-    E* L = A;   
+    E* L = A;
     E* R = A+n-1;
     // set up initial invariants
-    while (f(*L, p1)) L++; 
-    while (f(p2, *R)) R--; 
+    while (f(*L, p1)) L++;
+    while (f(p2, *R)) R--;
     E* M = L;
     // invariants:
     //  below L is less than p1,
@@ -130,7 +130,7 @@ namespace pbbs {
     quicksort(A.begin(), A.size(), f);}
 
   //// Fully Parallel version below here
- 
+
   template <class SeqA, class BinPred>
   std::tuple<size_t,size_t,bool> p_split3(SeqA const &A,
 					  range<typename SeqA::value_type*> B,
@@ -158,7 +158,7 @@ namespace pbbs {
   //     In and Out cannot be the same (Out is needed as temp space)
   // cut_size: is when to revert to  quicksort.
   //    If -1 then it uses a default based on number of threads
-  template <class Iter, class F> 
+  template <class Iter, class F>
   void p_quicksort_(range<Iter> In, range<Iter> Out, const F& f,
 		    bool inplace = false, long cut_size = -1) {
     size_t n = In.size();
@@ -185,7 +185,7 @@ namespace pbbs {
     }
   }
 
-  template <class SeqA, class F> 
+  template <class SeqA, class F>
   sequence<typename SeqA::value_type> p_quicksort(SeqA const &In, const F& f) {
     using T = typename SeqA::value_type;
     sequence<T> Out(In.size());
@@ -193,7 +193,7 @@ namespace pbbs {
     return Out;
   }
 
-  template <class T, class F> 
+  template <class T, class F>
   void p_quicksort_inplace(range<T*> In, const F& f) {
     sequence<T> Tmp = sequence<T>::no_init(In.size());
     p_quicksort_(In, Tmp.slice(), f, true);

@@ -7,9 +7,9 @@ namespace pbbs {
   // TODO: not yet optimized to use moves instead of copies.
 
   // the following parameter can be tuned
-  constexpr const size_t _merge_base = PAR_GRANULARITY; 
+  constexpr const size_t _merge_base = PAR_GRANULARITY;
 
-  template <class SeqA, class SeqB, class F> 
+  template <class SeqA, class SeqB, class F>
   void seq_merge(SeqA const &A,
 		 SeqB const &B,
 		 range<typename SeqA::value_type*> R,
@@ -39,7 +39,7 @@ namespace pbbs {
   }
 
   // this merge is stable
-  template <class SeqA, class SeqB, class F> 
+  template <class SeqA, class SeqB, class F>
   void merge_(const SeqA &A,
 	      const SeqB &B,
 	      range<typename SeqA::value_type*> R,
@@ -61,15 +61,15 @@ namespace pbbs {
       size_t mB = binary_search(B, A[mA], f);
       if (mB == 0) mA++; // ensures at least one on each side
       size_t mR = mA + mB;
-      auto left = [&] () {merge_(A.slice(0, mA), B.slice(0, mB), 
+      auto left = [&] () {merge_(A.slice(0, mA), B.slice(0, mB),
 				 R.slice(0, mR), f, cons);};
-      auto right = [&] () {merge_(A.slice(mA, nA), B.slice(mB, nB), 
+      auto right = [&] () {merge_(A.slice(mA, nA), B.slice(mB, nB),
 				  R.slice(mR, nR), f, cons);};
       par_do(left, right, cons);
     }
   }
 
-  template <class SeqA, class SeqB, class F> 
+  template <class SeqA, class SeqB, class F>
   sequence<typename SeqA::value_type>
   merge(const SeqA &A,
 	const SeqB &B,

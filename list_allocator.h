@@ -44,7 +44,7 @@ constexpr const size_t pad_size = 4096;
 
 template <typename T>
 class list_allocator {
-  
+
   //union alignas(64) block {
   union block {
     T data;
@@ -54,14 +54,14 @@ class list_allocator {
   struct alignas(64) thread_list {
   //struct thread_list {
     size_t sz;
-    block* head;  
+    block* head;
     block* mid;
     char cache_line[pad_size];
   thread_list() : sz(0), head(NULL) {};
   };
 
   using block_p = block*;
-    
+
   static block_p initialize_list(block_p);
   static block_p get_list();
 
@@ -98,22 +98,22 @@ list_allocator<T>::pool_roots;
 template<typename T> concurrent_stack<typename list_allocator<T>::block_p>
 list_allocator<T>::global_stack;
 
-template<typename T> bool 
+template<typename T> bool
 list_allocator<T>::initialized = false;
 
 template<typename T> typename list_allocator<T>::thread_list*
 list_allocator<T>::local_lists;
 
-template<typename T> int 
+template<typename T> int
 list_allocator<T>::thread_count;
 
-template<typename T> size_t 
+template<typename T> size_t
 list_allocator<T>::list_length = list_size;
 
-template<typename T> size_t 
+template<typename T> size_t
 list_allocator<T>::max_blocks;
 
-template<typename T> size_t 
+template<typename T> size_t
 list_allocator<T>::_block_size;
 
 template<typename T> std::atomic<size_t>
@@ -136,13 +136,13 @@ auto list_allocator<T>::initialize_list(block_p start) -> block_p {
 template<typename T>
 size_t list_allocator<T>::num_used_blocks() {
   size_t free_blocks = global_stack.size()*list_length;
-  for (int i = 0; i < thread_count; ++i) 
+  for (int i = 0; i < thread_count; ++i)
     free_blocks += local_lists[i].sz;
   return blocks_allocated - free_blocks;
 }
 
 template<typename T>
-auto list_allocator<T>::allocate_blocks(size_t num_blocks) -> block_p { 
+auto list_allocator<T>::allocate_blocks(size_t num_blocks) -> block_p {
   block_p start = (block_p) aligned_alloc(pad_size,
 					  num_blocks * _block_size+ pad_size);
   if (start == NULL) {
@@ -187,8 +187,8 @@ void list_allocator<T>::rand_shuffle() {
   parallel_for(0, num_free, [&] (size_t i) {
       free(P[i]);
     });
-  
-  delete[] P; 
+
+  delete[] P;
 }
 
 // Allocate n elements across however many lists are needed (rounded up)
@@ -211,13 +211,13 @@ void list_allocator<T>::init() {
     if (initialized) return;
     initialized = true;
     blocks_allocated = 0;
-    
+
     thread_count = num_workers();
 
     // Hack to account for possible allignment expansion
     // i.e. sizeof(T) might not work -- better way?
     block_p x = nullptr;
-    _block_size = (char*) (x+1) - (char*) x; 
+    _block_size = (char*) (x+1) - (char*) x;
 
     // reserve initial blocks in the global pool
     reserve(default_alloc_size);
