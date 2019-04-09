@@ -300,13 +300,4 @@ namespace pbbs {
 
 }
 
-#ifdef USEMALLOC
-inline void* my_alloc(size_t i) {return malloc(i);}
-inline void my_free(void* p) {free(p);}
-#else
-#include "alloc.h"
-inline void* my_alloc(size_t i) {return my_mem_pool.alloc(i);}
-inline void my_free(void* p) {my_mem_pool.afree(p);}
-#endif
-
 

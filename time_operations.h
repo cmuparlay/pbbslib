@@ -1,4 +1,4 @@
-#include "utilities.h"
+#include "sequence.h"
 #include "get_time.h"
 #include "random.h"
 #include "counting_sort.h"
@@ -13,7 +13,6 @@
 #include "hash_table.h"
 #include "sparse_mat_vec_mult.h"
 #include "stlalgs.h"
-#include "sequence_ops.h"
 #include "monoid.h"
 #include "range_min.h"
 
@@ -154,6 +153,7 @@ double t_gather(size_t n, bool check) {
     __builtin_prefetch (&in[idx[i+4]], 0, 1);
     return in[idx[i]];};
   // note problem with prefetching since will go over end for last 4 iterations
+  if (n < 4) return 0.0;
   time(t, pbbs::sequence<T>(n-4, f););  
   return t;
 }
@@ -167,6 +167,7 @@ double t_scatter(size_t n, bool check) {
     // prefetching makes little if any difference
     //__builtin_prefetch (&out[idx[i+4]], 1, 1);
       out[idx[i]] = i;};
+  if (n < 4) return 0.0;
   time(t, parallel_for(0, n-4, f););
   return t;
 }
@@ -183,6 +184,7 @@ double t_write_add(size_t n, bool check) {
     //__builtin_prefetch (&out[idx[i+4]], 0, 1);
     //__sync_fetch_and_add(&out[idx[i]],1);};
     pbbs::write_add(&out[idx[i]],1);};
+  if (n < 4) return 0.0;
   time(t, parallel_for(0, n-4, f););
   return t;
 }
@@ -198,6 +200,7 @@ double t_write_min(size_t n, bool check) {
     // putting write prefetch in slows it down
     //__builtin_prefetch (&out[idx[i+4]], 1, 1);
     pbbs::write_min(&out[idx[i]], (T) i, std::less<T>());};
+  if (n < 4) return 0.0;
   time(t, parallel_for(0, n-4, f););
   return t;
 }
@@ -428,7 +431,6 @@ double t_integer_sort_128(size_t n, bool check) {
   auto identity = [] (long_int a) {return a;};
   pbbs::sequence<long_int> out;
   time(t, out = pbbs::integer_sort(S.slice(),identity,bits););
-  //time(t, pbbs::count_sort(in, out.slice(), keys, num_buckets););
   return t;
 }
 

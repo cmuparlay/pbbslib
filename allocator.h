@@ -33,36 +33,77 @@
 #include <string.h>
 #include <stdlib.h>
 #include <math.h>
+#include "utilities.h"
 #include "block_allocator.h"
 
-template <typename T>
-struct allocator {
+using namespace pbbs;
 
-  static const size_t log_max_size = 10;
-  static const size_t log_min_size = 4;
-  static const size_t header_size = 8;
-  struct block_allocator allocators[log_max_size-log_min_size+1];
+struct small_allocator {
 
-  allocator() {
-    for (size_t i = 0; i <= log_max_size; i++) {
-      allocators[i] = block_allocator(1 << (i+log_min_size));
+  static const int log_min_size = 4;
+  static const int total_list_size = (1 << 22);
+  static const int header_size = 16;
+  int log_max_size = 17;
+  int num_buckets = log_max_size - log_min_size + 1;
+  struct block_allocator *allocators;
+
+  ~small_allocator() {
+    //for (int i=0; i < num_buckets; i++)
+    //  ~block_allocator(allocators[i]));
+    //free(allocators);
+  }
+
+  small_allocator() {}
+  small_allocator(size_t log_max_size) : log_max_size(log_max_size) ,
+					 num_buckets(log_max_size - log_min_size + 1) 
+  {
+    allocators = (struct block_allocator*)
+      malloc(num_buckets * sizeof(struct block_allocator));
+    
+    for (int i = 0; i < num_buckets; i++) {
+      size_t bucket_size = ((size_t) 1) << (i+log_min_size);
+      size_t per_proc_list_size = total_list_size / bucket_size;
+      size_t initial_additional_blocks = 0;
+      new (static_cast<void*>(std::addressof(allocators[i]))) 
+	block_allocator(bucket_size, initial_additional_blocks,
+			per_proc_list_size);
     }
   }
 
-  void* alloc(size_t n) {
-    size_t np = n + header_size;  // add header
-    
-    size_t log_size = pbbs::log2_up((size_t) np);
+  void* alloc_log(int log_size) {
     if (log_size > log_max_size) abort();
-    int bucket = log_size - log_min_size;
-    uchar* ptr = allocators[bucket].alloc();
-    *((size_t*) ptr) = bucket;
-    return ptr+header_size;
+    int bucket = std::max(0, log_size - log_min_size);
+    void* ptr = allocators[bucket].alloc();
+    *((int*) ptr) = log_size;
+    return ((char*) ptr) + header_size;
+  }
+
+  void* alloc(size_t n) {
+    int log_size = pbbs::log2_up(n + header_size);
+    return alloc_log(log_size);
   }
 
   void free(void* ptr) {
-    uchar* head = ((uchar*) ptr) - header_size;
-    int bucket = *((size_t*) head);
+    char* head = ((char*) ptr) - header_size;
+    int log_size = *((int*) head);
+    int bucket = std::max(0, log_size - log_min_size);
     allocators[bucket].free(head);
   }
+
+  void print_stats() {
+    size_t total_a = 0;
+    size_t total_u = 0;
+    for (int i = 0; i < num_buckets; i++) {
+      size_t bucket_size = ((size_t) 1) << (i+log_min_size);
+      size_t allocated = allocators[i].num_allocated_blocks();
+      size_t used = allocators[i].num_used_blocks();
+      total_a += allocated * bucket_size;
+      total_u += used * bucket_size;
+      cout << "size = " << bucket_size << ", allocated = " << allocated
+	   << ", used = " << used << endl;
+    }
+    cout << "Total bytes allocated = " << total_a << endl;
+    cout << "Total bytes used = " << total_u << endl;
+  }
+    
 };

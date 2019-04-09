@@ -1,3 +1,10 @@
+ifeq (, $(shell which jemalloc-config))
+JEMALLOC =
+else
+JEMALLOCLD = $(shell jemalloc-config --libdir)
+JEMALLOC = -L$(JEMALLOCLD) -ljemalloc 
+endif
+
 CFLAGS = -I../ -mcx16 -O3 -std=c++17 -Wall
 
 OMPFLAGS = -DOPENMP -fopenmp
@@ -28,7 +35,7 @@ EXAMPLES = mcss word_counts
 
 # object files
 % : %.cpp
-	$(CC) $(CFLAGS) $(PFLAGS) $@.cpp -o $@
+	$(CC) $(CFLAGS) $(PFLAGS) $@.cpp -o $@ $(JEMALLOC)
 
 clean:
 	rm -f $(EXAMPLES)

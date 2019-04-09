@@ -38,6 +38,9 @@ AllFiles = allocator.h alloc.h bag.h binary_search.h block_allocator.h collect_r
 time_tests:	$(AllFiles) time_tests.cpp time_operations.h
 	$(CC) $(CFLAGS) $(PFLAGS) time_tests.cpp -o time_tests $(JEMALLOC)
 
+test_alloc:	$(AllFiles) test_alloc.cpp
+	$(CC) $(CFLAGS) $(PFLAGS) test_alloc.cpp -o test_alloc $(JEMALLOC)
+
 test_scheduler:	test_scheduler.cpp scheduler.h
 	$(CC) $(CFLAGS) $(PFLAGS)
 
@@ -46,10 +49,7 @@ test_scheduler_%:	test_scheduler.cpp scheduler.h
 
 test_schedulers: test_scheduler_OMP test_scheduler_CILK test_scheduler_HG
 
-stlalgs: $(AllFiles) stlalgs.h stlalgs.cpp
-	$(CC) $(CFLAGS) $(PFLAGS) stlalgs.cpp -o stlalgs
-
 all:	time_tests
 
 clean:
-	rm -f time_tests test
+	rm -f time_tests test_alloc 

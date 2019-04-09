@@ -236,6 +236,21 @@ namespace pbbs {
 		addm<Index>());
   }
 
+  template <class Seq>
+  auto flatten(Seq const &s) -> sequence<typename Seq::value_type::value_type> {
+    using T = typename Seq::value_type::value_type;
+    sequence<size_t> offsets(s.size(), [&] (size_t i) {
+	return s[i].size();});
+    size_t len = scan_inplace(offsets.slice(), addm<size_t>());
+    sequence<T> r(len);
+    parallel_for(0, s.size(), [&] (size_t i) {
+	parallel_for(0, s[i].size(), [&] (size_t j) {
+	    r[offsets[i] + j] = s[i][j];
+	  }, 1000);
+      }, 1);
+    return r;
+  }
+
 }
 /*
 

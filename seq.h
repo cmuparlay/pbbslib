@@ -150,7 +150,7 @@ namespace pbbs {
       : s(pbbs::new_array_no_init<T>(n)), n(n) {
       //if (n > 1000000000) cout << "make func: " << s << endl;
       parallel_for(0, n, [&] (size_t i) {
-	  new ((void*) (s+i)) value_type(f(i));}, 1000);
+	  new ((void*) (s+i)) value_type(f(i));}, 1000); //, 100);
     };
 
     template <typename Iter>

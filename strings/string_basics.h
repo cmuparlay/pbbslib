@@ -54,7 +54,8 @@ namespace pbbs {
   // The two arguments must be of the same length
   // Location 0 is always a start
   template <class Seq, class BoolSeq>
-  sequence<range<char*>> partition_at(Seq const &S, BoolSeq const &StartFlags);
+  auto partition_at(Seq const &S, BoolSeq const &StartFlags)
+    -> sequence<range<typename Seq::value_type *>>;
 
   // ********************************
   // Code Follows
@@ -129,22 +130,21 @@ namespace pbbs {
   template <class Seq, class UnaryPred>
   sequence<char*> tokenize(Seq  &S, UnaryPred const &is_space) {
     size_t n = S.size();
-    timer t("tokenize",true);
+    timer t("tokenize",false);
 
     // clear spaces
     parallel_for (0, n, [&] (size_t i) {
 	if (is_space(S[i])) S[i] = 0;}, 10000);
+    S[n] = 0;
     t.next("clear");
-    
+
     auto StartFlags = delayed_seq<bool>(n, [&] (long i) {
 	return (i==0) ? S[i] : S[i] && !S[i-1];});
 
-    // offset for each start of word
-    sequence<long> Starts = pbbs::pack_index<long>(StartFlags);
-    t.next("pack index");
-    
-    auto r = sequence<char*>(Starts.size(), [&] (size_t i) {
-	return S.begin() + Starts[i];});
+    auto Pointers = delayed_seq<char*>(n, [&] (long i) {
+	return S.begin() + i;});
+
+    sequence<char*> r = pbbs::pack(Pointers, StartFlags);
     t.next("offsets");
     
     return r;
@@ -152,15 +152,20 @@ namespace pbbs {
 
   
   template <class Seq, class BoolSeq>
-  sequence<range<char*>> partition_at(Seq const &S, BoolSeq const &StartFlags) {
+  auto partition_at(Seq const &S, BoolSeq const &StartFlags)
+    -> sequence<range<typename Seq::value_type *>>
+  {
+    using T = typename Seq::value_type;
     size_t n = S.size();
     if (StartFlags.size() != n)
       std::cout << "Unequal sizes in pbbs::partition_at" << std::endl;
+    auto sf = delayed_seq<bool>(n, [&] (size_t i) {
+	return (i==0) || StartFlags[i];});
 
-    sequence<long> Starts = pbbs::pack_index<long>(StartFlags);
-    return sequence<range<char*>>(Starts.size(), [&] (size_t i) {
+    sequence<long> Starts = pbbs::pack_index<long>(sf);
+    return sequence<range<T*>>(Starts.size(), [&] (size_t i) {
 	long end = (i==Starts.size()-1) ? n : Starts[i+1];
-	return range<char*>(S.slice(Starts[i],end));});			    
+	return range<T*>(S.slice(Starts[i],end));});			    
   }
 
 }

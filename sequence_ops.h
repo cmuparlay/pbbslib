@@ -186,9 +186,8 @@ namespace pbbs {
     using T = typename In_Seq::value_type;
     size_t n = In.size();
     size_t l = num_blocks(n, _block_size);
-    if (l <= 1 || fl & fl_sequential) {
-      return pack_serial(In, Fl.slice(0, In.size()));
-    }
+    if (l == 1 || fl & fl_sequential)
+      return pack_serial(In, Fl);
     sequence<size_t> Sums(l);
     sliced_for(n, _block_size, [&] (size_t i, size_t s, size_t e) {
       Sums[i] = sum_bools_serial(Fl.slice(s, e));
@@ -205,7 +204,7 @@ namespace pbbs {
   // Pack the output to the output range.
   template <SEQ In_Seq, SEQ Bool_Seq, RANGE Out_Seq>
   size_t pack_out(In_Seq const &In, Bool_Seq const &Fl, Out_Seq Out,
-                flags fl = no_flag)
+		  flags fl = no_flag)
   {
     size_t n = In.size();
     size_t l = num_blocks(n, _block_size);

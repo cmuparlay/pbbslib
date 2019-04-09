@@ -1,10 +1,8 @@
 //#include <jemalloc/jemalloc.h>
-#include "utilities.h"
-#include "alloc.h"
+#include "parallel.h"
+#include "sequence.h"
 #include "get_time.h"
 #include "time_operations.h"
-#include "sequence_ops.h"
-#include "allocator.h"
 #include "parse_command_line.h"
 #include <iostream>
 #include <ctype.h>
@@ -13,9 +11,6 @@
 #include <vector>
 #include <algorithm>
 #include <atomic>
-
-#include "parallel.h"
-
 
 size_t str_to_int(char* str) {
     return strtol(str, NULL, 10);
@@ -93,7 +88,8 @@ float ebytes(int reads, int write_backs) {
 
 double pick_test(size_t id, size_t n, size_t rounds,
 		 bool half_length) {
-  my_mem_pool.clear();
+  allocator_clear();
+  
   switch (id) {
   case 0:
     return run_multiple(n,rounds,ebytes(16,8),"map long", t_map<long>, half_length);

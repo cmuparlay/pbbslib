@@ -117,9 +117,9 @@ namespace pbbs {
       size_t count = 2 * num_buckets;
       size_t table_size = 4 * count;
       table_mask = table_size-1;
-
+      
       hash_table = sequence<HE>(table_size, std::make_pair(E(),-1));
-
+      
       // insert sample into hash table with one less than the
       // count of how many times appears (since it starts with -1)
       for (size_t i = 0; i < count; i++) {
@@ -184,7 +184,10 @@ namespace pbbs {
     //   assuming an L3 cache of size 1M per thread
     // the counting sort uses 2 x input size due to copy
     size_t cache_per_thread = 1000000;
-    size_t bits = log2_up(2 * (size_t) sizeof(T) * n / cache_per_thread);
+    size_t bits = std::max<size_t>(log2_up(1 + 2 * (size_t) sizeof(T) * n / cache_per_thread),
+				   4);
+    //if (bits == 0) 
+    //  return seq_histogram<s_size_t>(A, m);
     size_t num_buckets = (1<<bits);
     if (m < n / num_buckets)
       return  _count<s_size_t>(A, m);
@@ -192,7 +195,7 @@ namespace pbbs {
       return seq_histogram<s_size_t>(A , m);
 
     timer t("histogram", false);
-
+    
     sequence<T> B(n);
     sequence<T> Tmp(n);
 
