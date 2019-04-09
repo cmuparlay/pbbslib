@@ -53,7 +53,7 @@ namespace pbbs {
       if (k >= num_buckets) abort();
       counts[k]++;
     }
-    
+
     // generate offsets
     size_t s = 0;
     for (size_t i = 0; i < num_buckets; i++) {
@@ -94,7 +94,7 @@ namespace pbbs {
   template <typename s_size_t, typename InSeq, typename KeySeq>
   void _seq_write(InSeq In, typename InSeq::T* Out, KeySeq Keys,
 		  s_size_t* offsets, size_t num_buckets) {
-  
+
     for (size_t j = 0; j < In.size(); j++) {
       size_t k = offsets[Keys[j]]++;
       // needed for types with self defined assignment or initialization
@@ -113,7 +113,7 @@ namespace pbbs {
     T* B = new_array_no_init<T>(n);
     _seq_count_sort<b_size_t,size_t>(In, B, Keys, counts, num_buckets);
     for (size_t i = 0; i < n ; i++)
-      Out[i] = B[i]; 
+      Out[i] = B[i];
     free_array(B);
     size_t c = 0;
     for (size_t i=0; i < num_buckets; i++) {
@@ -126,7 +126,7 @@ namespace pbbs {
   }
 
   // Parallel internal version
-  template <typename b_size_t, typename s_size_t, 
+  template <typename b_size_t, typename s_size_t,
     typename InS, typename OutS, typename KeyS>
   sequence<size_t> _count_sort(InS& In, OutS& Out, KeyS& Keys,
 			       size_t num_buckets) {
@@ -141,7 +141,7 @@ namespace pbbs {
 
     // if not given, then use heuristic to choose num_blocks
     size_t sqrt = (size_t) ceil(pow(n,0.5));
-    size_t num_blocks = 
+    size_t num_blocks =
       (size_t) (n < (1<<24)) ? (sqrt/16) : ((n < (1<<28)) ? sqrt/2 : sqrt);
     if (2*num_blocks < num_threads) num_blocks *= 2;
 
@@ -153,7 +153,7 @@ namespace pbbs {
 
     size_t block_size = ((n-1)/num_blocks) + 1;
     size_t m = num_blocks * num_buckets;
-    
+
     T *B = new_array_no_init<T>(n);
     s_size_t *counts = new_array_no_init<s_size_t>(m,1);
     //t.next("head");
@@ -162,7 +162,7 @@ namespace pbbs {
     auto block_f = [&] (size_t i) {
       s_size_t start = std::min(i * block_size, n);
       s_size_t end =  std::min(start + block_size, n);
-      _seq_count_sort<b_size_t,s_size_t>(In.slice(start,end), B+start, 
+      _seq_count_sort<b_size_t,s_size_t>(In.slice(start,end), B+start,
 					 Keys.slice(start,end),
 					 counts + i*num_buckets, num_buckets);
     };
@@ -201,7 +201,7 @@ namespace pbbs {
   }
 
   // Parallel internal version
-  template <typename b_size_t, typename s_size_t, 
+  template <typename b_size_t, typename s_size_t,
 	    typename InS, typename OutS, typename KeyS>
   sequence<size_t> _count_sort2(InS& In, OutS& Out, KeyS& Keys,
 				size_t num_buckets) {
@@ -217,7 +217,7 @@ namespace pbbs {
 
     // if not given, then use heuristic to choose num_blocks
     size_t sqrt = (size_t) ceil(pow(n,0.5));
-    size_t num_blocks = 
+    size_t num_blocks =
       (size_t) (n < (1<<24)) ? (sqrt/16) : ((n < (1<<28)) ? sqrt/2 : sqrt);
     if (2*num_blocks < num_threads) num_blocks *= 2;
     if (sizeof(T) <= 4) num_blocks = num_blocks/2;
@@ -232,7 +232,7 @@ namespace pbbs {
 
     size_t block_size = ((n-1)/num_blocks) + 1;
     size_t m = num_blocks * num_buckets;
-    
+
     //T *B = new_array_no_init<T>(n);
     s_size_t *counts = new_array_no_init<s_size_t>(m,1);
     if (n > 1000000000) t.next("head");
@@ -250,7 +250,7 @@ namespace pbbs {
     sequence<size_t> bucket_offsets = sequence<size_t>::no_init(num_buckets+1);
     parallel_for(0, num_buckets, [&] (size_t i) {
 	size_t v = 0;
-	for (size_t j= 0; j < num_blocks; j++) 
+	for (size_t j= 0; j < num_blocks; j++)
 	  v += counts[j*num_buckets + i];
 	bucket_offsets[i] = v;
       }, 1 + 1024/num_blocks);
@@ -290,7 +290,7 @@ namespace pbbs {
       },1);
 
     if (n > 1000000000) t.next("move");
-    
+
     // for (s_size_t i=0; i < num_buckets; i++) {
     //   bucket_offsets[i] = dest_offsets[i*num_blocks];
     //   //cout << i << ", " << bucket_offsets[i] << endl;

@@ -17,81 +17,10 @@ void allocator_clear() {}
 
 // allocates local lists for each core using the block_allocator
 // pools are powers of 2 from 2^{log_min_size} to 2^{log_max_size}
-struct small_allocator_2 {
-
-  static const int log_min_size = 4;
-  static const int total_list_size = (1 << 22);
-  int log_max_size = 17;
-  int num_buckets = log_max_size - log_min_size + 1;
-  struct block_allocator *allocators;
-
-  ~small_allocator_2() {
-    //for (int i=0; i < num_buckets; i++)
-    //  ~block_allocator(allocators[i]));
-    //free(allocators);
-  }
-
-  small_allocator_2() {}
-  small_allocator_2(size_t log_max_size) : log_max_size(log_max_size) ,
-					 num_buckets(log_max_size - log_min_size + 1) 
-  {
-    allocators = (struct block_allocator*)
-      malloc(num_buckets * sizeof(struct block_allocator));
-    
-    for (int i = 0; i < num_buckets; i++) {
-      size_t bucket_size = ((size_t) 1) << (i+log_min_size);
-      size_t per_proc_list_size = total_list_size / bucket_size;
-      size_t initial_additional_blocks = 0;
-      new (static_cast<void*>(std::addressof(allocators[i]))) 
-	block_allocator(bucket_size, initial_additional_blocks,
-			per_proc_list_size);
-    }
-  }
-
-  void* alloc_log(int log_size) {
-    if (log_size > log_max_size) abort();
-    int bucket = std::max(0, log_size - log_min_size);
-    void* ptr = allocators[bucket].alloc();
-    *((int*) ptr) = log_size;
-    return ((char*) ptr);
-  }
-
-  void* alloc(size_t n) {
-    int log_size = pbbs::log2_up(n);
-    return alloc_log(log_size);
-  }
-
-  void free(void* ptr, int log_size) {
-    int bucket = std::max(0, log_size - log_min_size);
-    allocators[bucket].free(ptr);
-  }
-
-  void print_stats() {
-    size_t total_a = 0;
-    size_t total_u = 0;
-    for (int i = 0; i < num_buckets; i++) {
-      size_t bucket_size = ((size_t) 1) << (i+log_min_size);
-      size_t allocated = allocators[i].num_allocated_blocks();
-      size_t used = allocators[i].num_used_blocks();
-      total_a += allocated * bucket_size;
-      total_u += used * bucket_size;
-      cout << "size = " << bucket_size << ", allocated = " << allocated
-	   << ", used = " << used << endl;
-    }
-    cout << "Total bytes allocated = " << total_a << endl;
-    cout << "Total bytes used = " << total_u << endl;
-  }
-    
-};
-
-// allocates local lists for each core using the block_allocator
-// pools are powers of 2 from 2^{log_min_size} to 2^{log_max_size}
 struct small_allocator {
 
-  //static const int log_min_size = 4;
   static const int total_list_size = (1 << 22);
-  //int log_max_size = 17;
-  int num_buckets; // = log_max_size - log_min_size + 1;
+  int num_buckets; 
   struct block_allocator *allocators;
   std::vector<int> sizes;
 
@@ -117,14 +46,6 @@ struct small_allocator {
 			per_proc_list_size);
     }
   }
-
-  // void* alloc_log(int log_size) {
-  //   if (log_size > log_max_size) abort();
-  //   int bucket = std::max(0, log_size - log_min_size);
-  //   void* ptr = allocators[bucket].alloc();
-  //   *((int*) ptr) = log_size;
-  //   return ((char*) ptr);
-  // }
 
   void* alloc(int n) {
     if (n < 0) abort();
@@ -177,16 +98,14 @@ struct mem_pool {
   std::atomic<long> used{0};
   size_t mem_size{getMemorySize()};
   struct small_allocator small_alloc;
-  //struct small_allocator_2 small_alloc;
-  
+
   mem_pool() {
     buckets = new concurrent_stack<void*>[num_buckets];
 
-     std::vector<int> sizes;
-     for (int i = log_min_size; i < log_base; i++)
-       sizes.push_back(1 << i);
+    std::vector<int> sizes;
+    for (int i = log_min_size; i < log_base; i++)
+      sizes.push_back(1 << i);
     small_alloc = small_allocator(sizes);
-    //small_alloc = small_allocator_2(log_base-1);
   };
 
   void* add_header(void* a) {
@@ -206,7 +125,6 @@ struct mem_pool {
     int log_size = pbbs::log2_up(padded_size);
     if (log_size < log_base) {
       void* a = small_alloc.alloc(1 << log_size);
-      //void* a = small_alloc.alloc_log(log_size);
       *((int*) a) = log_size;
       return add_header(a);
     }
@@ -236,7 +154,6 @@ struct mem_pool {
     int log_size = *((int*) sub_header(a));
     if (log_size < log_base)
       small_alloc.free(sub_header(a), (1 << log_size));
-      //small_alloc.free(sub_header(a), log_size);
     else if (log_size >= log_base + num_buckets) {
       std::cout << "corrupted header in free" << std::endl;
       abort();
@@ -245,7 +162,7 @@ struct mem_pool {
       void* b = sub_large_header(a);
       size_t n = ((size_t) 1) << log_size;
       used -= n;
-      if (n > mem_size/64) { // fix to 64
+      if (n > mem_size/64) { 
 	free(b);
 	allocated -= n;
       } else {

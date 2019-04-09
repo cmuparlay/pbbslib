@@ -53,6 +53,7 @@ struct small_allocator {
     //free(allocators);
   }
 
+<<<<<<< HEAD
   small_allocator() {}
   small_allocator(size_t log_max_size) : log_max_size(log_max_size) ,
 					 num_buckets(log_max_size - log_min_size + 1) 
@@ -71,6 +72,12 @@ struct small_allocator {
   }
 
   void* alloc_log(int log_size) {
+=======
+  void* alloc(size_t n) {
+    size_t np = n + header_size;  // add header
+
+    size_t log_size = pbbs::log2_up((size_t) np);
+>>>>>>> 6fafa08db81d476efee30d086c47d9ef8bf8a4c8
     if (log_size > log_max_size) abort();
     int bucket = std::max(0, log_size - log_min_size);
     void* ptr = allocators[bucket].alloc();

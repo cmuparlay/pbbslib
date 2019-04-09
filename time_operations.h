@@ -224,7 +224,7 @@ bool check_histogram(pbbs::sequence<T> const &in, pbbs::sequence<T> const &out) 
     return false;
   }
   return true;
-}  
+}
 
 template<typename T>
 double t_histogram(size_t n, bool check) {
@@ -268,7 +268,7 @@ bool check_sort(pbbs::sequence<T> const &in, pbbs::sequence<T> const &out,
     return false;
   }
   return true;
-}  
+}
 
 template<typename T>
 double t_sort(size_t n, bool check) {
@@ -513,7 +513,7 @@ double t_find_mid(size_t n, bool check) {
   time(t, idx = pbbs::find(In, 1););
   if (check)
     if (idx != n/2)
-      cout << "error in find " << endl;      
+      cout << "error in find " << endl;
   return t;
 }
 
@@ -526,7 +526,7 @@ double t_lexicograhic_compare(size_t n, bool check) {
   time(t, ls = pbbs::lexicographical_compare(In1, In2, std::less<T>()););
   if (check)
     if (ls)
-      cout << "error in lexicographical_compare " << endl;      
+      cout << "error in lexicographical_compare " << endl;
   return t;
 }
 

@@ -42,7 +42,7 @@ namespace pbbs {
 		  size_t cStart, size_t cCount, size_t cLength) {
 	if (cCount*rCount < TRANS_THRESHHOLD) {
 	  for (size_t i=rStart; i < rStart+ rCount; i++)
-	    for (size_t j=cStart; j < cStart + cCount; j++) 
+	    for (size_t j=cStart; j < cStart + cCount; j++)
 	      B[j*cLength + i] = A[i*rLength + j];
 	} else if (cCount > rCount) {
 	  size_t l1 = split(cCount);
@@ -60,7 +60,7 @@ namespace pbbs {
 	  auto right = [&] () {
 	    transR(rStart + l1,l2,rLength,cStart,cCount,cLength);};
 	  par_do(left, right);
-	}	
+	}
       }
 
       void trans(size_t rCount, size_t cCount) {
@@ -77,7 +77,7 @@ namespace pbbs {
       E *A, *B;
       int_t *OA, *OB;
 
-    blockTrans(E *AA, E *BB, int_t *OOA, int_t *OOB) 
+    blockTrans(E *AA, E *BB, int_t *OOA, int_t *OOB)
     : A(AA), B(BB), OA(OOA), OB(OOB) {}
 
       void transR(size_t rStart, size_t rCount, size_t rLength,
@@ -109,9 +109,9 @@ namespace pbbs {
 	  auto right = [&] () {
 	    transR(rStart + l1,l2,rLength,cStart,cCount,cLength);};
 	  par_do(left, right);
-	}	
+	}
       }
- 
+
       void trans(size_t rCount, size_t cCount) {
 #if defined(OPENMP)
 #pragma omp parallel
@@ -119,7 +119,7 @@ namespace pbbs {
 #endif
 	transR(0,rCount,cCount,0,cCount,rCount);
       }
-  
+
     } ;
 
   // Moves values from blocks to buckets
@@ -137,10 +137,10 @@ namespace pbbs {
     sequence<s_size_t> dest_offsets; //(m);
     auto add = addm<s_size_t>();
     //cout << "ss 8" << endl;
-      
+
     // for smaller input do non-cache oblivious version
     if (n < (1 << 22) || num_buckets <= 512 || num_blocks <= 512) {
-      size_t block_bits = log2_up(num_blocks);      
+      size_t block_bits = log2_up(num_blocks);
       size_t block_mask = num_blocks-1;
       if ((size_t) 1 << block_bits != num_blocks) {
 	cout << "in transpose_buckets: num_blocks must be a power or 2"
@@ -187,7 +187,7 @@ namespace pbbs {
       if (total != n) abort();
       source_offsets[m] = n;
       t.next("scans");
-      
+
       blockTrans<E,s_size_t>(From, To, source_offsets.begin(),
 			     dest_offsets.begin()).trans(num_blocks, num_buckets);
       t.next("trans 2");

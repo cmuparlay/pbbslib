@@ -1,6 +1,7 @@
 #pragma once
 
 #include "utilities.h"
+#include <initializer_list>
 
 #define hello foo
 
@@ -152,6 +153,17 @@ namespace pbbs {
       parallel_for(0, n, [&] (size_t i) {
 	  new ((void*) (s+i)) value_type(f(i));}, 1000); //, 100);
     };
+
+    sequence(std::initializer_list<value_type> l) {
+      size_t sz = l.end() - l.begin();
+      s = pbbs::new_array_no_init<value_type>(sz);
+      n = sz;
+      typename std::initializer_list<value_type>::iterator it;
+      size_t i = 0;
+      for (it = l.begin(); it != l.end(); ++it) {
+        s[i++] = *it;
+      }
+    }
 
     template <typename Iter>
     sequence(range<Iter> a) {

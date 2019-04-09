@@ -174,12 +174,12 @@ namespace pbbs {
     static size_t hash(intType a) {return hash64_2(a & ~((size_t) 31));}
     static bool eql(intType a, intType b) {return a == b;}
   };
-    
+
   template <typename s_size_t, typename Seq>
   sequence<s_size_t> histogram(Seq const &A, size_t m) {
     size_t n = A.size();
     using T = typename Seq::value_type;
-    
+
     // #bits is selected so each block fits into L3 cache
     //   assuming an L3 cache of size 1M per thread
     // the counting sort uses 2 x input size due to copy
@@ -206,17 +206,17 @@ namespace pbbs {
     // This is to avoid false sharing.
     get_bucket<T,int_hasheq_mask_low<T>> gb(A, int_hasheq_mask_low<T>(), bits);
     t.next("head");
-    
+
     // first buckets based on hash using a counting sort
     sequence<size_t> bucket_offsets =
       integer_sort_(A.slice(), B.slice(), Tmp.slice(), gb,
 		    bits, num_buckets, false);
     t.next("send to buckets");
-    
+
     // note that this is cache line alligned
     sequence<s_size_t> counts(m, (s_size_t) 0);
     t.next("initialize buckets");
-	
+
     // now in parallel across the buckets, sequentially process each bucket
     parallel_for(0, num_buckets, [&] (size_t i) {
       size_t start = bucket_offsets[i];

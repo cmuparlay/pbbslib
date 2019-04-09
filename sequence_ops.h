@@ -54,7 +54,7 @@ namespace pbbs {
   template <SEQ Seq, RANGE Range>
   auto copy(Seq const &A, Range R, flags fl = no_flag) -> void {
     parallel_for(0, A.size(), [&] (size_t i) {R[i] = A[i];});}
-    
+
   template <SEQ Seq, class Monoid>
   auto reduce_serial(Seq const &A, Monoid m) -> typename Seq::value_type {
     using T = typename Seq::value_type;

@@ -9,12 +9,12 @@ struct histogram_view {
   histogram_view() {
     for (size_t i=0; i < 6 ; i++) hist[i] = 0;
   }
-    
+
   void reduce(histogram_view* right) {
-    for (size_t i=0; i < 6; i++) 
+    for (size_t i=0; i < 6; i++)
       hist[i] += right->hist[i];
   }
-  
+
   void add_value(size_t i) { hist[i] += 1; }
   value_type view_get_value() const { return hist; }
 };

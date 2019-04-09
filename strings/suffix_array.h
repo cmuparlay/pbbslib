@@ -45,7 +45,7 @@
 namespace pbbs {
 
   constexpr bool verbose = false;
-  
+
   using namespace std;
 
   using uchar = unsigned char;
@@ -105,21 +105,21 @@ namespace pbbs {
 
       // get starts and lengths of new segments
       parallel_for (1, l, [&] (size_t i) {
-	  if (names[i] == i) 
+	  if (names[i] == i)
 	    segOut[i-1] = seg<indexT>(start+names[i-1],i-names[i-1]);
 	  else segOut[i-1] = seg<indexT>(0,0);
 	});
       segOut[l-1] = seg<indexT>(start+names[l-1],l-names[l-1]);
     }
-  }  
+  }
 
   template <class indexT>
   sequence<ipair<indexT>>
-  split_segment_top(sequence<seg<indexT>> &segOut, 
+  split_segment_top(sequence<seg<indexT>> &segOut,
 		  sequence<indexT> &ranks,
 		  sequence<uint128> const &Cs) {
     size_t n = segOut.size();
-    sequence<indexT> names(n); 
+    sequence<indexT> names(n);
     size_t mask = ((((size_t) 1) << 32) - 1);
 
     // mark start of each segment with equal keys
@@ -140,8 +140,8 @@ namespace pbbs {
     sa_timer.next("write rank and copy");
 
     // get starts and lengths of new segments
-    parallel_for (1, n, [&] (size_t i) { 
-	if (names[i] == i) 
+    parallel_for (1, n, [&] (size_t i) {
+	if (names[i] == i)
 	  segOut[i-1] = seg<indexT>(names[i-1],i-names[i-1]);
 	else segOut[i-1] = seg<indexT>(0,0);
       });
@@ -152,10 +152,10 @@ namespace pbbs {
   }
 
   template <class indexT>
-  sequence<indexT> suffix_array(sequence<uchar> const &ss) { 
+  sequence<indexT> suffix_array(sequence<uchar> const &ss) {
     if (verbose) sa_timer.start();
     size_t n = ss.size();
-  
+
     // renumber characters densely
     // start numbering at 1 leaving 0 to indicate end-of-string
     size_t pad = 48;
@@ -171,11 +171,11 @@ namespace pbbs {
 	return (i < n) ? flags[ss[i]] : 0;});
 
     if (verbose) cout << "distinct characters = " << m-1 << endl;
-    
+
     // pack characters into 128-bit word, along with the location i
     // 96 bits for characters, and 32 for location
     double logm = log2((double) m);
-    indexT nchars = floor(96.0/logm); 
+    indexT nchars = floor(96.0/logm);
 
     sequence<uint128> Cl(n, [&] (size_t i) {
 	uint128 r = s[i];
@@ -183,7 +183,7 @@ namespace pbbs {
 	return (r << 32) + i;
       });
     sa_timer.next("copy into 128bit int");
-  
+
     // sort based on packed words
     sample_sort_inplace(Cl.slice(), std::less<uint128>());
     sa_timer.next("sort");
@@ -213,7 +213,7 @@ namespace pbbs {
       sequence<seg<indexT>> Segs = filter(seg_outs.slice(0,nKeys), is_seg);
       indexT nSegs = Segs.size();
       if (nSegs == 0) break;
-      sa_timer.next("filter and scan");    
+      sa_timer.next("filter and scan");
 
       sequence<indexT> offsets(nSegs);
       parallel_for (0, nSegs, [&] (size_t i) {
@@ -221,11 +221,11 @@ namespace pbbs {
 	  indexT l = Segs[i].length;
 	  auto Ci = C.slice(start, start + l);
 	  offsets[i] = l;
-	  
+
 	  // grab rank from offset locations ahead
 	  parallel_for (0, l, [&] (size_t j) {
-	      indexT o = Ci[j].second + offset; 
-	      Ci[j].first = (o >= n) ? 0 : ranks[o]; 
+	      indexT o = Ci[j].second + offset;
+	      Ci[j].first = (o >= n) ? 0 : ranks[o];
 	    }, 100);
 
 	  // sort within each segment based on ranks
@@ -233,7 +233,7 @@ namespace pbbs {
 	    return A.first < B.first;};
 	  if (l >= n/10) sample_sort_inplace(Ci, less);
 	  else quicksort(Ci, less);
-	}); 
+	});
       sa_timer.next("sort");
 
       // starting offset for each segment
@@ -245,7 +245,7 @@ namespace pbbs {
 	  indexT l = Segs[i].length;
 	  indexT o = offsets[i];
 	  split_segment(seg_outs.slice(o, o + l),
-			start, 
+			start,
 			ranks,
 			C.slice(start, start+l));
 	}, 100);

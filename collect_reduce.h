@@ -82,7 +82,7 @@ namespace pbbs {
     size_t n = A.size();
     timer t;
     t.start();
-    
+
     // pad to 16 buckets to avoid false sharing (does not affect results)
     num_buckets = std::max(num_buckets, (size_t) 16);
 
@@ -131,7 +131,7 @@ namespace pbbs {
     using T = typename Seq::value_type;
     using val_type = typename T::second_type;
     size_t n = A.size();
-    
+
     // #bits is selected so each block fits into L3 cache
     //   assuming an L3 cache of size 1M per thread
     // the counting sort uses 2 x input size due to copy
@@ -140,8 +140,8 @@ namespace pbbs {
 				   4);
 					   
     size_t num_blocks = (1<<bits);
-    
-    if (num_buckets <= 4 * num_blocks) 
+
+    if (num_buckets <= 4 * num_blocks)
       return collect_reduce_few(A, monoid, num_buckets);
 
     // Returns a map (hash) from key to block.
@@ -164,17 +164,17 @@ namespace pbbs {
     //bool single_block;
     //std::tie(block_offsets, single_block)
       //= count_sort(A, B.slice(), Tmp.slice(), get_blocks, num_blocks);
-    block_offsets = integer_sort_(A, B.slice(), Tmp.slice(), gb, 
+    block_offsets = integer_sort_(A, B.slice(), Tmp.slice(), gb,
 				  bits, num_blocks, false);
     // note that this is cache line alligned
     sequence<val_type> sums(num_buckets, monoid.identity);
-       
+
     // now process each block in parallel
     parallel_for(0, num_blocks, [&] (size_t i) {
 	size_t start = block_offsets[i];
 	size_t end = block_offsets[i+1];
 	size_t cut =  gb.heavy_hitters ? num_buckets/2 : num_buckets;
-	
+
 	// small blocks have indices in bottom half
 	if (i < cut)
 	  for (size_t i = start; i < end; i++) {
@@ -200,7 +200,7 @@ namespace pbbs {
   collect_reduce_sparse(Seq const &A, HashEq hasheq, M const &monoid) {
     using T = typename Seq::value_type;
     using val_type = typename T::second_type;
-    
+
     timer t("collect_reduce_sparse", false);
     size_t n = A.size();
 
@@ -231,14 +231,14 @@ namespace pbbs {
     // This is to avoid false sharing.
     sequence<T> B = sequence<T>::no_init(n);
     sequence<T> Tmp = sequence<T>::no_init(n);
-    
+
     // first buckets based on hash using a counting sort
     get_bucket<T,HashEq> gb(A, hasheq, bits);
     sequence<size_t> bucket_offsets =
       integer_sort_(A.slice(), B.slice(), Tmp.slice(), gb,
 		    bits, num_buckets, false);
     t.next("sort to blocks");
-    
+
     // note that this is cache line alligned
     size_t num_tables = gb.heavy_hitters ? num_buckets/2 : num_buckets;
     size_t bucket_size = (n - 1) / num_tables + 1;
@@ -249,7 +249,7 @@ namespace pbbs {
     size_t total_table_size = table_size * num_tables;
     sequence<T> table = sequence<T>::no_init(total_table_size);
     sequence<size_t> sizes(num_tables + 1);
-	
+
     // now in parallel process each bucket sequentially
     parallel_for(0, num_tables, [&] (size_t i) {
       T* my_table = table.begin() + i * table_size;
@@ -297,7 +297,7 @@ namespace pbbs {
       // pack tables down to bottom
       size_t j=0;
       for (size_t i = 0; i < table_size; i++)
-	if (flags[i]) 
+	if (flags[i])
 	  move_uninitialized(my_table[j++], my_table[i]);
       sizes[i] = j;
 

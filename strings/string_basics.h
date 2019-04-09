@@ -146,11 +146,11 @@ namespace pbbs {
 
     sequence<char*> r = pbbs::pack(Pointers, StartFlags);
     t.next("offsets");
-    
+
     return r;
   }
 
-  
+
   template <class Seq, class BoolSeq>
   auto partition_at(Seq const &S, BoolSeq const &StartFlags)
     -> sequence<range<typename Seq::value_type *>>

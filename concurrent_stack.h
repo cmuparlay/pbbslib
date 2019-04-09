@@ -63,7 +63,7 @@ class concurrent_stack {
       if (n == NULL) return 0;
       else return n->length;
     }
-      
+
   public:
     prim_concurrent_stack() {
       head.NC.node = NULL;
@@ -73,7 +73,7 @@ class concurrent_stack {
 
     size_t size() {
       return length(head.NC.node);}
-      
+
     void push(Node* newNode){
       CAS_t oldHead, newHead;
       do {
@@ -107,7 +107,7 @@ class concurrent_stack {
  public:
 
   size_t size() { return a.size();}
-  
+
   void push(T v) {
     Node* x = b.pop();
     if (!x) x = (Node*) malloc(sizeof(Node));

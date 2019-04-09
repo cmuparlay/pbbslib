@@ -10,7 +10,7 @@ namespace pbbs {
   // This sort is stable
   // if inplace is true then the output is placed in In and Out is just used
   // as temp space.
-  template <class Iter, class F> 
+  template <class Iter, class F>
   void merge_sort_(range<Iter> In,
 		   range<Iter> Out,
 		   const F& f,
@@ -33,7 +33,7 @@ namespace pbbs {
       pbbs::merge_(In.slice(0,m), In.slice(m,n), Out, f, true);
   }
 
-  template <class SeqA, class F> 
+  template <class SeqA, class F>
   sequence<typename SeqA::value_type>
   merge_sort(const SeqA &In, const F& f) {
     using T = typename SeqA::value_type;
@@ -43,7 +43,7 @@ namespace pbbs {
     return std::move(B);
   }
 
-  template <class T, class F> 
+  template <class T, class F>
   void merge_sort_inplace(range<T*> In, const F& f) {
     sequence<T> B(In.size());
     merge_sort_(In.slice(), B.slice(), f, true);

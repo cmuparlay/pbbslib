@@ -150,7 +150,7 @@ namespace pbbs {
     static T add(T a, T b) {
       T r;
       for (size_t i=0; i < S::value; i++)
-	for (size_t j=0; j < SS::value; j++) 
+	for (size_t j=0; j < SS::value; j++)
 	  r[i][j] = a[i][j] + b[i][j];
       return r;
     }
