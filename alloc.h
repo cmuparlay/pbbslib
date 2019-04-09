@@ -15,55 +15,62 @@ void allocator_clear() {}
 #include "block_allocator.h"
 #include "memory_size.h"
 
-// allocates local lists for each core using the block_allocator
-// pools are powers of 2 from 2^{log_min_size} to 2^{log_max_size}
+// Allocates headerless block from pools of different sizes.
+// A vector of sizes for the pools is given to the constructor.
+// Sizes must be at least 8, and must increase.
+// Each thread keeps a thread local list of elements from each pool
+//   using the block_allocator.
+// The free requires both the pointer and size since there is no header.
 struct small_allocator {
 
   static const int total_list_size = (1 << 22);
-  int num_buckets; 
+  int num_buckets;
+  int max_size;
   struct block_allocator *allocators;
   std::vector<int> sizes;
 
   ~small_allocator() {
-    //for (int i=0; i < num_buckets; i++)
-    //  ~block_allocator(allocators[i]));
-    //free(allocators);
+    // need to implement
   }
 
   small_allocator() {}
   
   small_allocator(std::vector<int> const &sizes) : sizes(sizes) {
     num_buckets = sizes.size();
+    max_size = sizes[num_buckets-1];
     allocators = (struct block_allocator*)
       malloc(num_buckets * sizeof(struct block_allocator));
+    size_t prev_bucket_size = 0;
     
     for (int i = 0; i < num_buckets; i++) {
       size_t bucket_size = sizes[i];
-      size_t per_proc_list_size = total_list_size / bucket_size;
-      size_t initial_additional_blocks = 0;
+      if (bucket_size < 8)
+	cout << "for small_allocator, bucket sizes must be at least 8" << endl;
+      if (!(bucket_size > prev_bucket_size))
+	cout << "for small_allocator, bucket sizes must increase" << endl;
+      prev_bucket_size = bucket_size;
       new (static_cast<void*>(std::addressof(allocators[i]))) 
-	block_allocator(bucket_size, initial_additional_blocks,
-			per_proc_list_size);
+	block_allocator(bucket_size); 
     }
   }
 
   void* alloc(int n) {
-    if (n < 0) abort();
-    int bucket = 0;
-    while (n > sizes[bucket]) {
-      bucket++;
-      if (bucket == (int) sizes.size()) abort();
+    if (n < 0 || n > max_size) {
+      std::cout << "size out of bounds in small_allocator alloc" << endl;
+      abort();
     }
+    int bucket = 0;
+    while (n > sizes[bucket]) bucket++;
     return allocators[bucket].alloc();
   }
 
   void free(void* ptr, int n) {
-    if (n < 0) abort();
-    int bucket = 0;
-    while (n > sizes[bucket]) {
-      bucket++;
-      if (bucket == (int) sizes.size()) abort();
+    if (n < 0 || n > max_size) {
+      std::cout << "size out of bounds in small_allocator free" << endl;
+      abort();
     }
+    int bucket = 0;
+    while (n > sizes[bucket]) bucket++;
     allocators[bucket].free(ptr);
   }
 

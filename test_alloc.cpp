@@ -10,7 +10,6 @@ int main (int argc, char *argv[]) {
   timer t;
   //small_allocator pool;
   size_t n = 100000000;
-  t.next("initialize");
   int rounds = 4;
   
   for (int i=0; i < rounds; i++) {
