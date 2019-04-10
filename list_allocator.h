@@ -69,7 +69,7 @@ class list_allocator {
   static bool initialized;
   static T* alloc();
   static void free(T*);
-  static void init();
+  static void init(size_t _alloc_size = default_alloc_size, size_t _list_size=list_size);
   static void reserve(size_t n = default_alloc_size,
 		      bool randomize = false,
 		      size_t _max_blocks = (3*getMemorySize()/sizeof(T))/4);
@@ -77,6 +77,8 @@ class list_allocator {
   static size_t block_size () {return _block_size;}
   static size_t num_allocated_blocks() {return blocks_allocated;}
   static size_t num_used_blocks();
+  static size_t num_used_bytes();
+  static void print_stats();
 
  private:
   static void rand_shuffle();
@@ -139,6 +141,21 @@ size_t list_allocator<T>::num_used_blocks() {
   for (int i = 0; i < thread_count; ++i)
     free_blocks += local_lists[i].sz;
   return blocks_allocated - free_blocks;
+}
+
+template<typename T>
+void list_allocator<T>::print_stats() {
+  size_t used = num_used_blocks();
+  size_t allocated = num_allocated_blocks();
+  size_t size = block_size();
+  std::cout << "Used: " << used << ", allocated: " << allocated
+		<< ", node size: " << size
+		<< ", bytes: " << size*allocated << std::endl;
+}
+
+template<typename T>
+size_t list_allocator<T>::num_used_bytes() {
+  return num_used_blocks()*block_size();
 }
 
 template<typename T>
@@ -207,11 +224,12 @@ void list_allocator<T>::reserve(size_t n,
 }
 
 template<typename T>
-void list_allocator<T>::init() {
+void list_allocator<T>::init(size_t _alloc_size, size_t _list_size) {
     if (initialized) return;
     initialized = true;
     blocks_allocated = 0;
 
+    list_length = _list_size;
     thread_count = num_workers();
 
     // Hack to account for possible allignment expansion
@@ -220,7 +238,7 @@ void list_allocator<T>::init() {
     _block_size = (char*) (x+1) - (char*) x;
 
     // reserve initial blocks in the global pool
-    reserve(default_alloc_size);
+    reserve(_alloc_size);
 
     // all local lists start out empty
     local_lists = new thread_list[thread_count];
