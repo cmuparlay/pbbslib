@@ -77,6 +77,8 @@ class list_allocator {
   static size_t block_size () {return _block_size;}
   static size_t num_allocated_blocks() {return blocks_allocated;}
   static size_t num_used_blocks();
+  static size_t num_used_bytes();
+  static void print_stats();
 
  private:
   static void rand_shuffle();
@@ -139,6 +141,21 @@ size_t list_allocator<T>::num_used_blocks() {
   for (int i = 0; i < thread_count; ++i)
     free_blocks += local_lists[i].sz;
   return blocks_allocated - free_blocks;
+}
+
+template<typename T>
+void list_allocator<T>::print_stats() {
+  size_t used = num_used_blocks();
+  size_t allocated = num_allocated_blocks();
+  size_t size = block_size();
+  std::cout << "Used: " << used << ", allocated: " << allocated
+		<< ", node size: " << size
+		<< ", bytes: " << size*allocated << std::endl;
+}
+
+template<typename T>
+size_t list_allocator<T>::num_used_bytes() {
+  return num_used_blocks()*block_size();
 }
 
 template<typename T>
