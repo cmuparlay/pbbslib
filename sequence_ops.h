@@ -47,9 +47,17 @@ namespace pbbs {
     parallel_for(0, l, body, 1, 0 != (fl & fl_conservative));
   }
 
-  template <class OT, SEQ Seq, class UnaryFunc>
-  auto map(Seq const &A, UnaryFunc f, flags fl = no_flag) -> sequence<OT> {
-    return sequence<OT>(A.size(), [&] (size_t i) {return f(A[i]);});}
+  // template <class OT, SEQ Seq, class UnaryFunc>
+    //auto map(Seq const &A, UnaryFunc f, flags fl = no_flag) -> sequence<OT> {
+    //return sequence<OT>(A.size(), [&] (size_t i) {return f(A[i]);});}
+
+  template <SEQ Seq, class UnaryFunc>
+  auto map(Seq const &A, UnaryFunc f) -> sequence<decltype(f(A[0]))> {
+    return sequence<decltype(f(A[0]))>(A.size(), [&] (size_t i) {return f(A[i]);});}
+
+  template <class UnaryFunc>
+  auto tabulate(size_t n, UnaryFunc f) -> sequence<decltype(f(0))> {
+    return sequence<decltype(f(0))>(n, [&] (size_t i) {return f(i);});}
 
   template <SEQ Seq, RANGE Range>
   auto copy(Seq const &A, Range R, flags fl = no_flag) -> void {

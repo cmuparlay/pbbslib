@@ -15,6 +15,11 @@ void allocator_clear() {}
 #include "block_allocator.h"
 #include "memory_size.h"
 
+// to avoid shadowing
+void _standard_free_(void * a) {
+  free(a);
+}
+
 // Allocates headerless block from pools of different sizes.
 // A vector of sizes for the pools is given to the constructor.
 // Sizes must be at least 8, and must increase.
@@ -30,7 +35,9 @@ struct small_allocator {
   std::vector<int> sizes;
 
   ~small_allocator() {
-    // need to implement
+    for (int i=0; i < num_buckets; i++)
+      allocators[i].~block_allocator();
+    _standard_free_(allocators);
   }
 
   small_allocator() {}
@@ -106,13 +113,15 @@ struct mem_pool {
   size_t mem_size{getMemorySize()};
   struct small_allocator small_alloc;
 
-  mem_pool() {
-    buckets = new concurrent_stack<void*>[num_buckets];
-
+  std::vector<int> gen_sizes() {
     std::vector<int> sizes;
     for (int i = log_min_size; i < log_base; i++)
       sizes.push_back(1 << i);
-    small_alloc = small_allocator(sizes);
+    return sizes;
+  }
+
+  mem_pool() : small_alloc(small_allocator(gen_sizes())) {
+    buckets = new concurrent_stack<void*>[num_buckets];
   };
 
   void* add_header(void* a) {
@@ -157,7 +166,7 @@ struct mem_pool {
     }
   }
 
-  void afree(void* a) {
+  void free(void* a) {
     int log_size = *((int*) sub_header(a));
     if (log_size < log_base)
       small_alloc.free(sub_header(a), (1 << log_size));
@@ -170,7 +179,7 @@ struct mem_pool {
       size_t n = ((size_t) 1) << log_size;
       used -= n;
       if (n > mem_size/64) { 
-	free(b);
+	_standard_free_(b);
 	allocated -= n;
       } else {
 	buckets[bucket].push(b);
@@ -184,7 +193,7 @@ struct mem_pool {
       maybe<void*> r = buckets[i].pop();
       while (r) {
 	allocated -= n;
-	free(*r);
+	_standard_free_(*r);
 	r = buckets[i].pop();
       }
     }
@@ -194,7 +203,7 @@ struct mem_pool {
 static mem_pool my_mem_pool;
 
 inline void* my_alloc(size_t i) {return my_mem_pool.alloc(i);}
-inline void my_free(void* p) {my_mem_pool.afree(p);}
+inline void my_free(void* p) {my_mem_pool.free(p);}
 
 void allocator_clear() {
   my_mem_pool.clear();

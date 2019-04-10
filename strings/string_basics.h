@@ -168,5 +168,13 @@ namespace pbbs {
 	return range<T*>(S.slice(Starts[i],end));});			    
   }
 
+  sequence<range<char*>> split(sequence<char> const &str, std::string const &split_chars) {
+    auto f = [&] (char a) {
+      for (size_t i = 0 ; i < split_chars.size(); i ++)
+	if (a == split_chars[i]) return true;
+      return false;
+    };
+    return tokens(str, f);
+  }
 }
 
