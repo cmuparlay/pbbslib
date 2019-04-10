@@ -1,5 +1,6 @@
 #include <algorithm>
 #include "utilities.h"
+#include "alloc.h"
 #include "sequence_ops.h"
 #include "get_time.h"
 #include "quicksort.h"
