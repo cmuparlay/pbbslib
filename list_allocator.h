@@ -69,7 +69,7 @@ class list_allocator {
   static bool initialized;
   static T* alloc();
   static void free(T*);
-  static void init();
+  static void init(size_t _alloc_size = default_alloc_size, size_t _list_size=list_size);
   static void reserve(size_t n = default_alloc_size,
 		      bool randomize = false,
 		      size_t _max_blocks = (3*getMemorySize()/sizeof(T))/4);
@@ -207,11 +207,12 @@ void list_allocator<T>::reserve(size_t n,
 }
 
 template<typename T>
-void list_allocator<T>::init() {
+void list_allocator<T>::init(size_t _alloc_size, size_t _list_size) {
     if (initialized) return;
     initialized = true;
     blocks_allocated = 0;
 
+    list_length = _list_size;
     thread_count = num_workers();
 
     // Hack to account for possible allignment expansion
@@ -220,7 +221,7 @@ void list_allocator<T>::init() {
     _block_size = (char*) (x+1) - (char*) x;
 
     // reserve initial blocks in the global pool
-    reserve(default_alloc_size);
+    reserve(_alloc_size);
 
     // all local lists start out empty
     local_lists = new thread_list[thread_count];
