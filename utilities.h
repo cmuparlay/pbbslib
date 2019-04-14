@@ -100,7 +100,12 @@ namespace pbbs {
   }
 
   template<typename T>
-  inline void move_uninitialized(T& a, const T& b) {
+  inline void assign_uninitialized(T& a, T&& b) { 
+    new (static_cast<void*>(std::addressof(a))) T(std::move(b));
+  }
+
+  template<typename T>
+  inline void move_uninitialized(T& a, const T b) {
     new (static_cast<void*>(std::addressof(a))) T(std::move(b));
   }
 

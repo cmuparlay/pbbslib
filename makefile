@@ -6,8 +6,7 @@ JEMALLOC = -L$(JEMALLOCLD) -ljemalloc
 endif
 
 CONCEPTS = -fconcepts -DCONCEPTS
-CFLAGS = -mcx16 -O3 -ldl -std=c++17 -march=native -Wall 
-
+CFLAGS = -mcx16 -O3 -std=c++17 -march=native -Wall 
 
 OMPFLAGS = -DOPENMP -fopenmp
 CILKFLAGS = -DCILK -fcilkplus

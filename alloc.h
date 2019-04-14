@@ -155,7 +155,7 @@ struct mem_pool {
       void* a = (void*) aligned_alloc(large_align, n);
       void* r = add_large_header(a);
       allocated += n;
-      if (a == NULL) std::cout << "alloc failed" << std::endl;
+      if (a == NULL) std::cout << "alloc failed on size: " << s << std::endl;
       // a hack to make sure pages are touched in parallel
       // not the right choice if you want processor local allocations
       size_t stride = (1 << 21); // 2 Mbytes in a huge page

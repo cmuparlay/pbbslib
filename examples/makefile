@@ -5,7 +5,8 @@ JEMALLOCLD = $(shell jemalloc-config --libdir)
 JEMALLOC = -L$(JEMALLOCLD) -ljemalloc 
 endif
 
-CFLAGS = -I../ -mcx16 -O3 -std=c++17 -Wall
+CONCEPTS = -fconcepts -DCONCEPTS
+CFLAGS = -I ../ -mcx16 -O3 -std=c++17 -march=native -Wall 
 
 OMPFLAGS = -DOPENMP -fopenmp
 CILKFLAGS = -DCILK -fcilkplus
@@ -26,9 +27,9 @@ PFLAGS = $(HGFLAGS)
 else ifdef SERIAL
 CC = g++
 PFLAGS =
-else # default is cilk
+else # default is homegrown
 CC = g++
-PFLAGS = $(CILKFLAGS)
+PFLAGS = $(HGFLAGS)
 endif
 
 EXAMPLES = mcss word_counts

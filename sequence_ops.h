@@ -59,6 +59,10 @@ namespace pbbs {
   auto tabulate(size_t n, UnaryFunc f) -> sequence<decltype(f(0))> {
     return sequence<decltype(f(0))>(n, [&] (size_t i) {return f(i);});}
 
+  template <class T>
+  auto singleton(T const &v) -> sequence<T> {
+    return sequence<T>(1, v); }
+
   template <SEQ Seq, RANGE Range>
   auto copy(Seq const &A, Range R, flags fl = no_flag) -> void {
     parallel_for(0, A.size(), [&] (size_t i) {R[i] = A[i];});}

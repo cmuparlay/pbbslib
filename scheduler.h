@@ -350,6 +350,7 @@ public:
   void parfor(size_t start, size_t end, F f,
 	      size_t granularity = 0,
 	      bool conservative = false) {
+    if (end <= start) return;
     if (granularity == 0) {
       size_t done = get_granularity(start,end, f);
       granularity = std::max(done, (end-start)/(128*sched->num_threads));

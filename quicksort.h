@@ -30,23 +30,35 @@ namespace pbbs {
 
   // use different parameters for pointer and non-pointer types
   // and depending on size
-  template<typename E> bool is_pointer(E x) {return 0;}
-  template<typename E> bool is_pointer(E* x) {return 1;}
-  //template<typename E, typename V> bool is_pointer(std::pair<E*,V> x) {return 1;}
-
+  template<typename T>
+  struct is_pointer_ { static const bool value = false; };
+  template<typename T>
+  struct is_pointer_<T*> { static const bool value = true; };
+  
   template <class T>
   bool base_case(T* x, size_t n) {
-    bool large = is_pointer(x[0]) || (sizeof(x) > 8);
+    bool large = is_pointer_<T>::value || (sizeof(x) > 8);
     return large ? (n < 16) : (n < 24);
   }
 
+  // calls copy constructor and assignment
   template <class E, class BinPred>
-  void insertion_sort(E* A, size_t n, const BinPred& f) {
+  void insertion_sort_o(E* A, size_t n, const BinPred& f) {
     for (size_t i=0; i < n; i++) {
       E v = A[i];
       E* B = A + i;
       while (--B >= A && f(v,*B)) *(B+1) = *B;
       *(B+1) = v;
+    }
+  }
+
+  template <class E, class BinPred>
+  void insertion_sort(E* A, size_t n, const BinPred& f) {
+    for (size_t i = 1; i < n; i++) {
+      long j = i; 
+      while (--j >= 0 && f(A[j+1],A[j])) {
+	std::swap(A[j+1],A[j]);
+      }
     }
   }
 
@@ -107,6 +119,7 @@ namespace pbbs {
       quicksort_serial(M, A+n-M, f);
       n = L - A;
     }
+    
     insertion_sort(A,n,f);
   }
 

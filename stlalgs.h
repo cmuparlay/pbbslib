@@ -203,6 +203,11 @@ namespace pbbs {
   sort(Seq const &S, Compare less) {
     return sample_sort(S, less, false);}
 
+  template <class T, class Compare>
+  sequence<T>
+  sort(sequence<T> &&S, Compare less) {
+    return sample_sort(std::forward<sequence<T>>(S), less, false);}
+
   template <class Iter, class Compare>
   void sort_inplace (range<Iter> A, const Compare& f) {
     sample_sort_inplace(A, f); };
@@ -237,6 +242,21 @@ namespace pbbs {
   }
 
   template <class Seq>
+  auto flatten(Seq &&s) -> sequence<typename Seq::value_type::value_type> {
+    using T = typename Seq::value_type::value_type;
+    sequence<size_t> offsets(s.size(), [&] (size_t i) {
+	return s[i].size();});
+    size_t len = scan_inplace(offsets.slice(), addm<size_t>());
+    sequence<T> r(len);
+    parallel_for(0, s.size(), [&] (size_t i) {
+	parallel_for(0, s[i].size(), [&] (size_t j) {
+	    r[offsets[i] + j] = std::move(s[i][j]);
+	  }, 1000);
+      });
+    return r;
+  }
+
+  template <class Seq>
   auto flatten(Seq const &s) -> sequence<typename Seq::value_type::value_type> {
     using T = typename Seq::value_type::value_type;
     sequence<size_t> offsets(s.size(), [&] (size_t i) {
@@ -247,7 +267,7 @@ namespace pbbs {
 	parallel_for(0, s[i].size(), [&] (size_t j) {
 	    r[offsets[i] + j] = s[i][j];
 	  }, 1000);
-      }, 1);
+      });
     return r;
   }
 

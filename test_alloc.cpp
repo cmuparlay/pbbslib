@@ -15,6 +15,7 @@ int main (int argc, char *argv[]) {
   {
     mem_pool mp;
 
+
     for (int i=0; i < rounds; i++) {
       sequence<char *> b(n, [&] (size_t i) {
 	  char* foo = (char*) mp.alloc(48);

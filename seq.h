@@ -86,7 +86,7 @@ namespace pbbs {
     return delayed_sequence<T,F>(n,f);
   }
 
-  constexpr bool check_copy = true;
+  constexpr bool check_copy = false;
 
   template <typename T>
   struct sequence {
@@ -94,141 +94,188 @@ namespace pbbs {
     using value_type = T;
     //using iterator = T*;
 
-    sequence() : s(NULL), n(0) {}
+    sequence() { empty(); }
 
     // copy constructor
-    sequence(const sequence& a) : n(a.n) {
-      copy_here(a.s, a.n);
-      if (check_copy)
-	cout << "copy constructor: len: " << a.n << " sizeof: " << sizeof(T) << endl;
+    sequence(const sequence& a) {
+      if (check_copy && !a.is_small())
+	cout << "copy constructor: len: " << a.size()
+	     << " element size: " << sizeof(T) << endl;
+      if (a.is_small()) val = a.val;
+      else copy_from(a.val.large.s, a.val.large.n);
     }
 
     // move constructor
-    sequence(sequence&& a)
-      : s(a.s), n(a.n) {a.s = NULL; a.n = 0;}
+    sequence(sequence&& a) {
+      val = a.val; a.empty();}
 
     // copy assignment
     sequence& operator = (const sequence& a) {
-      if (this != &a) {clear(); copy_here(a.s, a.n);}
-      if (check_copy)
-	cout << "copy assignment: len: " << a.n << " sizeof: " << sizeof(T) << endl;
+      if (check_copy && !a.is_small())
+	cout << "copy assignment: len: " << a.size()
+	     << " element size: " << sizeof(T) << endl;
+      if (this != &a) {
+	clear(); 
+	if (a.is_small()) val = a.val;
+	else copy_from(a.val.large.s, a.val.large.n);}
       return *this;
     }
 
     // move assignment
     sequence& operator = (sequence&& a) {
-      if (this != &a) {
-	clear(); s = a.s; n = a.n; a.s = NULL; a.n = 0;}
+      if (this != &a) {clear(); val = a.val; a.empty();}
       return *this;
     }
 
-    sequence(const size_t n)
-      : s(pbbs::new_array<T>(n)), n(n) {
-      //if (n > 1000000000) cout << "make empty: " << s << endl;
+    sequence(const size_t sz) {
+      alloc(sz, true);}
+
+    // only use if a is allocated by same allocator as sequence
+    sequence(value_type* a, const size_t sz) {
+      set(a, sz);
+      // cout << "dangerous: " << size();
     };
 
-    sequence(value_type* a, const size_t n) : s(a), n(n) {
-      //cout << "dangerous" << endl;
-    };
-
-    static sequence<T> no_init(const size_t n) {
+    static sequence<T> no_init(const size_t sz) {
       sequence<T> r;
-      r.s = pbbs::new_array_no_init<T>(n);
-      //if (n > 1000000000) cout << "make no init: " << r.s << endl;
-      r.n = n;
+      r.alloc(sz, false);
       return r;
     };
 
-    sequence(const size_t n, value_type v)
-      : s(pbbs::new_array_no_init<T>(n, true)), n(n) {
-      //if (n > 1000000000) cout << "make const: " << s << endl;
-      auto f = [=] (size_t i) {new ((void*) (s+i)) value_type(v);};
-      parallel_for(0, n, f);
+    sequence(const size_t sz, value_type v) {
+      T* start = alloc(sz, false);
+      parallel_for(0, sz, [=] (size_t i) {
+	  assign_uninitialized(start[i], (T) v);});
     };
 
     template <typename Func>
-    sequence(const size_t n, Func f)
-      : s(pbbs::new_array_no_init<T>(n)), n(n) {
-      //if (n > 1000000000) cout << "make func: " << s << endl;
-      parallel_for(0, n, [&] (size_t i) {
-	  new ((void*) (s+i)) value_type(f(i));}, 1000); //, 100);
+    sequence(const size_t sz, Func f) {
+      T* start = alloc(sz, false);
+      parallel_for(0, sz, [&] (size_t i) {
+	  assign_uninitialized<T>(start[i], f(i));});
     };
 
     sequence(std::initializer_list<value_type> l) {
       size_t sz = l.end() - l.begin();
-      s = pbbs::new_array_no_init<value_type>(sz);
-      n = sz;
-      typename std::initializer_list<value_type>::iterator it;
+      T* start = alloc(sz, true);
       size_t i = 0;
-      for (it = l.begin(); it != l.end(); ++it) {
-        s[i++] = *it;
-      }
+      for (T a : l) start[i++] = a;
     }
 
     template <typename Iter>
     sequence(range<Iter> a) {
-      copy_here(a.begin(), a.size());
+      copy_from(a.begin(), a.size());
     }
 
     template <class F>
     sequence(delayed_sequence<T,F> a) {
-      copy_here(a, a.size());
+      copy_from(a.begin(), a.size());
     }
 
     ~sequence() { clear();}
 
-    value_type& operator[] (const size_t i) const {return s[i];}
-
     range<value_type*> slice(size_t ss, size_t ee) const {
-      return range<value_type*>(s + ss, s + ee);
+      return range<value_type*>(begin() + ss, begin() + ee);
     }
 
     range<std::reverse_iterator<value_type*>>
     rslice(size_t ss, size_t ee) const {
-      auto i = std::make_reverse_iterator(s+n);
-      return range<decltype(i)>(i + ss, i + ee);
+      auto iter = std::make_reverse_iterator(begin() + size());
+      return range<decltype(iter)>(iter + ss, iter + ee);
     }
 
     range<std::reverse_iterator<value_type*>>
-    rslice() const {return rslice(0, n);};
+    rslice() const {return rslice(0, size());};
 
     range<value_type*> slice() const {
-      return range<value_type*>(s, s + n);
+      return range<value_type*>(begin(), begin() + size());
     }
-
-    void swap(sequence& b) {
-      std::swap(s, b.s); std::swap(n, b.n);
-    }
-
-    size_t size() const { return n;}
-    value_type* begin() const {return s;}
-    value_type* end() const {return s + n;}
 
     // gives up ownership of space
+    // only use if will be freed by same allocator as sequence
     value_type* to_array() {
-      value_type* r = s;  s = NULL; n = 0; return r;}
+      value_type* r = begin(); empty(); return r;}
 
     void clear() {
-      if (s != NULL) {
-	//if (n > 1000000000) cout << "delete: " << s << endl;
-        pbbs::delete_array<T>(s, n);
-        s = NULL; n = 0;
+      if (size() != 0) {
+        free();
+	empty();
       }
     }
 
-  private:
-    template <class Seq>
-    void copy_here(Seq const &a, size_t an) {
-      n = an;
-      s = pbbs::new_array_no_init<T>(n, true);
-      //cout << "s = " << s << " n = " << n << endl;
-      //if (n > 0) { cout << "Yikes, copy: " << s << endl;}
-      parallel_for(0, n, [&] (size_t i) {
-	      pbbs::assign_uninitialized(s[i], a[i]);});
+    value_type& operator[] (const size_t i) const {
+      return begin()[i];
     }
 
-    T *s;
-    size_t n;
+    void swap(sequence& b) {
+      std::swap(val.large.s, b.val.large.s); std::swap(val.large.n, b.val.large.n);
+    }
+
+    size_t size() const {
+      if (is_small()) return val.small[15];
+      return val.large.n;}
+
+    value_type* begin() const {
+      if (is_small()) return (T*) &val.small;
+      return val.large.s;}
+
+    value_type* end() const {return begin() + size();}
+
+  private:
+
+    // uses short string optimization (SSO)
+    // currently only for char sequences
+    union val_t {
+      struct {
+	T *s;
+	size_t n;
+      } large;
+      char small[16];
+    } val;
+
+    void set(T* start, size_t sz) {
+      val.large.n = sz;
+      val.large.s = start;
+    }
+      
+    // marks as empty
+    void empty() {set(NULL, 0);}
+
+    inline bool is_small(size_t sz) const {
+      return std::is_same<T,char>::value && sz < 16 && sz > 0; }
+
+    inline bool is_small() const {
+      if (std::is_same<T,char>::value) {
+	size_t sz = val.small[15];
+	return (sz > 0 && sz < 16);
+      }
+      return false;
+    }
+    
+    // allocate and set size
+    value_type* alloc(size_t sz, bool init) {
+      if (is_small(sz)) {
+	val.small[15] = sz;
+	return (T*) &val.small;
+      }
+      T* loc = (sz == 0) ? NULL :
+	(init ? pbbs::new_array<T>(sz) : pbbs::new_array_no_init<T>(sz));
+      set(loc, sz);
+      return loc;
+    }
+    
+    // free
+    void free() {
+      if (!is_small())
+	pbbs::delete_array<T>(val.large.s, val.large.n); }
+
+    template <class Iter>
+    void copy_from(Iter a, size_t sz) {
+      T* start = alloc(sz, false); 
+      parallel_for(0, sz, [&] (size_t i) {
+	  assign_uninitialized(start[i], a[i]);});
+    }
+
   };
 
   template <class Iter>
@@ -238,6 +285,14 @@ namespace pbbs {
   template <class SeqA, class SeqB>
   bool slice_eq(SeqA a, SeqB b) { return false;}
 
+  std::ostream& operator<<(std::ostream& os, sequence<char> const &s)
+  {
+    // pad with a zero
+    sequence<char> out(s.size()+1, [&] (size_t i) {
+	return i == s.size() ? 0 : s[i];});
+    os << out.begin();
+    return os;
+  }
 }
 
 

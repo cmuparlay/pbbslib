@@ -72,7 +72,7 @@ namespace pbbs {
 #if defined(OPENMP)
     quicksort_serial(A.begin(), A.size(), less);
 #else
-    if (((sizeof(T) > 8) || is_pointer(A[0])) && !stable)
+    if (((sizeof(T) > 8) || is_pointer_<T>::value) && !stable)
       quicksort(A.begin(), A.size(), less);
     else bucket_sort(A, less, stable);
 #endif
@@ -113,7 +113,7 @@ namespace pbbs {
 		     bool inplace = false, bool stable = false) {
     using T = typename SeqIn::value_type;
     size_t n = In.size();
-
+    
     if (n < QUICKSORT_THRESHOLD) {
       small_sort_(In, Out, less, inplace, stable);
     } else {
@@ -122,7 +122,7 @@ namespace pbbs {
       // overhead for the transpose.
       size_t bucket_quotient = 4;
       size_t block_quotient = 4;
-      if (is_pointer(In[0])) {
+      if (is_pointer_<T>::value) {
 	bucket_quotient = 2;
 	block_quotient = 3;
       } else if (sizeof(T) > 8) {
@@ -197,6 +197,13 @@ namespace pbbs {
     if (A.size() < ((size_t) 1) << 32)
       sample_sort_<unsigned int>(A.slice(), A.slice(), less, true, stable);
     else sample_sort_<size_t>(A.slice(), A.slice(), less, true, stable);
+  }
+
+  template<class T, typename Compare>
+  auto sample_sort (sequence<T> &&A, const Compare& less, bool stable = false)
+    -> sequence<T> {
+    sample_sort_inplace(A.slice(), less, stable);
+    return std::move(A); 
   }
 
   template<typename E, typename Compare, typename s_size_t>

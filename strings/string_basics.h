@@ -35,7 +35,7 @@ namespace pbbs {
 
   // Writes a character sequence to a file, returns 0 if successful
   template <class CharSeq>
-  int char_seq_to_file(CharSeq const &S, char const *fileName);
+  int char_seq_to_file(CharSeq const &S, std::string fileName);
 
   // Returns a sequence of character ranges, one per token
   // The tokens are the longest contiguous subsequences of non space characters.
@@ -80,7 +80,7 @@ namespace pbbs {
   }
 
   template <class CharSeq>
-  int char_seq_to_file(CharSeq const &S, char const *fileName) {
+  int char_seq_to_file(CharSeq const &S, std::string fileName) {
     size_t n = S.size();
     std::ofstream file (fileName, std::ios::out | std::ios::binary);
     if (!file.is_open()) {
@@ -176,5 +176,54 @@ namespace pbbs {
     };
     return tokens(str, f);
   }
+
+  inline int to_chars_len(long a) { return 21;}
+  inline void to_chars_(char* s, long a) { sprintf(s,"%ld",a);}
+
+  inline int to_chars_len(unsigned long a) { return 21;}
+  inline void to_chars_(char* s, unsigned long a) { sprintf(s,"%lu",a);}
+
+  inline uint to_chars_len(uint a) { return 12;}
+  inline void to_chars_(char* s, uint a) { sprintf(s,"%u",a);}
+
+  inline int to_chars_len(int a) { return 12;}
+  inline void to_chars_(char* s, int a) { sprintf(s,"%d",a);}
+
+  inline int to_chars_len(double a) { return 18;}
+  inline void to_chars_(char* s, double a) { sprintf(s,"%.11le", a);}
+
+  inline int to_chars_len(char* a) { return strlen(a)+1;}
+  inline void to_chars_(char* s, char* a) { sprintf(s,"%s",a);}
+
+  template <class A, class B>
+  inline int to_chars_len(std::pair<A,B> a) { 
+    return to_chars_len(a.first) + to_chars_len(a.second) + 1;
+  }
+
+  template <class A, class B>
+  inline void to_chars_(char* s, std::pair<A,B> a) { 
+    int l = to_chars_len(a.first);
+    to_chars_(s, a.first); s[l] = ' '; to_chars_(s+l+1, a.second);
+  }
+
+  template <class Seq>
+  sequence<char> to_char_seq(Seq const &A, char separator=' ') {
+    size_t n = A.size();
+    sequence<long> L(n, [&] (size_t i) -> size_t {
+	return to_chars_len(A[i])+1;});
+    size_t m = pbbs::scan_inplace(L.slice(), addm<size_t>());
+    
+    sequence<char> B(m+1, (char) 0);
+    char* Bs = B.begin();
+    
+    parallel_for(0, n-1, [&] (long i) {
+	to_chars_(Bs + L[i], A[i]);
+	Bs[L[i+1] - 1] = separator;
+      });
+    to_chars_(Bs + L[n-1], A[n-1]);
+    auto r = pbbs::filter(B, [&] (char c) {return c != 0;});
+    return r;
+  }
+  
 }
 
