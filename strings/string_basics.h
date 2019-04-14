@@ -28,31 +28,33 @@
 
 namespace pbbs {
 
-  // Reads a character sequence from a file
+  // Reads a character sequence from a file :
   //    if end is zero or larger than file, then returns full file
-  //    if start past end of file then returns an empty string
-  inline sequence<char> char_seq_from_file(std::string filename, size_t start=0, size_t end=0);
+  //    if start past end of file then returns an empty string.
+  inline sequence<char> char_seq_from_file(std::string filename,
+					   size_t start=0, size_t end=0);
 
   // Writes a character sequence to a file, returns 0 if successful
   template <class CharSeq>
   int char_seq_to_file(CharSeq const &S, std::string fileName);
 
-  // Returns a sequence of character ranges, one per token
+  // Returns a sequence of sequences of characters, one per token.
   // The tokens are the longest contiguous subsequences of non space characters.
-  // The ranges are over the original sequence, so it should not be deleted
+  // where spaces are define by the unary predicate is_space.
   template <class Seq, class UnaryPred>
-  sequence<range<char*>> tokens(Seq const &S, UnaryPred const &is_space);
+  sequence<sequence<char>> tokens(Seq const &S, UnaryPred const &is_space);
 
-  // Zeros out all spaces, and returns a pointer to the start of each token
+  // A more primitive version of tokens.
+  // Zeros out all spaces, and returns a pointer to the start of each token.
   // Can be used with c style char* functions on each token since they will be null
   // terminated.
   template <class Seq, class UnaryPred>
   sequence<char*> tokenize(Seq &S, UnaryPred const &is_space);
 
-  // Returns a sequence of character ranges, one per partition
-  // The StartFlags sequence specifies the start of each partition
-  // The two arguments must be of the same length
-  // Location 0 is always a start
+  // Returns a sequence of character ranges, one per partition.
+  // The StartFlags sequence specifies the start of each partition.
+  // The two arguments must be of the same length.
+  // Location 0 is always a start.
   template <class Seq, class BoolSeq>
   auto partition_at(Seq const &S, BoolSeq const &StartFlags)
     -> sequence<range<typename Seq::value_type *>>;
@@ -92,51 +94,31 @@ namespace pbbs {
     return 0;
   }
 
-  // standard definition of a space character
-  inline bool is_space(char c) {
-    switch (c)  {
-    case '\r':
-    case '\t':
-    case '\n':
-    case 0:
-    case ' ' : return true;
-    default : return false;
-    }
-  }
-
   template <class Seq, class UnaryPred>
-  sequence<range<char*>> tokens(Seq const &S, UnaryPred const &is_space) {
+  sequence<sequence<char>> tokens(Seq const &S, UnaryPred const &is_space) {
     size_t n = S.size();
-
-    sequence<bool> StartFlags(n+1);
-    sequence<bool> EndFlags(n+1);
+    if (n==0) return sequence<sequence<char>>();
+    sequence<bool> Flags(n+1);
     parallel_for(1, n, [&] (long i) {
-	bool is = is_space(S[i]);
-	StartFlags[i] = !is && is_space(S[i-1]);
-	EndFlags[i] = is && !is_space(S[i-1]);
+	Flags[i] = is_space(S[i-1]) != is_space(S[i]);
       }, 10000);
-    EndFlags[0] = StartFlags[n] = false;
-    StartFlags[0] = !is_space(S[0]);
-    EndFlags[n] = !is_space(S[n-1]);
+    Flags[0] = !is_space(S[0]);
+    Flags[n] = !is_space(S[n-1]);
 
-    // offset for each start of word
-    sequence<long> Starts = pbbs::pack_index<long>(StartFlags);
-    sequence<long> Ends = pbbs::pack_index<long>(EndFlags);
-
-    return sequence<range<char*>>(Starts.size(), [&] (size_t i) {
-	return range<char*>(S.slice(Starts[i], Ends[i]));});
+    sequence<long> Locations = pbbs::pack_index<long>(Flags);
+  
+    return tabulate(Locations.size()/2, [&] (size_t i) {
+	return sequence<char>(S.slice(Locations[2*i], Locations[2*i+1]));});
   }
 
   template <class Seq, class UnaryPred>
   sequence<char*> tokenize(Seq  &S, UnaryPred const &is_space) {
     size_t n = S.size();
-    timer t("tokenize",false);
 
     // clear spaces
     parallel_for (0, n, [&] (size_t i) {
 	if (is_space(S[i])) S[i] = 0;}, 10000);
     S[n] = 0;
-    t.next("clear");
 
     auto StartFlags = delayed_seq<bool>(n, [&] (long i) {
 	return (i==0) ? S[i] : S[i] && !S[i-1];});
@@ -145,11 +127,9 @@ namespace pbbs {
 	return S.begin() + i;});
 
     sequence<char*> r = pbbs::pack(Pointers, StartFlags);
-    t.next("offsets");
 
     return r;
   }
-
 
   template <class Seq, class BoolSeq>
   auto partition_at(Seq const &S, BoolSeq const &StartFlags)
@@ -168,13 +148,19 @@ namespace pbbs {
 	return range<T*>(S.slice(Starts[i],end));});			    
   }
 
-  sequence<range<char*>> split(sequence<char> const &str, std::string const &split_chars) {
-    auto f = [&] (char a) {
-      for (size_t i = 0 ; i < split_chars.size(); i ++)
-	if (a == split_chars[i]) return true;
-      return false;
-    };
-    return tokens(str, f);
+  template <class Seq, class UnaryPred>
+  sequence<sequence<char>> split(Seq const &S, UnaryPred const &is_space) {
+    size_t n = S.size();
+
+    auto X = sequence<bool>(n, [&] (size_t i) {
+	return is_space(S[i]);});
+    sequence<long> Locations = pbbs::pack_index<long>(X);
+    size_t m = Locations.size();
+  
+    return tabulate(m + 1, [&] (size_t i) -> sequence<char> {
+	size_t start = (i==0) ? 0 : Locations[i-1] + 1;
+	size_t end = (i==m) ? n : Locations[i];
+	return sequence<char>(S.slice(start, end));});
   }
 
   inline int to_chars_len(long a) { return 21;}
