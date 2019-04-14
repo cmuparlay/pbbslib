@@ -242,32 +242,21 @@ namespace pbbs {
   }
 
   template <class Seq>
-  auto flatten(Seq &&s) -> sequence<typename Seq::value_type::value_type> {
-    using T = typename Seq::value_type::value_type;
-    sequence<size_t> offsets(s.size(), [&] (size_t i) {
-	return s[i].size();});
-    size_t len = scan_inplace(offsets.slice(), addm<size_t>());
-    sequence<T> r(len);
-    parallel_for(0, s.size(), [&] (size_t i) {
-	parallel_for(0, s[i].size(), [&] (size_t j) {
-	    r[offsets[i] + j] = std::move(s[i][j]);
-	  }, 1000);
-      });
-    return r;
-  }
-
-  template <class Seq>
   auto flatten(Seq const &s) -> sequence<typename Seq::value_type::value_type> {
+    timer t("flatten", false);
     using T = typename Seq::value_type::value_type;
     sequence<size_t> offsets(s.size(), [&] (size_t i) {
 	return s[i].size();});
+    t.next("offsets");
     size_t len = scan_inplace(offsets.slice(), addm<size_t>());
-    sequence<T> r(len);
+    t.next("scan");
+    auto r = sequence<T>::no_init(len);
     parallel_for(0, s.size(), [&] (size_t i) {
 	parallel_for(0, s[i].size(), [&] (size_t j) {
-	    r[offsets[i] + j] = s[i][j];
-	  }, 1000);
+	    assign_uninitialized(r[offsets[i] + j], s[i][j]);
+	  });
       });
+    t.next("copy");
     return r;
   }
 

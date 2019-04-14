@@ -3,20 +3,19 @@
 #include "sequence.h"
 
 namespace pbbs {
-
   
   template <class Seq, class Comp>
   auto group_by(Seq &&S, Comp less) {
     using KV = typename std::remove_reference<Seq>::type::value_type;
     using K = typename KV::first_type;
     using V = typename KV::second_type;
-    timer t("group by", true);
+    timer t("group by", false);
     size_t n = S.size();
   
     auto pair_less = [&] (std::pair<K,V> const &a, std::pair<K,V> const &b) {
       return less(a.first, b.first);};
 
-    auto sorted = pbbs::sample_sort(std::forward<Seq>(S), pair_less);
+    auto sorted = pbbs::sample_sort(std::forward<Seq>(S), pair_less, true);
     //auto sorted = pbbs::sample_sort(S, pair_less);
     t.next("sort");
       

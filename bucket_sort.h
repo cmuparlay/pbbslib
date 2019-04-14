@@ -25,7 +25,7 @@ namespace pbbs {
 
     for (long j = n-1; j >= 0; j--) {
       long x = --counts[keys[j]];
-      B[x] = A[j];
+      copy_memory(B[x], A[j]);
     }
   }
 
@@ -34,6 +34,7 @@ namespace pbbs {
   		   size_t root, size_t l, size_t r) {
     size_t n = r-l;
     size_t m = l + n/2;
+    //copy_memory(Out[root], In[m]);
     Out[root] = In[m];
     if (n == 1) return;
     to_heap_order(In, Out, 2*root+1, l, m);
@@ -48,32 +49,27 @@ namespace pbbs {
     size_t over_sample = 1 + n/(num_buckets * 400);
     size_t sample_set_size = num_buckets * over_sample;
     size_t num_pivots = num_buckets-1;
-    T *sample_set = (T*) my_alloc(sample_set_size*sizeof(T));
-
-    for (size_t i=0; i < sample_set_size; i++)
-      sample_set[i] = A[hash64(i)%n];
+    auto sample_set = sequence<T>(sample_set_size, [&] (size_t i) {
+	return A[hash64(i)%n];});
 
     // sort the samples
-    quicksort(sample_set, sample_set_size, f);
+    quicksort(sample_set.begin(), sample_set_size, f);
 
-    T* pivots = (T*) my_alloc(num_pivots*sizeof(T));
-    // subselect samples at even stride
-    pivots[0] = sample_set[over_sample];
-    for (size_t i=1; i < num_pivots; i++)
-      pivots[i] = sample_set[over_sample*(i+1)];
+    auto pivots = sequence<T>(num_pivots, [&] (size_t i) {
+	return sample_set[over_sample*(i+1)];});
 
-    if (!f(pivots[0],pivots[num_pivots-1])) return true;
+    if (!f(pivots[0],pivots[num_pivots-1])) 
+      return true;
 
-    T* pivots2 = sample_set;
-    to_heap_order(pivots, pivots2, 0, 0, num_pivots);
+    T* heap = sample_set.begin();
+    to_heap_order(pivots.begin(), heap, 0, 0, num_pivots);
 
     for (size_t i=0; i < n; i++) {
       size_t j = 0;
       for (size_t k=0; k < rounds; k++)
-        j = 1 + 2*j + !f(A[i], pivots2[j]);
+        j = 1 + 2*j + !f(A[i], heap[j]);
       buckets[i] = j-num_pivots;
     }
-    my_free(pivots); my_free(sample_set);
     return false;
   }
 
@@ -83,7 +79,8 @@ namespace pbbs {
     if (stable) merge_sort_(in, out, f, inplace);
     else {
       quicksort(in.begin(), in.size(), f);
-      if (!inplace) for (size_t i=0; i < in.size(); i++) out[i] = in[i];
+      if (!inplace) for (size_t i=0; i < in.size(); i++)
+		      copy_memory(out[i], in[i]);
     }
   }
 
@@ -115,8 +112,10 @@ namespace pbbs {
 
   template <class T, class binOp>
   void bucket_sort(range<T*> in, binOp f, bool stable=false) {
+    //cout << "hs1" << endl;
     size_t n = in.size();
-    sequence<T> tmp(n);
+    auto tmp = sequence<T>::no_init(n);
     bucket_sort_r(in.slice(), tmp.slice(), f, stable, true);
+    tmp.clear_no_destruct();
   }
 } // namespace pbbs

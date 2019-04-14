@@ -41,19 +41,19 @@ namespace pbbs {
     return large ? (n < 16) : (n < 24);
   }
 
-  // calls copy constructor and assignment
   template <class E, class BinPred>
-  void insertion_sort_o(E* A, size_t n, const BinPred& f) {
+  void insertion_sort(E* A, size_t n, const BinPred& f) {
     for (size_t i=0; i < n; i++) {
-      E v = A[i];
+      E v = std::move(A[i]); 
       E* B = A + i;
-      while (--B >= A && f(v,*B)) *(B+1) = *B;
-      *(B+1) = v;
+      while (--B >= A && f(v,*B)) copy_memory(*(B+1), *B);
+      move_uninitialized(*(B+1), v);
     }
   }
 
+  // cleaner, but slower -- not used
   template <class E, class BinPred>
-  void insertion_sort(E* A, size_t n, const BinPred& f) {
+  void insertion_sort_o(E* A, size_t n, const BinPred& f) {
     for (size_t i = 1; i < n; i++) {
       long j = i; 
       while (--j >= 0 && f(A[j+1],A[j])) {

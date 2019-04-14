@@ -32,7 +32,7 @@ CC = g++
 PFLAGS = $(HGFLAGS)
 endif
 
-AllFiles = allocator.h alloc.h bag.h binary_search.h block_allocator.h collect_reduce.h concurrent_stack.h counting_sort.h get_time.h hash_table.h histogram.h integer_sort.h list_allocator.h memory_size.h merge.h merge_sort.h monoid.h parallel.h parse_command_line.h quicksort.h random.h random_shuffle.h reducer.h sample_sort.h seq.h sequence_ops.h sparse_mat_vec_mult.h time_operations.h transpose.h utilities.h scheduler.h stlalgs.h
+AllFiles = allocator.h alloc.h bag.h binary_search.h block_allocator.h collect_reduce.h concurrent_stack.h counting_sort.h get_time.h hash_table.h histogram.h integer_sort.h list_allocator.h memory_size.h merge.h merge_sort.h monoid.h parallel.h parse_command_line.h quicksort.h random.h random_shuffle.h reducer.h sample_sort.h seq.h sequence_ops.h sparse_mat_vec_mult.h time_operations.h transpose.h utilities.h scheduler.h stlalgs.h bucket_sort.h
 
 time_tests:	$(AllFiles) time_tests.cpp time_operations.h
 	$(CC) $(CFLAGS) $(PFLAGS) time_tests.cpp -o time_tests $(JEMALLOC)

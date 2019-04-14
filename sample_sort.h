@@ -84,7 +84,7 @@ namespace pbbs {
     size_t l = In.size();
     if (inplace)
       for (size_t j = 0;  j < l; j++)
-	move_uninitialized(Out[j], In[j]);
+	copy_memory(Out[j], In[j]);
     else
       for (size_t j = 0;  j < l; j++)
 	assign_uninitialized(Out[j], In[j]);
@@ -166,6 +166,8 @@ namespace pbbs {
 						 counts, n, block_size,
 						 num_blocks, num_buckets);
       t.next("transpose");
+      Tmp.clear_no_destruct();
+
       // sort within each bucket
       parallel_for (0, num_buckets, [&] (size_t i) {
 	  size_t start = bucket_offsets[i];

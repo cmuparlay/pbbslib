@@ -109,6 +109,22 @@ namespace pbbs {
     new (static_cast<void*>(std::addressof(a))) T(std::move(b));
   }
 
+  template<typename T>
+  inline void copy_memory(T& a, const T &b) {
+    std::memcpy(&a, &b, sizeof(T));
+  }
+
+  enum _copy_type { _assign, _move, _copy};
+  
+  template<_copy_type copy_type, typename T>
+  inline void copy_val(T& a, const T &b) {
+    switch (copy_type) {
+    case _assign: assign_uninitialized(a, b); break;
+    case _move: move_uninitialized(a, b); break;
+    case _copy: copy_memory(a,b); break;
+    }
+  }
+  
   // a 32-bit hash function
   inline uint32_t hash32(uint32_t a) {
     a = (a+0x7ed55d16) + (a<<12);
@@ -198,11 +214,10 @@ namespace pbbs {
   void delete_array(E* A, size_t n) {
     // C++14 -- suppored by gnu C++11
     if (!std::is_trivially_destructible<E>::value) {
-      //if (!std::is_destructible<E>::value) {
-      if (n > 2048) {
-	auto f = [&] (size_t i) {A[i].~E();};
-	parallel_for(0, n, f);
-      } else for (size_t i = 0; i < n; i++) A[i].~E();
+      if (n > 2048) 
+	  parallel_for(0, n, [&] (size_t i) {
+	      A[i].~E();});
+      else for (size_t i = 0; i < n; i++) A[i].~E();
     }
     my_free(A);
   }

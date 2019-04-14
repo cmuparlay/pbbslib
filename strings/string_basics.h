@@ -24,6 +24,7 @@
 
 #include <iostream>
 #include <fstream>
+//#include <charconv> -- not widely available yet
 #include "../sequence.h"
 
 namespace pbbs {
@@ -193,7 +194,7 @@ namespace pbbs {
   }
 
   template <class Seq>
-  sequence<char> to_char_seq(Seq const &A, char separator=' ') {
+  sequence<char> to_char_seq_o(Seq const &A, char separator=' ') {
     size_t n = A.size();
     sequence<long> L(n, [&] (size_t i) -> size_t {
 	return to_chars_len(A[i])+1;});
@@ -210,6 +211,66 @@ namespace pbbs {
     auto r = pbbs::filter(B, [&] (char c) {return c != 0;});
     return r;
   }
+
+  sequence<char> to_char_seq(long v) {
+    int max_len = 21;
+    char s[max_len+1];
+    int l = snprintf(s, max_len, "%ld", v);
+    return sequence<char>(range<char*>(s, s + std::min(max_len-1, l)));
+  }
+
+  sequence<char> to_char_seq(int v) {
+    return to_char_seq((long) v);};
+
+  sequence<char> to_char_seq(unsigned long v) {
+    int max_len = 21;
+    char s[max_len+1];
+    int l = snprintf(s, max_len, "%lu", v);
+    return sequence<char>(range<char*>(s, s + std::min(max_len-1, l)));
+  }
+
+  sequence<char> to_char_seq(unsigned int v) {
+    return to_char_seq((unsigned long) v);};
+
+  sequence<char> to_char_seq(double v) {
+    int max_len = 20;
+    char s[max_len+1];
+    int l = snprintf(s, max_len, "%.11le", v);
+    return sequence<char>(range<char*>(s, s + std::min(max_len-1, l)));
+  }
+
+  sequence<char> to_char_seq(float v) {
+    return to_char_seq((double) v);};
+
+  sequence<char> to_char_seq(std::string s) {
+    return map(s, [&] (char c) {return c;});
+  }
+
+  template <class A, class B>
+  sequence<char> to_char_seq(std::pair<A,B> P) {
+    sequence<sequence<char>> s = {
+      singleton('('), to_char_seq(P.first),
+      to_char_seq(", "),
+      to_char_seq(P.second), singleton(')')};
+  return flatten(s);
+  }
+    
+  template <class Seq>
+  sequence<char> to_char_seq(Seq const &A, char separator=' ') {
+    return flatten(tabulate(2*A.size()-1, [&] (size_t i) {
+	  if (i & 1) return singleton(separator);
+	  else return to_char_seq(A[i/2]);
+	}));
+  }
   
+  // std::to_chars not widely available yet. sigh!!
+  // template<typename T, 
+  // 	   typename = typename std::enable_if<std::is_arithmetic<T>::value, T>::type>
+  // sequence<char> to_char_seq(T v) {
+  //   char a[20];
+  //   auto r = std::to_chars(a, a+20, v);
+  //   return sequence<char>(range<char*>(a, r.ptr));
+  // }
+   
 }
 

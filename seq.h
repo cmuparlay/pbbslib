@@ -152,7 +152,7 @@ namespace pbbs {
     sequence(const size_t sz, Func f) {
       T* start = alloc(sz, false);
       parallel_for(0, sz, [&] (size_t i) {
-	  assign_uninitialized<T>(start[i], f(i));});
+	  assign_uninitialized<T>(start[i], f(i));}, 1000);
     };
 
     sequence(std::initializer_list<value_type> l) {
@@ -198,11 +198,14 @@ namespace pbbs {
 
     void clear() {
       if (size() != 0) {
-        free();
+        free(true);
 	empty();
       }
     }
 
+    void clear_no_destruct() {
+      if (size() != 0) { free(false); empty();}} 
+  
     value_type& operator[] (const size_t i) const {
       return begin()[i];
     }
@@ -265,15 +268,19 @@ namespace pbbs {
     }
     
     // free
-    void free() {
-      if (!is_small())
-	pbbs::delete_array<T>(val.large.s, val.large.n); }
+    void free(bool destruct=true) {
+      if (!is_small()) {
+	if (destruct) // delete all elements
+	  pbbs::delete_array<T>(val.large.s, val.large.n);
+	else pbbs::free_array(val.large.s);
+      }
+    }
 
     template <class Iter>
     void copy_from(Iter a, size_t sz) {
       T* start = alloc(sz, false); 
       parallel_for(0, sz, [&] (size_t i) {
-	  assign_uninitialized(start[i], a[i]);});
+	  assign_uninitialized(start[i], a[i]);}, 1000);
     }
 
   };

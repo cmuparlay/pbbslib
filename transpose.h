@@ -89,7 +89,7 @@ namespace pbbs {
 	      size_t sb = OB[j*cLength + i];
 	      size_t l = OA[i*rLength + j + 1] - sa;
 	      for (size_t k =0; k < l; k++)
-		move_uninitialized(B[k+sb], A[k+sa]);
+		copy_memory(B[k+sb], A[k+sa]);
 	    }
 
           });
@@ -165,7 +165,7 @@ namespace pbbs {
 	  size_t d_offset = dest_offsets[i+ num_blocks*j];
 	  size_t len = counts[i*num_buckets+j];
 	  for (size_t k =0; k < len; k++)
-	    move_uninitialized(To[d_offset++], From[s_offset++]);
+	    copy_memory(To[d_offset++], From[s_offset++]);
 	}
       };
       parallel_for(0, num_blocks, f, 1);
