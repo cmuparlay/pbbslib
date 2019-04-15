@@ -180,8 +180,9 @@ namespace pbbs {
   template<typename E>
   E* new_array_no_init(size_t n, bool touch_pages=false) { //true) {
     // pads in case user wants to allign with cache lines
-    size_t line_size = 64;
-    size_t bytes = ((n * sizeof(E))/line_size + 1)*line_size;
+    //size_t line_size = 64;
+    //size_t bytes = ((n * sizeof(E))/line_size + 1)*line_size;
+    size_t bytes = n * sizeof(E);
     //E* r = (E*) aligned_alloc(line_size, bytes);
     E* r = (E*) my_alloc(bytes);
     if (r == NULL) {fprintf(stderr, "Cannot allocate space: %lu bytes", bytes); exit(1);}

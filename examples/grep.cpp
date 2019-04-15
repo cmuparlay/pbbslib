@@ -16,7 +16,7 @@ int main (int argc, char *argv[]) {
 
   timer t("grep", true);
   
-  pbbs::sequence<char> str = pbbs::char_seq_from_file(filename);
+  pbbs::range<char*> str = pbbs::char_range_from_file(filename);
   t.next("read file");
   sequence<char> out_str;
 

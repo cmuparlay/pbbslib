@@ -29,6 +29,13 @@
 //#include <charconv> -- not widely available yet
 #include "../sequence.h"
 
+#include <sys/mman.h>
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+
 namespace pbbs {
 
   // Reads a character sequence from a file :
@@ -86,6 +93,19 @@ namespace pbbs {
     file.read (bytes,n);
     file.close();
     return sequence<char>(bytes,n);
+  }
+
+  inline range<char*> char_range_from_file(std::string filename) {
+    struct stat sb;
+    int fd = open(filename.c_str(), O_RDONLY);
+    if (fd == -1) { perror("open"); exit(-1);  }
+    if (fstat(fd, &sb) == -1) { perror("fstat"); exit(-1); }
+    if (!S_ISREG (sb.st_mode)) { perror("not a file\n");  exit(-1); }
+    
+    char *p = static_cast<char*>(mmap(0, sb.st_size, PROT_READ, MAP_PRIVATE, fd, 0));
+    if (p == MAP_FAILED) { perror("mmap"); exit(-1); }
+    if (close(fd) == -1) { perror("close"); exit(-1); }
+    return range<char*>(p, p + sb.st_size);
   }
 
   template <class CharSeq>

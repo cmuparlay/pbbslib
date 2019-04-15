@@ -71,6 +71,12 @@ struct small_allocator {
     return allocators[bucket].alloc();
   }
 
+  void reserve(int n, size_t count) {
+    int bucket = 0;
+    while (n > sizes[bucket]) bucket++;
+    return allocators[bucket].reserve(count);
+  }
+
   void free(void* ptr, int n) {
     if (n < 0 || n > max_size) {
       std::cout << "size out of bounds in small_allocator free" << endl;
@@ -106,7 +112,7 @@ struct mem_pool {
   static constexpr int allocator_header_size = 16;
   static constexpr int large_align = 64;
   static constexpr int log_base = 18;
-  static constexpr int log_min_size = 4;
+  static constexpr int log_min_size = 5;
   static constexpr int num_buckets = 22;
   std::atomic<long> allocated{0};
   std::atomic<long> used{0};
@@ -137,6 +143,7 @@ struct mem_pool {
     return (void*) ((char*) a - large_align);}
 
   void* alloc(size_t s) {
+    //cout << "size: " << s << endl;
     size_t padded_size = s + allocator_header_size;
     int log_size = pbbs::log2_up(padded_size);
     if (log_size < log_base) {

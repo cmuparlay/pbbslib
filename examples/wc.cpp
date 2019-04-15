@@ -10,11 +10,9 @@ int main (int argc, char *argv[]) {
   commandLine P(argc, argv, "[-r <rounds>] infile");
   int rounds = P.getOptionIntValue("-r", 1);
   char* filename = P.getArgument(0);
-
-  cout << "rounds= " << rounds << endl;
   timer t("word counts", true);
-  
-  pbbs::sequence<char> str = pbbs::char_seq_from_file(filename);
+
+  auto str = pbbs::char_range_from_file(filename);
   t.next("read file");
 
   auto is_line_break = [&] (char a) {return a == '\n';};
