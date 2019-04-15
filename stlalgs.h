@@ -70,12 +70,11 @@ namespace pbbs {
 
   template<class Seq1, class Seq2, class BinaryPred>
   size_t find_first_of(Seq1 const &S1, Seq2 const &S2, BinaryPred p) {
-    auto f = [&] (size_t i) {
-      size_t j;
-      for (size_t j; j < S2.size(); j++)
-	if (p(S1[i], S2[j])) break;
-      return (j < S2.size());};
-    return find_if_index(S1.size(), f);
+    return find_if_index(S1.size(), [&] (size_t i) {
+	size_t j;
+	for (size_t j; j < S2.size(); j++)
+	  if (p(S1[i], S2[j])) break;
+	return (j < S2.size());});
   }
 
   template<class Seq, class BinaryPred>
@@ -88,14 +87,23 @@ namespace pbbs {
     return find_if_index(std::min(S1.size(),S2.size()), [&] (size_t i) {
 	return S1[i] != S2[i];});}
 
-  template<class Seq, class BinaryPred>
-  size_t search(Seq const &S1, Seq const &S2, BinaryPred pred) {
-    return find_if_index(S1.size()-S2.size()+1, [&] (size_t i) {
+  template<class Seq1, class Seq2, class BinaryPred>
+  size_t search(Seq1 const &S1, Seq2 const &S2, BinaryPred pred) {
+    return find_if_index(S1.size(), [&] (size_t i) {
+	if (i + S2.size() > S1.size()) return false;
 	size_t j;
 	for (j=0; j < S2.size(); j++)
-	  if (S1[i+j] != S2[j]) break;
+	  if (!pred(S1[i+j], S2[j])) break;
 	return (j == S2.size());
-      });}
+      });
+  }
+
+  template<class Seq1, class Seq2>
+  size_t search(Seq1 const &S1, Seq2 const &S2) {
+    using T = typename Seq1::value_type;
+    auto eq = [] (T a, T b) {return a == b;};
+    return search(S1, S2, eq);
+  }
 
   template<class Seq, class BinaryPred>
   size_t find_end(Seq const &S1, Seq const &S2, BinaryPred pred) {

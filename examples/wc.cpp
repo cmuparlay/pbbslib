@@ -8,27 +8,28 @@ using namespace pbbs;
 
 int main (int argc, char *argv[]) {
   commandLine P(argc, argv, "[-r <rounds>] infile");
-  int rounds = P.getOptionIntValue("-r", 3);
+  int rounds = P.getOptionIntValue("-r", 1);
   char* filename = P.getArgument(0);
 
+  cout << "rounds= " << rounds << endl;
   timer t("word counts", true);
   
   pbbs::sequence<char> str = pbbs::char_seq_from_file(filename);
   t.next("read file");
 
-  auto is_line_break = [&] (char a) {return a == '\n' || a == '\r';};
-  auto is_space = [&] (char a) {return std::isspace(a);};
+  auto is_line_break = [&] (char a) {return a == '\n';};
+  auto is_space = [&] (char a) {return a == '\n' || a == '\t' || a == ' ';};
 
   size_t lines, words;
   for (int i=0; i < rounds; i++) {
     lines = count_if(str, is_line_break);
-    auto x = seq(str.size()-1, [&] (size_t i) {
-	return is_space(str[i]) && !is_space(str[i+1]);});
+    auto x = seq(str.size(), [&] (size_t i) {
+	return (i == 0 || is_space(str[i-1])) && !is_space(str[i]);});
     words = count(x, true);
+    t.next("calculate counts");
   }
-  t.next("calculate counts");
   
-  cout << "\t" << lines << "\t" << words << "\t"
-       << str.size() << "\t" << filename << endl;
+  cout << "  " << lines << "  " << words << " "
+       << str.size() << " " << filename << endl;
 }
 

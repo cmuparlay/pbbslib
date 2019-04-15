@@ -179,6 +179,14 @@ namespace pbbs {
       copy_from(a.begin(), a.size());
     }
 
+    // Copies a Seq type 
+    // Uses enable_if to avoid matching on integer argument, which creates
+    // a sequece of the specified length
+    //template <class Seq, typename std::enable_if_t<!std::is_integral<Seq>::value>>
+    //sequence(Seq const &s) {
+    //  copy_from(s.begin(), s.size());
+    //}
+
     ~sequence() { clear();}
 
     range<value_type*> slice(size_t ss, size_t ee) const {
@@ -299,6 +307,11 @@ namespace pbbs {
   template <class SeqA, class SeqB>
   bool slice_eq(SeqA a, SeqB b) { return false;}
 
+  template <class Seq>
+  auto to_sequence(Seq s) -> sequence<decltype(s[0])> {
+    return sequence<decltype(s[0])>((size_t) s.size(), [&] (size_t i) {
+	return s[i];});}
+  
   std::ostream& operator<<(std::ostream& os, sequence<char> const &s)
   {
     // pad with a zero

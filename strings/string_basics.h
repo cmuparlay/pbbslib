@@ -24,6 +24,8 @@
 
 #include <iostream>
 #include <fstream>
+#include <string>
+#include <cstring>
 //#include <charconv> -- not widely available yet
 #include "../sequence.h"
 
@@ -38,6 +40,10 @@ namespace pbbs {
   // Writes a character sequence to a file, returns 0 if successful
   template <class CharSeq>
   int char_seq_to_file(CharSeq const &S, std::string fileName);
+
+  // Writes a character sequence to a stream
+  template <class CharSeq>
+  void char_seq_to_stream(CharSeq const &S, std::ostream& os);
 
   // Returns a sequence of sequences of characters, one per token.
   // The tokens are the longest contiguous subsequences of non space characters.
@@ -83,15 +89,19 @@ namespace pbbs {
   }
 
   template <class CharSeq>
+  void char_seq_to_stream(CharSeq const &S, std::ostream& os) {
+    os.write(S.begin(), S.size()-1);
+  }
+
+  template <class CharSeq>
   int char_seq_to_file(CharSeq const &S, std::string fileName) {
-    size_t n = S.size();
-    std::ofstream file (fileName, std::ios::out | std::ios::binary);
-    if (!file.is_open()) {
+    std::ofstream file_stream (fileName, std::ios::out | std::ios::binary);
+    if (!file_stream.is_open()) {
       std::cout << "Unable to open file for writing: " << fileName << std::endl;
       return 1;
     }
-    file.write(S.begin(), n);
-    file.close();
+    char_seq_to_stream(S, file_stream);
+    file_stream.close();
     return 0;
   }
 
