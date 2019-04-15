@@ -21,11 +21,14 @@ int main (int argc, char *argv[]) {
 
   size_t lines, words;
   for (int i=0; i < rounds; i++) {
-    lines = split(str, is_line_break).size();
-    words = tokens(str, is_space).size();
+    lines = count_if(str, is_line_break);
+    auto x = seq(str.size()-1, [&] (size_t i) {
+	return is_space(str[i]) && !is_space(str[i+1]);});
+    words = count(x, true);
   }
   t.next("calculate counts");
   
-  cout << "\t" << lines << "\t" << words << "\t" << str.size() << "\t" << filename << endl;
+  cout << "\t" << lines << "\t" << words << "\t"
+       << str.size() << "\t" << filename << endl;
 }
 
