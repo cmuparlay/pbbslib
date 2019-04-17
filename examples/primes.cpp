@@ -2,7 +2,6 @@
 #include "get_time.h"
 #include "strings/string_basics.h"
 #include "parse_command_line.h"
-#include "group_by.h"
 
 using namespace pbbs;
 
@@ -12,17 +11,13 @@ sequence<Int> prime_sieve(Int n) {
   else {
     Int sqrt = std::sqrt(n);
     auto primes_sqrt = prime_sieve(sqrt);
-    sequence<bool> flags(n+1, [&] (Int i) {
-	return i > sqrt;});
+    sequence<bool> flags(n+1, true);
+    flags[0] = flags[1] = false;
     parallel_for(0, primes_sqrt.size(), [&] (size_t i) {
 	Int prime = primes_sqrt[i];
-	flags[prime] = true;
-	parallel_for(sqrt/prime + 1, n/prime + 1, [&] (size_t j) {
+	parallel_for(2, n/prime + 1, [&] (size_t j) {
 	    flags[prime*j] = false;}, 1000);
-      }, 100);
-    size_t c = reduce(map(primes_sqrt, [&] (size_t prime) -> size_t {
-	  return n/prime - sqrt/prime;}), addm<size_t>());
-    cout << c << endl;
+      }, 1);
     return pack_index<Int>(flags);
   }
 }
@@ -30,13 +25,13 @@ sequence<Int> prime_sieve(Int n) {
 int main (int argc, char *argv[]) {
   commandLine P(argc, argv, "[-r <rounds>] [-o <outfile>] n");
   int rounds = P.getOptionIntValue("-r", 1);
-  size_t n = std::stoi(P.getArgument(0));
+  size_t n = std::stol(P.getArgument(0));
   std::string outfile = P.getOptionValue("-o", "");
   timer t("primes", true);
 
-  sequence<int> primes;
+  sequence<long> primes;
   for (int i=0; i < rounds; i++) {
-    primes = prime_sieve((int) n);
+    primes = prime_sieve((long) n);
     t.next("calculate primes");
   }
   

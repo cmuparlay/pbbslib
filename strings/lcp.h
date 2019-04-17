@@ -23,7 +23,7 @@ namespace pbbs {
     t.next("head");
 
     // keep indices for which we do not yet know their LCP (i.e. LCP >= len)
-    sequence<Uint> remain = pack_index<Uint>(map<bool>(L, [&] (Uint l) {
+    sequence<Uint> remain = pack_index<Uint>(map(L, [&] (Uint l) {
 	  return l == n;}));
     t.next("pack");
 

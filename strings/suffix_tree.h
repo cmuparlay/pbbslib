@@ -152,7 +152,7 @@ namespace pbbs {
 
       // tag edges with character from s
       sequence<Uint> root_indices = pack_index<Uint>(is_root);
-      Edges = map<edge>(sorted_edges, [&] (Pair p) {
+      Edges = map(sorted_edges, [&] (Pair p) {
 	  Uint child = p.second;
 	  Uint i = child/2;
 	  bool is_leaf = child & 1;
