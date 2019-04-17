@@ -12,15 +12,14 @@ sequence<Int> prime_sieve(Int n) {
   else {
     Int sqrt = std::sqrt(n);
     auto primes_sqrt = prime_sieve(sqrt);
-    sequence<bool> flags(n+1, true);
-    flags[0] = flags[1] = false;
-    parallel_for(0, sqrt+1, [&] (size_t i) {flags[i] = false;});
+    sequence<bool> flags(n+1, [&] (Int i) {
+	return i > sqrt;});
     parallel_for(0, primes_sqrt.size(), [&] (size_t i) {
 	Int prime = primes_sqrt[i];
 	flags[prime] = true;
 	parallel_for(sqrt/prime + 1, n/prime + 1, [&] (size_t j) {
 	    flags[prime*j] = false;}, 1000);
-      }, 1000);
+      }, 100);
     size_t c = reduce(map(primes_sqrt, [&] (size_t prime) -> size_t {
 	  return n/prime - sqrt/prime;}), addm<size_t>());
     cout << c << endl;
