@@ -32,7 +32,7 @@ CC = g++
 PFLAGS = $(HGFLAGS)
 endif
 
-EXAMPLES = mcss wc grep build_index
+EXAMPLES = mcss wc grep build_index primes
 
 # object files
 % : %.cpp

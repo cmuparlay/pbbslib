@@ -158,7 +158,8 @@ template <class F>
 inline void parallel_for(long start, long end, F f,
 			 long granularity,
 			 bool conservative) {
-  fj.parfor(start, end, f, granularity, conservative);
+  if (end > start)
+    fj.parfor(start, end, f, granularity, conservative);
 }
 
 template <typename Lf, typename Rf>

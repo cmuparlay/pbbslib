@@ -65,7 +65,6 @@ int main (int argc, char *argv[]) {
   for (int i=0; i < rounds ; i++) {
     idx = build_index(str);
     idx_timer.next("build index");
-    my_mem_pool.small_alloc.print_stats();
   }
 
   cout << "number of distinct words: " << idx.size() << endl;

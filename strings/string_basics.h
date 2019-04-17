@@ -58,6 +58,9 @@ namespace pbbs {
   template <class Seq, class UnaryPred>
   sequence<sequence<char>> tokens(Seq const &S, UnaryPred const &is_space);
 
+  // similar but the spaces are given as a string
+  //  sequence<sequence<char>> tokens(Seq const &S, std::string const &spaces);
+
   // A more primitive version of tokens.
   // Zeros out all spaces, and returns a pointer to the start of each token.
   // Can be used with c style char* functions on each token since they will be null
@@ -194,6 +197,16 @@ namespace pbbs {
 	return sequence<char>(S.slice(start, end));});
   }
 
+  template <class Seq>
+  sequence<sequence<char>> split(Seq const &S, std::string const &spaces) {
+    auto is_space = [&] (char a) {
+      for (int i = 0; i < spaces.size(); i++)
+	if (a == spaces[i]) return true;
+      return false;
+    };
+    return split(S, is_space);
+  }
+
   inline int to_chars_len(long a) { return 21;}
   inline void to_chars_(char* s, long a) { sprintf(s,"%ld",a);}
 
@@ -287,7 +300,7 @@ namespace pbbs {
     
   template <class Seq>
   sequence<char> to_char_seq(Seq const &A, char separator=' ') {
-    return flatten(tabulate(2*A.size()-1, [&] (size_t i) {
+    return flatten(tabulate(std::max<long>(2*A.size()-1,0), [&] (size_t i) {
 	  if (i & 1) return singleton(separator);
 	  else return to_char_seq(A[i/2]);
 	}));

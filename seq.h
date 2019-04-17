@@ -152,14 +152,17 @@ namespace pbbs {
     sequence(const size_t sz, value_type v) {
       T* start = alloc(sz, false);
       parallel_for(0, sz, [=] (size_t i) {
-	  assign_uninitialized(start[i], (T) v);});
+	  assign_uninitialized(start[i], (T) v);}, 300);
     };
 
     template <typename Func>
     sequence(const size_t sz, Func f) {
-      T* start = alloc(sz, false);
-      parallel_for(0, sz, [&] (size_t i) {
-	  assign_uninitialized<T>(start[i], f(i));}, 1000);
+      //cout << "here1" << endl;
+	T* start = alloc(sz, false);
+	//cout << "here" << endl;
+	parallel_for(0, sz, [&] (size_t i) {
+	    assign_uninitialized<T>(start[i], f(i));}, 300);
+	//cout << "here2" << endl;
     };
 
     sequence(std::initializer_list<value_type> l) {
@@ -169,23 +172,23 @@ namespace pbbs {
       for (T a : l) start[i++] = a;
     }
 
-    template <typename Iter>
-    sequence(range<Iter> a) {
-      copy_from(a.begin(), a.size());
-    }
-
-    template <class F>
-    sequence(delayed_sequence<T,F> a) {
-      copy_from(a.begin(), a.size());
-    }
-
     // Copies a Seq type 
     // Uses enable_if to avoid matching on integer argument, which creates
     // a sequece of the specified length
     //template <class Seq, typename std::enable_if_t<!std::is_integral<Seq>::value>>
-    //sequence(Seq const &s) {
-    //  copy_from(s.begin(), s.size());
+    //sequence(Seq const &a) {
+    //  copy_from(a.begin(), a.size());
     //}
+
+    template <typename Iter>
+    sequence(range<Iter> const &a) {
+      copy_from(a.begin(), a.size());
+    }
+
+     template <class F>
+     sequence(delayed_sequence<T,F> const &a) {
+       copy_from(a.begin(), a.size());
+     }
 
     ~sequence() { clear();}
 
@@ -308,9 +311,11 @@ namespace pbbs {
   bool slice_eq(SeqA a, SeqB b) { return false;}
 
   template <class Seq>
-  auto to_sequence(Seq s) -> sequence<decltype(s[0])> {
-    return sequence<decltype(s[0])>((size_t) s.size(), [&] (size_t i) {
-	return s[i];});}
+  auto to_sequence(Seq const &s) -> sequence<typename Seq::value_type> {
+    using T = typename Seq::value_type;
+    return sequence<T>(s.size(), [&] (size_t i) {
+	return s[i];});
+  }
   
   std::ostream& operator<<(std::ostream& os, sequence<char> const &s)
   {
@@ -321,5 +326,4 @@ namespace pbbs {
     return os;
   }
 }
-
 

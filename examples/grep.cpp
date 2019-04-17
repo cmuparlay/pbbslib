@@ -9,9 +9,7 @@ using namespace pbbs;
 int main (int argc, char *argv[]) {
   commandLine P(argc, argv, "[-r <rounds>] search_string infile");
   int rounds = P.getOptionIntValue("-r", 1);
-  std::string sstr(P.getArgument(1));
-  sequence<char> search_str(sstr.size(), [&] (size_t i) {
-      return sstr[i];});
+  auto search_str = to_sequence(std::string(P.getArgument(1)));
   char* filename = P.getArgument(0);
 
   timer t("grep", true);
@@ -21,12 +19,21 @@ int main (int argc, char *argv[]) {
   sequence<char> out_str;
 
   for (int i=0; i < rounds; i++) {
+    // auto foo = pack_index<size_t>(seq(str.size(), [&] (size_t i) {
+    // 	  return str[i] == '\n';}));
+    // size_t l = str.size() - search_str.size() + 1;
+    // auto bar = pack_index<size_t>(seq(l, [&] (size_t i) {
+    // 	  size_t j;
+    // 	  for (j=0; j < search_str.size(); j++)
+    // 	    if (str[i+j] != search_str[j]) break;
+    // 	  return (j == search_str.size());
+    // 	}));
     auto is_line_break = [&] (char a) {return a == '\n';};
     auto cr = singleton('\n');
     auto lines = filter(split(str, is_line_break), [&] (auto s) {
-	return search(s, search_str) < s.size();});
+    	return search(s, search_str) < s.size();});
     out_str = flatten(tabulate(lines.size()*2, [&] (size_t i) {
-	  return (i & 1) ? cr : lines[i/2];}));
+    	  return (i & 1) ? cr : lines[i/2];}));
     t.next("do work");
   }
   cout << out_str;

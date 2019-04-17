@@ -262,7 +262,7 @@ namespace pbbs {
     parallel_for(0, s.size(), [&] (size_t i) {
 	parallel_for(0, s[i].size(), [&] (size_t j) {
 	    assign_uninitialized(r[offsets[i] + j], s[i][j]);
-	  });
+	  }, 1000);
       });
     t.next("copy");
     return r;
