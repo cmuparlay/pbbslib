@@ -32,7 +32,7 @@ CC = g++
 PFLAGS = $(HGFLAGS)
 endif
 
-EXAMPLES = mcss wc grep build_index primes
+EXAMPLES = mcss wc grep build_index primes longest_repeated_substring bw
 
 # object files
 % : %.cpp

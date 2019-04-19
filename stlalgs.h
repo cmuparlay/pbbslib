@@ -249,6 +249,11 @@ namespace pbbs {
 		addm<Index>());
   }
 
+  template <class Index>
+  sequence<Index> iota(Index n) {
+    return tabulate(n, [&] (size_t i) -> Index {return i;});
+  }
+      
   template <class Seq>
   auto flatten(Seq const &s) -> sequence<typename Seq::value_type::value_type> {
     timer t("flatten", false);

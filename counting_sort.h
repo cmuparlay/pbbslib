@@ -241,4 +241,13 @@ namespace pbbs {
     return count_sort_<size_t>(In, Out, Keys, num_buckets,
 			       parallelism, skip_if_in_one);
   }
+
+  template <typename InS, typename KeyS>
+  std::pair<sequence<typename InS::value_type>, sequence<size_t>>
+  count_sort(InS const &In, KeyS const &Keys, size_t num_buckets) {
+    sequence<typename InS::value_type> Out(In.size());
+    auto a = count_sort(In, Out.slice(), Keys, num_buckets);
+    return std::make_pair(std::move(Out), std::move(a.first));
+  }
+
 }
