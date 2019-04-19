@@ -87,7 +87,7 @@ namespace pbbs {
   }
 
   template <class F>
-  auto seq (size_t n, F f) -> delayed_sequence<decltype(f(0)),F>
+  auto dseq (size_t n, F f) -> delayed_sequence<decltype(f(0)),F>
   {
     using T = decltype(f(0));
     return delayed_sequence<T,F>(n,f);
