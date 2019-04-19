@@ -305,6 +305,10 @@ namespace pbbs {
 	  else return to_char_seq(A[i/2]);
 	}));
   }
+
+  sequence<char> to_char_seq(sequence<uchar> s) {
+    return map(s, [&] (uchar c) {return (char) c;});
+  }
   
   // std::to_chars not widely available yet. sigh!!
   // template<typename T, 
