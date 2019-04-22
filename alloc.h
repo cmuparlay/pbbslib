@@ -198,10 +198,13 @@ namespace pbbs {
 
   pool_allocator default_allocator(default_sizes());
 
-  // Matches the c++ Allocator specification (minimally)
+  // ****************************************
+  // Following Matches the c++ Allocator specification (minimally)
   // https://en.cppreference.com/w/cpp/named_req/Allocator
   // Can therefore be used for containers, e.g.:
-  // std::vector
+  //    std::vector<int, pbbs::allocator<int>>
+  // ****************************************
+
   template <typename T>
   struct allocator {
     using value_type = T;
@@ -220,7 +223,6 @@ namespace pbbs {
   bool operator==(const allocator<T>&, const allocator<U>&) { return true; }
   template <class T, class U>
   bool operator!=(const allocator<T>&, const allocator<U>&) { return false; }
-
 
   // ****************************************
   //    my_alloc and my_free (add size tags)
@@ -249,7 +251,14 @@ namespace pbbs {
   void allocator_clear() {
     default_allocator.clear();
   }
+}
+#endif
 
+// ****************************************
+//    common across allocators (key routines used by sequences)
+// ****************************************
+
+namespace pbbs {
   // Does not initialize the array
   template<typename E>
   E* new_array_no_init(size_t n) {
@@ -293,5 +302,5 @@ namespace pbbs {
     my_free(A);
   }
 }
-#endif
+
 
