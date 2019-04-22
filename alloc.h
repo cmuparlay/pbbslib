@@ -225,6 +225,42 @@ namespace pbbs {
   bool operator!=(const allocator<T>&, const allocator<U>&) { return false; }
 
   // ****************************************
+  // Static allocator for single items of a given type, e.g.
+  //   using long_allocator = type_allocator<long>;
+  //   long* foo = long_allocator::alloc();
+  //   *foo = (long) 23;
+  //   long_allocator::free(foo);
+  // Uses block allocator, and is headerless  
+  // ****************************************
+
+  template <typename T>
+  class type_allocator {
+  public:
+    static constexpr size_t default_alloc_size = 0;
+    static block_allocator allocator;
+    static const bool initialized{true};
+    static T* alloc() { return (T*) allocator.alloc();}
+    static void free(T* ptr) {allocator.free((void*) ptr);}
+
+    // for backward compatibility
+    static void init(size_t _alloc_size = 0, size_t _list_size=0) {};
+    static void reserve(size_t n = default_alloc_size,
+			bool randomize = false,
+			size_t _max_blocks = 0) {
+      allocator.reserve(n);
+    }
+    static void finish() {allocator.clear();}
+    static size_t block_size () {return allocator.block_size();}
+    static size_t num_allocated_blocks() {return allocator.num_allocated_blocks();}
+    static size_t num_used_blocks() {return allocator.num_allocated_blocks();}
+    static size_t num_used_bytes() {return num_used_blocks() * block_size();}
+    static void print_stats() {allocator.print_stats();}
+  };
+
+  template<typename T>
+  block_allocator type_allocator<T>::allocator = block_allocator(sizeof(T));
+  
+  // ****************************************
   //    my_alloc and my_free (add size tags)
   // ****************************************
 

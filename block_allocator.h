@@ -67,7 +67,8 @@ private:
   size_t list_length;
   size_t max_blocks;
   size_t block_size_;
-  std::atomic<size_t> blocks_allocated;
+  //std::atomic<size_t> blocks_allocated;
+  size_t blocks_allocated;
   char* allocate_blocks(size_t num_blocks);
 
 public:
@@ -75,6 +76,8 @@ public:
   void* alloc();
   void free(void*);
   void reserve(size_t n);
+  void clear();
+  void print_stats();
   size_t block_size () {return block_size_;}
   size_t num_allocated_blocks() {return blocks_allocated;}
   size_t num_used_blocks();
@@ -115,7 +118,7 @@ auto block_allocator::allocate_blocks(size_t num_blocks) -> char* {
     fprintf(stderr, "Cannot allocate space in block_allocator");
     exit(1); }
 
-  blocks_allocated += num_blocks; // atomic
+  pbbs::write_add(&blocks_allocated, num_blocks); // atomic
   if (blocks_allocated > max_blocks) {
     fprintf(stderr, "Too many blocks in block_allocator, change max_blocks");
     exit(1);  }
@@ -143,6 +146,15 @@ void block_allocator::reserve(size_t n) {
     });
 }
 
+void block_allocator::print_stats() {
+  size_t used = num_used_blocks();
+  size_t allocated = num_allocated_blocks();
+  size_t size = block_size();
+  std::cout << "Used: " << used << ", allocated: " << allocated
+	    << ", block size: " << size
+	    << ", bytes: " << size*allocated << std::endl;
+}
+
 block_allocator::block_allocator(size_t block_size,
 				 size_t reserved_blocks,
 				 size_t list_length_,
@@ -162,15 +174,23 @@ block_allocator::block_allocator(size_t block_size,
   local_lists = new thread_list[thread_count];
 }
 
-block_allocator::~block_allocator() {
+void block_allocator::clear() {
+  // reinitialize all lists
   delete[] local_lists;
+  local_lists = new thread_list[thread_count];
 
+  // throw away all allocated memory
   maybe<char*> x;
   while ((x = pool_roots.pop())) std::free(*x);
   pool_roots.clear();
   global_stack.clear();
 
   blocks_allocated = 0;
+}
+
+block_allocator::~block_allocator() {
+  clear();
+  delete[] local_lists;
 }
 
 void block_allocator::free(void* ptr) {
