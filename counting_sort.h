@@ -139,7 +139,7 @@ namespace pbbs {
     size_t block_size = ((n-1)/num_blocks) + 1;
     size_t m = num_blocks * num_buckets;
 
-    s_size_t *counts = new_array_no_init<s_size_t>(m,1);
+    s_size_t *counts = new_array_no_init<s_size_t>(m);
     t.next("head");
 
     // sort each block
@@ -181,7 +181,7 @@ namespace pbbs {
 	}
       }, 1 + 1024/num_blocks);
 
-    s_size_t *counts2 = new_array_no_init<s_size_t>(m,1);
+    s_size_t *counts2 = new_array_no_init<s_size_t>(m);
 
     parallel_for(0, num_blocks, [&] (size_t i) {
 	size_t start = i * num_buckets;

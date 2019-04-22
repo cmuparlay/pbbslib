@@ -13,40 +13,38 @@ int main (int argc, char *argv[]) {
   timer t;
 
   {
-    mem_pool mp;
-
-
+    //mem_pool mp;
     for (int i=0; i < rounds; i++) {
       sequence<char *> b(n, [&] (size_t i) {
-	  char* foo = (char*) mp.alloc(48);
+	  char* foo = (char*) my_alloc(48);
 	  foo[0] = 'a';
 	  foo[1] = 0;
 	  return foo;
 	});
       t.next("allocate");
       parallel_for (0,b.size(), [&] (size_t i) {
-	  mp.free(b[i]);
+	  my_free(b[i]);
 	});
       t.next("free");
     }
   }
-  t.next("delete allocator");
+  //t.next("delete allocator");
   cout << endl;
 
   {
-    std::vector<int> sizes = {16, 32, 64, 128};
-    small_allocator sa(sizes);
+    std::vector<size_t> sizes = {16, 32, 64, 128};
+    pool_allocator sa(sizes);
     t.next("initialize");
     for (int i=0; i < rounds; i++) {
       sequence<char *> b(n, [&] (size_t i) {
-	  char* foo = (char*) sa.alloc(64);
+	  char* foo = (char*) sa.allocate(64);
 	  foo[0] = 'a';
 	  foo[1] = 0;
 	  return foo;
 	});
       t.next("small allocate");
       parallel_for (0,b.size(), [&] (size_t i) {
-	  sa.free(b[i], 64);
+	  sa.deallocate(b[i], 64);
 	});
       t.next("small free");
     }

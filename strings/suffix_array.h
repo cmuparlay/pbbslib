@@ -54,8 +54,6 @@ namespace pbbs {
   template <typename indexT>
   using ipair = std::pair<indexT,indexT>;
 
-  timer sa_timer("Suffix Array", false);
-
   template <typename indexT>
   struct seg {
     indexT start;
@@ -126,7 +124,6 @@ namespace pbbs {
     parallel_for (1, n, [&] (size_t i) {
 	names[i] = ((Cs[i] >> 32) != (Cs[i-1] >> 32)) ? i : 0;});
     names[0] = 0;
-    sa_timer.next("names");
 
     // scan start i across each segment
     scan_inplace(names.slice(), maxm<indexT>(), fl_scan_inclusive);
@@ -137,7 +134,6 @@ namespace pbbs {
 	ranks[Cs[i] & mask] = names[i]+1;
 	C[i].second = Cs[i] & mask;
       });
-    sa_timer.next("write rank and copy");
 
     // get starts and lengths of new segments
     parallel_for (1, n, [&] (size_t i) {
@@ -147,13 +143,12 @@ namespace pbbs {
       });
     segOut[n-1] = seg<indexT>(names[n-1],n-names[n-1]);
 
-    sa_timer.next("segments");
     return C;
   }
 
   template <class indexT>
   sequence<indexT> suffix_array(sequence<uchar> const &ss) {
-    if (verbose) sa_timer.start();
+    timer sa_timer("Suffix Array", false);
     size_t n = ss.size();
 
     // renumber characters densely
@@ -193,7 +188,7 @@ namespace pbbs {
     sequence<seg<indexT>> seg_outs(n);
     sequence<ipair<indexT>> C = split_segment_top(seg_outs, ranks, Cl);
     Cl.clear();
-    sa_timer.next("split");
+    sa_timer.next("split top");
 
     indexT offset = nchars;
     uint round =0;

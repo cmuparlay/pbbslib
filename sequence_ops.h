@@ -29,6 +29,28 @@
 
 namespace pbbs {
 
+  template <class UnaryFunc>
+  auto tabulate(size_t n, UnaryFunc f) -> sequence<decltype(f(0))> {
+    return sequence<decltype(f(0))>(n, [&] (size_t i) {return f(i);});}
+
+  template <SEQ Seq, class UnaryFunc>
+  auto map(Seq const &A, UnaryFunc f) -> sequence<decltype(f(A[0]))> {
+    return tabulate(A.size(), [&] (size_t i) {return f(A[i]);});}
+
+  // delayed version of map
+  // requires C++14 or greater
+  template <SEQ Seq, class UnaryFunc>
+  auto dmap(Seq const &A, UnaryFunc f) {
+    return dseq(A.size(), [&] (size_t i) {return f(A[i]);});}
+
+  template <class T>
+  auto singleton(T const &v) -> sequence<T> {
+    return sequence<T>(1, v); }
+
+  template <SEQ Seq, RANGE Range>
+  auto copy(Seq const &A, Range R, flags fl = no_flag) -> void {
+    parallel_for(0, A.size(), [&] (size_t i) {R[i] = A[i];});}
+
   constexpr const size_t _log_block_size = 10;
   constexpr const size_t _block_size = (1 << _log_block_size);
 
@@ -46,26 +68,6 @@ namespace pbbs {
     };
     parallel_for(0, l, body, 1, 0 != (fl & fl_conservative));
   }
-
-  // template <class OT, SEQ Seq, class UnaryFunc>
-    //auto map(Seq const &A, UnaryFunc f, flags fl = no_flag) -> sequence<OT> {
-    //return sequence<OT>(A.size(), [&] (size_t i) {return f(A[i]);});}
-
-  template <SEQ Seq, class UnaryFunc>
-  auto map(Seq const &A, UnaryFunc f) -> sequence<decltype(f(A[0]))> {
-    return sequence<decltype(f(A[0]))>(A.size(), [&] (size_t i) {return f(A[i]);});}
-
-  template <class UnaryFunc>
-  auto tabulate(size_t n, UnaryFunc f) -> sequence<decltype(f(0))> {
-    return sequence<decltype(f(0))>(n, [&] (size_t i) {return f(i);});}
-
-  template <class T>
-  auto singleton(T const &v) -> sequence<T> {
-    return sequence<T>(1, v); }
-
-  template <SEQ Seq, RANGE Range>
-  auto copy(Seq const &A, Range R, flags fl = no_flag) -> void {
-    parallel_for(0, A.size(), [&] (size_t i) {R[i] = A[i];});}
 
   template <SEQ Seq, class Monoid>
   auto reduce_serial(Seq const &A, Monoid m) -> typename Seq::value_type {

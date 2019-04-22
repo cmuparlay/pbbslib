@@ -80,8 +80,7 @@ namespace pbbs {
   collect_reduce_few(Seq const &A, M const &monoid, size_t num_buckets) {
     using val_type = typename Seq::value_type::second_type;
     size_t n = A.size();
-    timer t;
-    t.start();
+    timer t("collect reduce few", false);
 
     // pad to 16 buckets to avoid false sharing (does not affect results)
     num_buckets = std::max(num_buckets, (size_t) 16);
@@ -108,13 +107,15 @@ namespace pbbs {
 			       OutM.slice(i*num_buckets,(i+1)*num_buckets),
 			       monoid, num_buckets);
       });
+    t.next("sequential reduces");
 
-    parallel_for (0, num_blocks, [&] (size_t i) {
+    parallel_for (0, num_buckets, [&] (size_t i) {
 	val_type o_val = monoid.identity;
 	for (size_t j = 0; j < num_blocks; j++)
 	  o_val = monoid.f(o_val, OutM[i + j*num_buckets]);
 	Out[i] = o_val;
       }, 1);
+    t.next("cross sums");
 
     return Out;
   }

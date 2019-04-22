@@ -151,7 +151,7 @@ namespace pbbs {
       t.next("head");
 
       // sort each block and merge with samples to get counts for each bucket
-      s_size_t *counts = new_array_no_init<s_size_t>(m+1,1);
+      s_size_t *counts = new_array_no_init<s_size_t>(m+1);
       counts[m] = 0;
       sliced_for(n, block_size, [&] (size_t i, size_t start, size_t end) {
 	  seq_sort_(In.slice(start,end), Tmp.slice(start,end), less,

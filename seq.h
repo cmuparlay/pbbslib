@@ -1,9 +1,8 @@
 #pragma once
 
 #include "utilities.h"
+#include "alloc.h"
 #include <initializer_list>
-
-#define hello foo
 
 #ifdef CONCEPTS
 template<typename T>
@@ -30,6 +29,9 @@ concept bool Range =
 
 namespace pbbs {
 
+  constexpr bool report_copy = false;
+  constexpr bool bounds_check = false;
+  
   template <typename Iterator>
   struct range {
   public:
@@ -67,6 +69,7 @@ namespace pbbs {
   struct delayed_sequence {
     using value_type = T;
     delayed_sequence(size_t n, F _f) : f(_f), s(0), e(n) {};
+    delayed_sequence() : s(0), e(0) {};
     delayed_sequence(size_t n, value_type v) : f([&] (size_t i) {return v;}), s(0), e(n) {};
     delayed_sequence(size_t s, size_t e, F _f) : f(_f), s(s), e(e) {};
     const value_type operator[] (size_t i) const {return (f)(i+s);}
@@ -93,8 +96,6 @@ namespace pbbs {
     return delayed_sequence<T,F>(n,f);
   }
 
-  constexpr bool check_copy = false;
-
   template <typename T>
   struct sequence {
   public:
@@ -105,7 +106,7 @@ namespace pbbs {
 
     // copy constructor
     sequence(const sequence& a) {
-      if (check_copy && !a.is_small())
+      if (report_copy && !a.is_small())
 	cout << "copy constructor: len: " << a.size()
 	     << " element size: " << sizeof(T) << endl;
       if (a.is_small()) val = a.val;
@@ -118,7 +119,7 @@ namespace pbbs {
 
     // copy assignment
     sequence& operator = (const sequence& a) {
-      if (check_copy && !a.is_small())
+      if (report_copy && !a.is_small())
 	cout << "copy assignment: len: " << a.size()
 	     << " element size: " << sizeof(T) << endl;
       if (this != &a) {
@@ -157,12 +158,9 @@ namespace pbbs {
 
     template <typename Func>
     sequence(const size_t sz, Func f) {
-      //cout << "here1" << endl;
-	T* start = alloc(sz, false);
-	//cout << "here" << endl;
-	parallel_for(0, sz, [&] (size_t i) {
-	    assign_uninitialized<T>(start[i], f(i));}, 300);
-	//cout << "here2" << endl;
+      T* start = alloc(sz, false);
+      parallel_for(0, sz, [&] (size_t i) {
+	  assign_uninitialized<T>(start[i], f(i));}, 300);
     };
 
     sequence(std::initializer_list<value_type> l) {
@@ -187,7 +185,7 @@ namespace pbbs {
 
      template <class F>
      sequence(delayed_sequence<T,F> const &a) {
-       copy_from(a.begin(), a.size());
+       copy_from(a, a.size());
      }
 
     ~sequence() { clear();}
@@ -225,6 +223,14 @@ namespace pbbs {
       if (size() != 0) { free(false); empty();}} 
   
     value_type& operator[] (const size_t i) const {
+      if (bounds_check && i >= size()) {
+      	cout << "Out of range accessing a sequence.  Length is: " << size()
+      	     << " index is: " << i << endl;
+      }
+      return begin()[i];
+    }
+
+    value_type& get(const size_t i) const {
       return begin()[i];
     }
 
@@ -254,6 +260,7 @@ namespace pbbs {
       char small[16];
     } val;
 
+    // my start and size
     void set(T* start, size_t sz) {
       val.large.n = sz;
       val.large.s = start;
@@ -262,9 +269,11 @@ namespace pbbs {
     // marks as empty
     void empty() {set(NULL, 0);}
 
+    // is a given size small
     inline bool is_small(size_t sz) const {
       return std::is_same<T,char>::value && sz < 16 && sz > 0; }
 
+    // am I small
     inline bool is_small() const {
       if (std::is_same<T,char>::value) {
 	size_t sz = val.small[15];
@@ -285,7 +294,7 @@ namespace pbbs {
       return loc;
     }
     
-    // free
+    // free myself
     void free(bool destruct=true) {
       if (!is_small()) {
 	if (destruct) // delete all elements
@@ -294,6 +303,7 @@ namespace pbbs {
       }
     }
 
+    // not DRM compliant
     template <class Iter>
     void copy_from(Iter a, size_t sz) {
       T* start = alloc(sz, false); 
@@ -316,7 +326,13 @@ namespace pbbs {
     return sequence<T>(s.size(), [&] (size_t i) {
 	return s[i];});
   }
-  
+
+  template <class F>
+  auto seq (size_t n, F f) -> sequence<decltype(f(0))>
+  {
+    return sequence<decltype(f(0))>(n,f);
+  }
+
   std::ostream& operator<<(std::ostream& os, sequence<char> const &s)
   {
     // pad with a zero

@@ -24,6 +24,28 @@ namespace pbbs {
     return monoid<F,T>(f, id);
   }
 
+  template <class M1, class M2>
+  auto pair_monoid (M1 m1, M2 m2) {
+    using P = std::pair<typename M1::T, typename M2::T>;
+    auto f = [&] (P a, P b) {
+      return P(m1.f(a.first, b.first), m2.f(a.second, b.second));};
+    return make_monoid(f, P(m1.identity, m2.identity));
+  }
+
+  template <class M, size_t n>
+  auto array_monoid (M m) {
+    using Ar = std::array<typename M::T, n>;
+    auto f = [&] (Ar a, Ar b) {
+      Ar r;
+      for (size_t i=0; i < n; i++)
+	r[i] = m.f(a[i], b[i]);
+      return r;
+    };
+    Ar id;
+    for (size_t i=0; i < n; i++) id[i] = m.identity;
+    return make_monoid(f, id);
+  }
+  
   template <class TT>
   struct addm {
     using T = TT;

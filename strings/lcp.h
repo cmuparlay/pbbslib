@@ -7,19 +7,23 @@ namespace pbbs {
 
   //  The suffix array SA are indices into the string s
   template <class Seq1, class Seq2>
-  auto lcp(Seq1 const &s, Seq2 const &SA) -> sequence<typename Seq2::value_type> {
+  auto lcp(Seq1 const &s_, Seq2 const &SA_) -> sequence<typename Seq2::value_type> {
+    auto s = s_.slice(); // avoid bounds check
+    auto SA = SA_.slice(); // avoid bounds check
     using Uint = typename Seq2::value_type;
     timer t("LCP", false);
-    timer t2("LCP total", false);
     size_t len = 111;
     size_t n = SA.size();
-
+    t.next("init");
+    
     // compare first len characters of adjacent strings from SA.
-    sequence<Uint> L(n-1, [&] (size_t i) {
+    sequence<Uint> L_(n-1, [&] (size_t i) {
 	size_t j = 0;
-	while (s[SA[i]+j] == s[SA[i+1]+j] && s[SA[i+1]+j] != 0 && j < len) j++;
+	size_t max_j = std::min(len, n - SA[i]);
+	while (j < max_j && (s[SA[i]+j] == s[SA[i+1]+j])) j++;
 	return (j < len) ? j : n;
       });
+    auto L = L_.slice(); // avoid bounds check
     t.next("head");
 
     // keep indices for which we do not yet know their LCP (i.e. LCP >= len)
@@ -27,10 +31,11 @@ namespace pbbs {
 	  return l == n;}));
     t.next("pack");
 
-    if (remain.size() == 0) { t2.next("total"); return  L;}
+    if (remain.size() == 0) return L;
 
     // an inverse permutation for SA
-    sequence<Uint> ISA(n);
+    sequence<Uint> ISA_(n);
+    auto ISA = ISA_.slice(); // avoid bounds check
     parallel_for(0, n, [&] (size_t i) {
 	ISA[SA[i]] = i;});
     t.next("inverse");
@@ -58,8 +63,7 @@ namespace pbbs {
       len *= 2;
     } while (remain.size() > 0);
 
-    t2.next("total");
-    return L;
+    return L_;
   }
 
 }

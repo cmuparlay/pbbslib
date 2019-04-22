@@ -1,3 +1,13 @@
+// Build_Index.
+// Builds an index from a file which maps each word to all the lines
+// it appears in.
+// It outputs to a file given by "-o <outfile>".  If no file is given,
+// it just prints the number of distinct words to stdout.
+// The outfile file has one line per word, with the word appearing
+// first and then all the line numbers the word appears in.  The words
+// are in alphabetical order, and the line numbers are in integer
+// order, all in ascii.
+
 #include "sequence.h"
 #include "get_time.h"
 #include "strings/string_basics.h"
@@ -14,7 +24,7 @@ timer idx_timer("build_index");
 using index_type = sequence<pair<sequence<char>,sequence<size_t>>>;
 
 auto build_index(sequence<char> const &str) -> index_type {
-  timer t("build_index", true);
+  timer t("build_index", false); // set to true to print times for each step
   auto is_line_break = [&] (char a) {return a == '\n' || a == '\r';};
   auto is_space = [&] (char a) {return a == ' ' || a == '\t';};
   
@@ -28,8 +38,9 @@ auto build_index(sequence<char> const &str) -> index_type {
   t.next("split");
   
   // generate sequence of sequences of (token, line_number) pairs
+  // tokens are strings separated by spaces.
   auto pairs = tabulate(lines.size(), [&] (size_t i) {
-      return map(tokens(lines[i], is_space), [&] (sequence<char> &w) {
+      return map(tokens(lines[i], is_space), [&] (sequence<char> w) {
 	  return make_pair(w, i);
 	});});
   t.next("tokens");
@@ -42,6 +53,7 @@ auto build_index(sequence<char> const &str) -> index_type {
   return group_by(flat_pairs);
 }
 
+// converts an index into an ascii character sequence ready for output
 auto index_to_char_seq(index_type const &idx) {
   return flatten(map(idx, [&] (auto& entry) {
 	sequence<sequence<char>>&& A = {entry.first,
@@ -67,13 +79,13 @@ int main (int argc, char *argv[]) {
     idx_timer.next("build index");
   }
 
-  cout << "number of distinct words: " << idx.size() << endl;
-
   if (outfile.size() > 0) {
     auto out_str = index_to_char_seq(idx);
     idx_timer.next("generate output string");
 
     char_seq_to_file(out_str, outfile);
     idx_timer.next("write file");
+  } else {
+    cout << "number of distinct words: " << idx.size() << endl;
   }
 }

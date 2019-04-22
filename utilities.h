@@ -66,22 +66,6 @@ struct maybe {
 	}
 };
 
-#if defined(__APPLE__)
-void* aligned_alloc(size_t a, size_t n) {return malloc(n);}
-#else
-#ifdef USEMALLOC
-#include <malloc.h>
-struct __mallopt {
-  __mallopt() {
-    mallopt(M_MMAP_MAX,0);
-    mallopt(M_TRIM_THRESHOLD,-1);
-  }
-};
-
-__mallopt __mallopt_var;
-#endif
-#endif
-
 namespace pbbs {
 
   struct empty {};
@@ -176,52 +160,6 @@ namespace pbbs {
     return x;
   }
 
-  // Does not initialize the array
-  template<typename E>
-  E* new_array_no_init(size_t n, bool touch_pages=false) { //true) {
-    // pads in case user wants to allign with cache lines
-    //size_t line_size = 64;
-    //size_t bytes = ((n * sizeof(E))/line_size + 1)*line_size;
-    size_t bytes = n * sizeof(E);
-    //E* r = (E*) aligned_alloc(line_size, bytes);
-    E* r = (E*) my_alloc(bytes);
-    if (r == NULL) {fprintf(stderr, "Cannot allocate space: %lu bytes", bytes); exit(1);}
-    //parallel_for (size_t i = 0; i < bytes; i = i + (1 << 21)) ((bool*) r)[i] = 0;
-    return r;
-  }
-
-  // Initializes in parallel
-  template<typename E>
-  E* new_array(size_t n) {
-    E* r = new_array_no_init<E>(n);
-    if (!std::is_trivially_default_constructible<E>::value) {
-    //if (!std::is_default_constructible<E>::value) {
-      if (n > 2048) {
-	auto f = [&] (size_t i) { new ((void*) (r+i)) E;};
-	parallel_for(0, n, f);
-      }
-      else
-	for (size_t i = 0; i < n; i++) new ((void*) (r+i)) E;
-    }
-    return r;
-  }
-
-  inline void free_array(void* a) {
-    my_free(a);
-  }
-
-  // Destructs in parallel
-  template<typename E>
-  void delete_array(E* A, size_t n) {
-    // C++14 -- suppored by gnu C++11
-    if (!std::is_trivially_destructible<E>::value) {
-      if (n > 2048) 
-	  parallel_for(0, n, [&] (size_t i) {
-	      A[i].~E();});
-      else for (size_t i = 0; i < n; i++) A[i].~E();
-    }
-    my_free(A);
-  }
 
   template <typename ET>
   inline bool atomic_compare_and_swap(ET* a, ET oldval, ET newval) {
@@ -320,5 +258,3 @@ namespace pbbs {
   }
 
 }
-
-

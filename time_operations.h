@@ -60,8 +60,8 @@ double t_map_reduce_128(size_t n, bool check) {
     // gives marginal improvement (5% or so on aware)
     __builtin_prefetch (&S[(i+4)*stride], 0, 3);
     return S[i*stride];};
-  auto T = pbbs::delayed_seq<size_t>(n, get);
-  time(t, pbbs::reduce(T, pbbs::addm<size_t>()););
+  auto Sa = pbbs::delayed_seq<size_t>(n, get);
+  time(t, pbbs::reduce(Sa.slice(0,n-4), pbbs::addm<size_t>()););
   return t;
 }
 

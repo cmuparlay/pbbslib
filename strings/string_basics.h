@@ -46,7 +46,7 @@ namespace pbbs {
 
   // Writes a character sequence to a file, returns 0 if successful
   template <class CharSeq>
-  int char_seq_to_file(CharSeq const &S, std::string fileName);
+  int char_seq_to_file(CharSeq const &S, std::string filename);
 
   // Writes a character sequence to a stream
   template <class CharSeq>
@@ -55,8 +55,8 @@ namespace pbbs {
   // Returns a sequence of sequences of characters, one per token.
   // The tokens are the longest contiguous subsequences of non space characters.
   // where spaces are define by the unary predicate is_space.
-  template <class Seq, class UnaryPred>
-  sequence<sequence<char>> tokens(Seq const &S, UnaryPred const &is_space);
+  //template <class Seq, class UnaryPred>
+  //sequence<sequence<char>> tokens(Seq const &S, UnaryPred const &is_space);
 
   // similar but the spaces are given as a string
   //  sequence<sequence<char>> tokens(Seq const &S, std::string const &spaces);
@@ -106,21 +106,49 @@ namespace pbbs {
     if (!S_ISREG (sb.st_mode)) { perror("not a file\n");  exit(-1); }
     
     char *p = static_cast<char*>(mmap(0, sb.st_size, PROT_READ, MAP_PRIVATE, fd, 0));
-    if (p == MAP_FAILED) { perror("mmap"); exit(-1); }
+    if (p == MAP_FAILED) { close(fd); perror("mmap"); exit(-1); }
     if (close(fd) == -1) { perror("close"); exit(-1); }
     return range<char*>(p, p + sb.st_size);
   }
 
   template <class CharSeq>
+  void char_seq_to_file_map(CharSeq const &S, std::string filename) {
+    size_t n = S.size();
+    timer t;
+    
+    mode_t mode = 600;
+    int fd = open(filename.c_str(), O_RDWR | O_CREAT | O_TRUNC, mode);
+    if (fd == -1) {perror("open"); exit(-1);}
+
+    int tr = ftruncate(fd, n + 1);
+    if (tr == -1) {close(fd); perror("truncate"); exit(-1);}
+    t.next("truncate");
+    
+    char *p = static_cast<char*>(mmap(0, n, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0));
+    if (p == MAP_FAILED) { close(fd); perror("mmap"); exit(-1); }
+    t.next("mmap");
+
+    memcpy(p, S.begin(), n);
+    t.next("pfor");
+    
+    if (munmap(p, n) == -1)
+      { close(fd);  perror("munmap"); exit(-1);}
+    t.next("unmap");
+    
+    close(fd);
+    t.next("close");
+  }
+  
+  template <class CharSeq>
   void char_seq_to_stream(CharSeq const &S, std::ostream& os) {
-    os.write(S.begin(), S.size()-1);
+    os.write(S.begin(), S.size());
   }
 
   template <class CharSeq>
-  int char_seq_to_file(CharSeq const &S, std::string fileName) {
-    std::ofstream file_stream (fileName, std::ios::out | std::ios::binary);
+  int char_seq_to_file(CharSeq const &S, std::string filename) {
+    std::ofstream file_stream (filename, std::ios::out | std::ios::binary);
     if (!file_stream.is_open()) {
-      std::cout << "Unable to open file for writing: " << fileName << std::endl;
+      std::cout << "Unable to open file for writing: " << filename << std::endl;
       return 1;
     }
     char_seq_to_stream(S, file_stream);
@@ -129,7 +157,7 @@ namespace pbbs {
   }
 
   template <class Seq, class UnaryPred>
-  sequence<sequence<char>> tokens(Seq const &S, UnaryPred const &is_space) {
+  sequence<sequence<char>> tokensa(Seq const &S, UnaryPred const &is_space) {
     size_t n = S.size();
     if (n==0) return sequence<sequence<char>>();
     sequence<bool> Flags(n+1);
@@ -142,6 +170,27 @@ namespace pbbs {
     sequence<long> Locations = pbbs::pack_index<long>(Flags);
   
     return tabulate(Locations.size()/2, [&] (size_t i) {
+	return sequence<char>(S.slice(Locations[2*i], Locations[2*i+1]));});
+  }
+
+  template <class Seq, class UnaryPred>
+  sequence<sequence<char>>
+  tokens(Seq const &S, UnaryPred const &is_space) {
+    size_t n = S.size();
+    char* s = S.begin();
+    sequence<bool> Flags(n+1);
+    if (n == 0) return sequence<sequence<char>>();
+
+    parallel_for(1, n, [&] (long i) {
+	Flags[i] = is_space(s[i-1]) != is_space(s[i]);
+      }, 10000);
+      
+    Flags[0] = !is_space(s[0]);
+    Flags[n] = !is_space(s[n-1]);
+
+    sequence<long> Locations = pbbs::pack_index<long>(Flags);
+  
+    return sequence<sequence<char>>(Locations.size()/2, [&] (size_t i) {
 	return sequence<char>(S.slice(Locations[2*i], Locations[2*i+1]));});
   }
 

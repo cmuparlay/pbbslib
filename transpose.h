@@ -134,9 +134,8 @@ namespace pbbs {
 			    size_t num_blocks, size_t num_buckets) {
     timer t("transpose", false);
     size_t m = num_buckets * num_blocks;
-    sequence<s_size_t> dest_offsets; //(m);
+    sequence<s_size_t> dest_offsets; 
     auto add = addm<s_size_t>();
-    //cout << "ss 8" << endl;
 
     // for smaller input do non-cache oblivious version
     if (n < (1 << 22) || num_buckets <= 512 || num_blocks <= 512) {
@@ -172,14 +171,13 @@ namespace pbbs {
       t.next("trans");
       free_array(counts);
     } else { // for larger input do cache efficient transpose
-      sequence<s_size_t> source_offsets(counts,m);
+      sequence<s_size_t> source_offsets(counts,m+1);
       dest_offsets = sequence<s_size_t>(m);
       size_t total;
       transpose<s_size_t>(counts, dest_offsets.begin()).trans(num_blocks,
 							      num_buckets);
       t.next("trans 1");
 
-      //cout << "ss 9" << endl;
       // do both scans inplace
       total = scan_inplace(dest_offsets.slice(), add);
       if (total != n) abort();
@@ -191,7 +189,6 @@ namespace pbbs {
       blockTrans<E,s_size_t>(From, To, source_offsets.begin(),
 			     dest_offsets.begin()).trans(num_blocks, num_buckets);
       t.next("trans 2");
-      //cout << "ss 10" << endl;
     }
 
     size_t *bucket_offsets = new_array_no_init<size_t>(num_buckets+1);

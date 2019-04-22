@@ -250,8 +250,8 @@ namespace pbbs {
   }
 
   template <class Index>
-  sequence<Index> iota(Index n) {
-    return tabulate(n, [&] (size_t i) -> Index {return i;});
+  auto iota(Index n) {
+    return dseq(n, [&] (size_t i) -> Index {return i;});
   }
       
   template <class Seq>

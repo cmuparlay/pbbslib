@@ -88,7 +88,7 @@ float ebytes(int reads, int write_backs) {
 
 double pick_test(size_t id, size_t n, size_t rounds,
 		 bool half_length) {
-  allocator_clear();
+  pbbs::allocator_clear();
   
   switch (id) {
   case 0:

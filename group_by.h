@@ -49,8 +49,10 @@ namespace pbbs {
     bool operator()(sequence<char> const &s1, sequence<char> const &s2) const {
       size_t m = std::min(s1.size(), s2.size());
       size_t i = 0;
-      while (i < m && s1[i] == s2[i]) i++;
-      return (i < m) ? (s1[i] < s2[i]) : (s1.size() < s2.size());
+      char* ss1 = s1.begin();
+      char* ss2 = s2.begin();
+      while (i < m && ss1[i] == ss2[i]) i++;
+      return (i < m) ? (ss1[i] < ss2[i]) : (s1.size() < s2.size());
     }
   };
 
