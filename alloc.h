@@ -156,7 +156,7 @@ namespace pbbs {
       }
     }
 
-    void reserve(int n, size_t count) {
+    void reserve(size_t n, size_t count) {
       size_t bucket = 0;
       while (n > sizes[bucket]) bucket++;
       if (bucket < num_small)
