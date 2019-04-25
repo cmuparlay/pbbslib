@@ -120,17 +120,29 @@ namespace pbbs {
     return Out;
   }
 
-  template <typename E>
+  template <typename E, typename Key>
   struct pair_hasheq_mask_low {
     static inline size_t hash(E a) {return hash64_2(a.first & ~((size_t) 15));}
     static inline bool eql(E a, E b) {return a.first == b.first;}
   };
 
-  template <typename Seq, typename M>
-  sequence<typename Seq::value_type::second_type>
-  collect_reduce(Seq const &A, M const &monoid, size_t num_buckets) {
+  template <typename E, typename Key>
+  struct hasheq_mask_low {
+    Key get_key;
+    hasheq_mask_low(Key get_key) : get_key(get_key) {}
+    inline size_t hash(E a) const {return hash64_2(get_key(a) & ~((size_t) 15));}
+    inline bool eql(E a, E b) const {return get_key(a) == get_key(b);}
+  };
+
+  template <typename Seq, class Key, class Value, typename M>
+  auto collect_reduce(Seq const &A,
+		 Key const &get_key,
+		 Value const &get_value,
+		 M const &monoid,
+		 size_t num_buckets) ->
+    sequence<decltype(get_value(A[0]))> {
     using T = typename Seq::value_type;
-    using val_type = typename T::second_type;
+    using val_type = decltype(get_value(A[0]));
     size_t n = A.size();
 
     // #bits is selected so each block fits into L3 cache
@@ -153,18 +165,13 @@ namespace pbbs {
     //auto get_i = [&] (size_t i) -> size_t {return A[i].first;};
     //auto s = delayed_seq<size_t>(n,get_i);
 
-    using hasheq = pair_hasheq_mask_low<T>;
-    get_bucket<T,hasheq> gb(A, hasheq(), bits);
-    //get_bucket<decltype(s)> x(s, bits-1);
-    //auto get_blocks = delayed_seq<size_t>(n, x);
+    using hasheq = hasheq_mask_low<T,Key>;
+    get_bucket<T,hasheq> gb(A, hasheq(get_key), bits);
     sequence<T> B = sequence<T>::no_init(n);
     sequence<T> Tmp = sequence<T>::no_init(n);
 
     // first partition into blocks based on hash using a counting sort
     sequence<size_t> block_offsets;
-    //bool single_block;
-    //std::tie(block_offsets, single_block)
-      //= count_sort(A, B.slice(), Tmp.slice(), get_blocks, num_blocks);
     block_offsets = integer_sort_(A, B.slice(), Tmp.slice(), gb,
 				  bits, num_blocks, false);
     // note that this is cache line alligned
@@ -179,15 +186,15 @@ namespace pbbs {
 	// small blocks have indices in bottom half
 	if (i < cut)
 	  for (size_t i = start; i < end; i++) {
-	    size_t j = B[i].first;
-	    sums[j] = monoid.f(sums[j], B[i].second);
+	    size_t j = get_key(B[i]);
+	    sums[j] = monoid.f(sums[j], get_value(B[i]));
 	  }
 
 	// large blocks have indices in top half
 	else if (end > start) {
-	  auto x = [&] (size_t i) {return B[i].second;};
+	  auto x = [&] (size_t i) {return get_value(B[i]);};
 	  auto vals = delayed_seq<size_t>(n, x);
-	  sums[B[i].first] = reduce(vals, monoid);
+	  sums[get_key(B[i])] = reduce(vals, monoid);
 	}
       }, 1);
     return sums;
@@ -320,5 +327,17 @@ namespace pbbs {
     parallel_for(0, num_tables, copy_f, 1);
     t.next("copy subresults");
     return result;
+  }
+
+  // default hash and equality
+  template <typename Seq, typename M>
+  sequence<typename Seq::value_type>
+  collect_reduce_sparse(Seq const &A, M const &monoid) {
+    using P = typename Seq::value_type;
+    struct hasheq {
+      static inline size_t hash(P a) {return pbbs::hash64_2(a.first);}
+      static inline bool eql(P a, P b) {return a.first == b.first;}
+    };
+    collect_reduce_sparse(A, hasheq(), monoid);
   }
 }

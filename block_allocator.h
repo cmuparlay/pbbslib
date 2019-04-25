@@ -112,9 +112,9 @@ size_t block_allocator::num_used_blocks() {
 }
 
 auto block_allocator::allocate_blocks(size_t num_blocks) -> char* {
-  //char* start = (char*) aligned_alloc(pad_size,
-  //num_blocks * block_size_+ pad_size);
-  char* start = (char*) pbbs::my_alloc(num_blocks * block_size_);
+  char* start = (char*) aligned_alloc(pad_size,
+				      num_blocks * block_size_+ pad_size);
+  //char* start = (char*) pbbs::my_alloc(num_blocks * block_size_);
   if (start == NULL) {
     fprintf(stderr, "Cannot allocate space in block_allocator");
     exit(1); }
