@@ -157,7 +157,7 @@ namespace pbbs {
     }
 
     void reserve(int n, size_t count) {
-      int bucket = 0;
+      size_t bucket = 0;
       while (n > sizes[bucket]) bucket++;
       if (bucket < num_small)
 	return small_allocators[bucket].reserve(count);
