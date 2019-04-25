@@ -27,6 +27,7 @@
 #include "sequence_ops.h"
 #include "transpose.h"
 #include "histogram.h"
+#include "integer_sort.h"
 
 // Supports functions that take a seq of key-value pairs, collects all the
 // keys with the same value, and sums them up with a binary function (monoid)
@@ -52,33 +53,46 @@ namespace pbbs {
   // the following parameters can be tuned
   constexpr const size_t CR_SEQ_THRESHOLD = 8192;
 
-  template <class Seq, class OutSeq, class M>
-  void seq_collect_reduce_few(Seq const &A, OutSeq &&Out, M const &monoid, size_t num_buckets) {
+  template <typename Seq, typename OutSeq, class Key, class Value, typename M>
+  void seq_collect_reduce_few(Seq const &A,
+			      OutSeq &&Out, 
+			      Key const &get_key,
+			      Value const &get_value,
+			      M const &monoid,
+			      size_t num_buckets) {
     size_t n = A.size();
     for (size_t i = 0; i < num_buckets; i++) Out[i] = monoid.identity;
     for (size_t j = 0; j < n; j++) {
-      size_t k = A[j].first;
-      Out[k] = monoid.f(Out[k],A[j].second);
+      size_t k = get_key(A[j]);
+      Out[k] = monoid.f(Out[k], get_value(A[j]));
     }
   }
 
-  template <class Seq, class M>
-  sequence <typename Seq::value_type::second_type>
-  seq_collect_reduce_few(Seq const &A, M const &monoid, size_t num_buckets) {
-      using val_type = typename Seq::value_type::second_type;
-      sequence<val_type> Out(num_buckets);
-      seq_collect_reduce_few(A, Out, monoid, num_buckets);
-      return Out;
-    }
+  template <typename Seq, class Key, class Value, typename M>
+  auto seq_collect_reduce_few(Seq const &A,
+			      Key const &get_key,
+			      Value const &get_value,
+			      M const &monoid,
+			      size_t num_buckets) ->
+    sequence<decltype(get_value(A[0]))> {
+    using val_type = decltype(get_value(A[0]));
+    sequence<val_type> Out(num_buckets);
+    seq_collect_reduce_few(A, Out, get_key, get_value, monoid, num_buckets);
+    return Out;
+  }
 
   // This one is for few buckets (e.g. less than 2^16)
   //  A is a sequence of key-value pairs
   //  monoid has fields m.identity and m.f (a binary associative function)
   //  all keys must be smaller than num_buckets
-  template <typename Seq, typename M>
-  sequence<typename Seq::value_type::second_type>
-  collect_reduce_few(Seq const &A, M const &monoid, size_t num_buckets) {
-    using val_type = typename Seq::value_type::second_type;
+  template <typename Seq, class Key, class Value, typename M>
+  auto collect_reduce_few(Seq const &A,
+			  Key const &get_key,
+			  Value const &get_value,
+			  M const &monoid,
+			  size_t num_buckets) ->
+    sequence<decltype(get_value(A[0]))> {
+    using val_type = decltype(get_value(A[0]));
     size_t n = A.size();
     timer t("collect reduce few", false);
 
@@ -95,7 +109,7 @@ namespace pbbs {
 
     // if insufficient parallelism, do sequentially
     if (n < CR_SEQ_THRESHOLD || num_blocks == 1 || num_threads == 1)
-      return seq_collect_reduce_few(A, monoid, num_buckets);
+      return seq_collect_reduce_few(A, get_key, get_value, monoid, num_buckets);
 
     size_t block_size = ((n-1)/num_blocks) + 1;
     size_t m = num_blocks * num_buckets;
@@ -105,6 +119,7 @@ namespace pbbs {
     sliced_for(n, block_size, [&] (size_t i, size_t start, size_t end) {
 	seq_collect_reduce_few(A.slice(start,end),
 			       OutM.slice(i*num_buckets,(i+1)*num_buckets),
+			       get_key, get_value,
 			       monoid, num_buckets);
       });
     t.next("sequential reduces");
@@ -136,11 +151,10 @@ namespace pbbs {
 
   template <typename Seq, class Key, class Value, typename M>
   auto collect_reduce(Seq const &A,
-		 Key const &get_key,
-		 Value const &get_value,
-		 M const &monoid,
-		 size_t num_buckets) ->
-    sequence<decltype(get_value(A[0]))> {
+		      Key const &get_key,
+		      Value const &get_value,
+		      M const &monoid,
+		      size_t num_buckets) -> sequence<decltype(get_value(A[0]))> {
     using T = typename Seq::value_type;
     using val_type = decltype(get_value(A[0]));
     size_t n = A.size();
@@ -155,7 +169,7 @@ namespace pbbs {
     size_t num_blocks = (1<<bits);
 
     if (num_buckets <= 4 * num_blocks)
-      return collect_reduce_few(A, monoid, num_buckets);
+      return collect_reduce_few(A, get_key, get_value, monoid, num_buckets);
 
     // Returns a map (hash) from key to block.
     // Keys with many elements (big) have their own block while
@@ -192,8 +206,8 @@ namespace pbbs {
 
 	// large blocks have indices in top half
 	else if (end > start) {
-	  auto x = [&] (size_t i) {return get_value(B[i]);};
-	  auto vals = delayed_seq<size_t>(n, x);
+	  auto x = [&] (size_t i) -> val_type {return get_value(B[i]);};
+	  auto vals = delayed_seq<val_type>(n, x);
 	  sums[get_key(B[i])] = reduce(vals, monoid);
 	}
       }, 1);
@@ -338,6 +352,6 @@ namespace pbbs {
       static inline size_t hash(P a) {return pbbs::hash64_2(a.first);}
       static inline bool eql(P a, P b) {return a.first == b.first;}
     };
-    collect_reduce_sparse(A, hasheq(), monoid);
+    return collect_reduce_sparse(A, hasheq(), monoid);
   }
 }

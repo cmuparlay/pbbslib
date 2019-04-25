@@ -231,7 +231,10 @@ double t_histogram(size_t n, bool check) {
   pbbs::random r(0);
   pbbs::sequence<T> in(n, [&] (size_t i) {return r.ith_rand(i)%n;});
   pbbs::sequence<T> out;
-  time(t, out = pbbs::histogram<T>(in, n););
+  auto get_key = [&] (T a) {return a;};
+  auto get_val = [&] (T a) {return (T) 1;};
+  time(t, out = pbbs::collect_reduce(in, get_key, get_val, pbbs::addm<T>(), n););
+  //time(t, out = pbbs::histogram<T>(in, n););
   if (check) check_histogram(in, out);
   return t;
 }
