@@ -14,9 +14,6 @@
 using std::cout;
 using std::endl;
 
-void* my_alloc(size_t);
-void my_free(void*);
-
 template <typename Lf, typename Rf >
 static void par_do_if(bool do_parallel, Lf left, Rf right, bool cons=false) {
   if (do_parallel) par_do(left, right, cons);

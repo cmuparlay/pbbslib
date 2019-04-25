@@ -3,6 +3,7 @@
 #include "utilities.h"
 #include "alloc.h"
 #include <initializer_list>
+#include <iterator>
 
 #ifdef CONCEPTS
 template<typename T>

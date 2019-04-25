@@ -100,12 +100,13 @@ namespace pbbs {
         base_sort(in, out, f, stable, inplace);
       } else {
         radix_step_(in.begin(), out.begin(), buckets, counts, n, num_buckets);
-        parallel_for (0, num_buckets, [&] (size_t j) {
+        auto loop = [&] (size_t j) {
   	  size_t start = counts[j];
   	  size_t end = (j == num_buckets-1) ? n : counts[j+1];
   	  bucket_sort_r(out.slice(start,end), in.slice(start,end), f,
   			stable, !inplace);
-  	}, 4);
+  	};
+	parallel_for (0, num_buckets, loop, 4);
       }
     }
   }

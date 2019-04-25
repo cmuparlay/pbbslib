@@ -21,6 +21,10 @@ namespace pbbs {
 
 #else
 
+namespace pbbs {
+  void* my_alloc(size_t n);
+}
+
 #include <atomic>
 #include <vector>
 #include "utilities.h"
@@ -51,7 +55,7 @@ namespace pbbs {
 
   private:
     static const size_t large_align = 64;
-    static const size_t large_threshold = (1 << 16);
+    static const size_t large_threshold = (1 << 21);
     size_t num_buckets;
     size_t num_small;
     size_t max_small;
@@ -128,6 +132,12 @@ namespace pbbs {
 	new (static_cast<void*>(std::addressof(small_allocators[i]))) 
 	  block_allocator(bucket_size); 
       }
+      // std::vector<void*> h;
+      //   for (int i=0; i < 5000; i++)
+      // 	h.push_back(allocate(1 << 22));
+      //   for (int i=0; i < 5000; i++)
+      // 	deallocate(h[i],1 << 22);
+    //
     }
 
     void* allocate(size_t n) {
@@ -146,11 +156,12 @@ namespace pbbs {
       }
     }
 
-    // void reserve(int n, size_t count) {
-    //   int bucket = 0;
-    //   while (n > sizes[bucket]) bucket++;
-    //   return small_allocators[bucket].reserve(count);
-    // }
+    void reserve(int n, size_t count) {
+      int bucket = 0;
+      while (n > sizes[bucket]) bucket++;
+      if (bucket < num_small)
+	return small_allocators[bucket].reserve(count);
+    }
 
     void print_stats() {
       size_t total_a = 0;
