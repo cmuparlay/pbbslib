@@ -241,10 +241,11 @@ namespace pbbs {
 			size_t _max_blocks = 0) {
       allocator.reserve(n);
     }
-    static void finish() {allocator.clear();}
+    static void finish() {allocator.clear();
+    }
     static size_t block_size () {return allocator.block_size();}
     static size_t num_allocated_blocks() {return allocator.num_allocated_blocks();}
-    static size_t num_used_blocks() {return allocator.num_allocated_blocks();}
+    static size_t num_used_blocks() {return allocator.num_used_blocks();}
     static size_t num_used_bytes() {return num_used_blocks() * block_size();}
     static void print_stats() {allocator.print_stats();}
   };
