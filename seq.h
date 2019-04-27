@@ -3,6 +3,7 @@
 #include "utilities.h"
 #include "alloc.h"
 #include <initializer_list>
+#include <iterator>
 
 #ifdef CONCEPTS
 template<typename T>
@@ -29,7 +30,7 @@ concept bool Range =
 
 namespace pbbs {
 
-  constexpr bool report_copy = false;
+  constexpr bool report_copy = true;
   constexpr bool bounds_check = false;
   
   template <typename Iterator>

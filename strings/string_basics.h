@@ -95,6 +95,7 @@ namespace pbbs {
     char* bytes = new_array<char>(n+1);
     file.read (bytes,n);
     file.close();
+    bytes[n] = 0;
     return sequence<char>(bytes,n);
   }
 

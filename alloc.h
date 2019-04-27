@@ -1,25 +1,8 @@
 #pragma once
 
-#ifdef USEMALLOC
-
-#include <malloc.h>
-
 namespace pbbs {
-  struct __mallopt {
-    __mallopt() {
-      mallopt(M_MMAP_MAX,0);
-      mallopt(M_TRIM_THRESHOLD,-1);
-    }
-  };
-
-  __mallopt __mallopt_var;
-
-  inline void* my_alloc(size_t i) {return malloc(i);}
-  inline void my_free(void* p) {free(p);}
-  void allocator_clear() {}
+  void* my_alloc(size_t n);
 }
-
-#else
 
 #include <atomic>
 #include <vector>
@@ -51,7 +34,7 @@ namespace pbbs {
 
   private:
     static const size_t large_align = 64;
-    static const size_t large_threshold = (1 << 16);
+    static const size_t large_threshold = (1 << 20);
     size_t num_buckets;
     size_t num_small;
     size_t max_small;
@@ -63,15 +46,19 @@ namespace pbbs {
     std::vector<size_t> sizes;
 
     void* allocate_large(size_t n) {
-    
+
+      size_t bucket = num_small;
+      size_t alloc_size;
+
       if (n <= max_size) {
-	size_t bucket = num_small;
 	while (n > sizes[bucket]) bucket++;
 	maybe<void*> r = large_buckets[bucket-num_small].pop();
 	if (r) return *r;
-      }
+	alloc_size = sizes[bucket];
+      } else alloc_size = n;
 
-      void* a = (void*) aligned_alloc(large_align, n);
+      void* a = (void*) aligned_alloc(large_align, alloc_size);
+      
       large_allocated += n;
       if (a == NULL) std::cout << "alloc failed on size: " << n << std::endl;
       // a hack to make sure pages are touched in parallel
@@ -128,6 +115,12 @@ namespace pbbs {
 	new (static_cast<void*>(std::addressof(small_allocators[i]))) 
 	  block_allocator(bucket_size); 
       }
+      // std::vector<void*> h;
+      //   for (int i=0; i < 5000; i++)
+      // 	h.push_back(allocate(1 << 22));
+      //   for (int i=0; i < 5000; i++)
+      // 	deallocate(h[i],1 << 22);
+      //
     }
 
     void* allocate(size_t n) {
@@ -146,11 +139,12 @@ namespace pbbs {
       }
     }
 
-    // void reserve(int n, size_t count) {
-    //   int bucket = 0;
-    //   while (n > sizes[bucket]) bucket++;
-    //   return small_allocators[bucket].reserve(count);
-    // }
+    void reserve(size_t n, size_t count) {
+      size_t bucket = 0;
+      while (n > sizes[bucket]) bucket++;
+      if (bucket < num_small)
+	return small_allocators[bucket].reserve(count);
+    }
 
     void print_stats() {
       size_t total_a = 0;
@@ -249,10 +243,11 @@ namespace pbbs {
 			size_t _max_blocks = 0) {
       allocator.reserve(n);
     }
-    static void finish() {allocator.clear();}
+    static void finish() {allocator.clear();
+    }
     static size_t block_size () {return allocator.block_size();}
     static size_t num_allocated_blocks() {return allocator.num_allocated_blocks();}
-    static size_t num_used_blocks() {return allocator.num_allocated_blocks();}
+    static size_t num_used_blocks() {return allocator.num_used_blocks();}
     static size_t num_used_bytes() {return num_used_blocks() * block_size();}
     static void print_stats() {allocator.print_stats();}
   };
@@ -263,38 +258,67 @@ namespace pbbs {
   // ****************************************
   //    my_alloc and my_free (add size tags)
   // ****************************************
+  //    ifdefed to either use malloc or the pbbs allocator
+  // ****************************************
 
-  inline size_t header_size(size_t n) {
+#ifdef USEMALLOC
+
+#include <malloc.h>
+
+  namespace pbbs {
+    struct __mallopt {
+      __mallopt() {
+	mallopt(M_MMAP_MAX,0);
+	mallopt(M_TRIM_THRESHOLD,-1);
+      }
+    };
+
+    __mallopt __mallopt_var;
+
+    inline void* my_alloc(size_t i) {return malloc(i);}
+    inline void my_free(void* p) {free(p);}
+    void allocator_clear() {}
+  }
+
+#else
+
+  constexpr size_t size_offset = 1; // in size_t sized words
+
+  // needs to be at least size_offset * size_offset(size_t)
+  inline size_t header_size(size_t n) { // in bytes
     return (n >= 1024) ? 64 : (n & 15) ? 8 : (n & 63) ? 16 : 64;
   }
 
   // allocates and tags with a header (8, 16 or 64 bytes) that contains the size
   void* my_alloc(size_t n) {
     size_t hsize = header_size(n);
-    void* ptr = default_allocator.allocate(n + hsize);
+    void* ptr;
+    ptr = default_allocator.allocate(n + hsize);
     void* r = (void*) (((char*) ptr) + hsize);
-    *(((size_t*) r)-1) = n; // puts size in previous word
+    *(((size_t*) r)-size_offset) = n; // puts size in header
     return r;
   }
 
   // reads the size, offsets the header and frees
   void my_free(void *ptr) {
-    size_t n = *(((size_t*) ptr)-1);
+    size_t n = *(((size_t*) ptr)-size_offset);
     size_t hsize = header_size(n);
+    if (hsize > (1ul << 48)) {
+      cout << "corrupted header in my_free" << endl;
+      abort(); // no good way to survive a corrupted header
+    }
     default_allocator.deallocate((void*) (((char*) ptr) - hsize), n + hsize);
   }
 
   void allocator_clear() {
     default_allocator.clear();
   }
-}
 #endif
 
-// ****************************************
-//    common across allocators (key routines used by sequences)
-// ****************************************
+  // ****************************************
+  //    common across allocators (key routines used by sequences)
+  // ****************************************
 
-namespace pbbs {
   // Does not initialize the array
   template<typename E>
   E* new_array_no_init(size_t n) {
@@ -338,5 +362,3 @@ namespace pbbs {
     my_free(A);
   }
 }
-
-

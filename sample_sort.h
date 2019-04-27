@@ -75,6 +75,7 @@ namespace pbbs {
     if (((sizeof(T) > 8) || is_pointer_<T>::value) && !stable)
       quicksort(A.begin(), A.size(), less);
     else bucket_sort(A, less, stable);
+    //quicksort(A.begin(), A.size(), less);
 #endif
   }
 
@@ -209,7 +210,7 @@ namespace pbbs {
   }
 
   template<typename E, typename Compare, typename s_size_t>
-  void sample_sort (E* A, s_size_t n, const Compare& less, bool stable) {
+  void sample_sort (E* A, s_size_t n, const Compare& less, bool stable=false) {
     range<E*> B(A,A+n);
     sample_sort_inplace(B, less, stable);
   }

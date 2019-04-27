@@ -4,7 +4,7 @@
 #include "counting_sort.h"
 #include "collect_reduce.h"
 #include "random_shuffle.h"
-#include "histogram.h"
+//#include "histogram.h"
 #include "integer_sort.h"
 #include "sample_sort.h"
 #include "merge.h"
@@ -231,7 +231,10 @@ double t_histogram(size_t n, bool check) {
   pbbs::random r(0);
   pbbs::sequence<T> in(n, [&] (size_t i) {return r.ith_rand(i)%n;});
   pbbs::sequence<T> out;
-  time(t, out = pbbs::histogram<T>(in, n););
+  //auto get_key = [&] (T a) {return a;};
+  //auto get_val = [&] (T a) {return (T) 1;};
+  //time(t, out = pbbs::collect_reduce(in, get_key, get_val, pbbs::addm<T>(), n););
+  time(t, out = pbbs::histogram(in, (T) n););
   if (check) check_histogram(in, out);
   return t;
 }
@@ -241,7 +244,10 @@ double t_histogram_few(size_t n, bool check) {
   pbbs::random r(0);
   pbbs::sequence<T> in(n, [&] (size_t i) {return r.ith_rand(i)%256;});
   pbbs::sequence<T> out;
-  time(t, out = pbbs::histogram<T>(in, 256););
+  //auto get_key = [&] (T a) {return a;};
+  //auto get_val = [&] (T a) {return (T) 1;};
+  //time(t, out = pbbs::collect_reduce(in, get_key, get_val, pbbs::addm<T>(), 256););
+  time(t, out = pbbs::histogram(in, (T) 256););
   if (check) check_histogram(in, out);
   return t;
 }
@@ -250,7 +256,10 @@ template<typename T>
 double t_histogram_same(size_t n, bool check) {
   pbbs::sequence<T> in(n, (T) 10311);
   pbbs::sequence<T> out;
-  time(t, out = pbbs::histogram<T>(in, n););
+  //auto get_key = [&] (T a) {return a;};
+  //auto get_val = [&] (T a) {return (T) 1;};
+  //time(t, out = pbbs::collect_reduce(in, get_key, get_val, pbbs::addm<T>(), n););
+  time(t, out = pbbs::histogram(in, (T) n););
   if (check) check_histogram(in, out);
   return t;
 }
@@ -334,7 +343,9 @@ double t_collect_reduce_pair_dense(size_t n, bool check) {
   pbbs::sequence<par> S(n, [&] (size_t i) -> par {
       return par(r.ith_rand(i) % n, 1);});
   pbbs::sequence<T> out;
-  time(t, out = pbbs::collect_reduce(S, pbbs::addm<T>(), n););
+  auto get_key = [&] (par a) {return a.first;};
+  auto get_val = [&] (par a) {return a.first;};
+  time(t, out = pbbs::collect_reduce(S, get_key, get_val, pbbs::addm<T>(), n););
   if (check)
     check_histogram(pbbs::sequence<T>(n, [&] (size_t i) {return S[i].first;}),
 		    out);
@@ -362,7 +373,9 @@ double t_collect_reduce_8(size_t n, bool check) {
   size_t num_buckets = (1<<8);
   pbbs::sequence<par> S(n, [&] (size_t i) {
       return par(r.ith_rand(i) % num_buckets, 1);});
-  time(t, pbbs::collect_reduce(S, pbbs::addm<T>(), num_buckets););
+  auto get_key = [&] (par a) {return a.first;};
+  auto get_val = [&] (par a) {return a.first;};
+  time(t, pbbs::collect_reduce(S, get_key, get_val, pbbs::addm<T>(), num_buckets););
   return t;
 }
 
