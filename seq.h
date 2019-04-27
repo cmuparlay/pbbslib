@@ -30,7 +30,7 @@ concept bool Range =
 
 namespace pbbs {
 
-  constexpr bool report_copy = true;
+  constexpr bool report_copy = false;
   constexpr bool bounds_check = false;
   
   template <typename Iterator>
