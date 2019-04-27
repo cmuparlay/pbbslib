@@ -34,6 +34,8 @@ endif
 
 EXAMPLES = mcss wc grep build_index primes longest_repeated_substring bw
 
+all : $(EXAMPLES)
+
 # object files
 % : %.cpp
 	$(CC) $(CFLAGS) $(PFLAGS) $@.cpp -o $@ $(JEMALLOC)
