@@ -26,7 +26,6 @@
 #include "utilities.h"
 #include "sequence_ops.h"
 #include "transpose.h"
-#include "histogram.h"
 #include "integer_sort.h"
 
 // Supports functions that take a seq of key-value pairs, collects all the
@@ -135,10 +134,83 @@ namespace pbbs {
     return Out;
   }
 
-  template <typename E, typename Key>
-  struct pair_hasheq_mask_low {
-    static inline size_t hash(E a) {return hash64_2(a.first & ~((size_t) 15));}
-    static inline bool eql(E a, E b) {return a.first == b.first;}
+  // The idea is to return a hash function that maps any items
+  // that appear many times into their own bucket.
+  // Otherwise items can end up in the same bucket.
+  // E is the type of element
+  // HashEq must contain an hash function E -> size_t
+  //    and an equality function E x E -> bool
+  template <typename E, typename HashEq>
+  struct get_bucket {
+    using HE = std::pair<E,int>;
+    sequence<HE> hash_table;
+    size_t table_mask;
+    size_t bucket_mask;
+    size_t num_buckets;
+    bool heavy_hitters;
+    const HashEq heq;
+
+    // creates a structure from a sequence of elements
+    // bits is the number of bits that will be returned by the hash function
+    // items that appear many times will be mapped individually into
+    //    the top half [2^{bits-1},2^{bits})
+    //    and light items shared into the bottom half [0,2^{bits-1})
+    template <typename Seq>
+    get_bucket(Seq const &A, HashEq const &heq, size_t bits) : heq(heq) {
+      size_t n = A.size();
+      size_t low_bits = bits - 1;  // for the bottom half
+      num_buckets = 1 << low_bits; // in bottom half
+      size_t count = 2 * num_buckets;
+      size_t table_size = 4 * count;
+      table_mask = table_size-1;
+      
+      hash_table = sequence<HE>(table_size, std::make_pair(E(),-1));
+      
+      // insert sample into hash table with one less than the
+      // count of how many times appears (since it starts with -1)
+      for (size_t i = 0; i < count; i++) {
+	E s = A[hash64(i)%n];
+	size_t idx = heq.hash(s) & table_mask;
+	while (1) {
+	  if (hash_table[idx].second == -1) {
+	    hash_table[idx] = std::make_pair(s,0);
+	    break;}
+	  else if (heq.eql(hash_table[idx].first, s)) {
+	      hash_table[idx].second += 1;
+	      break;
+	    }
+	  else idx = (idx + 1) & table_mask;
+	}
+      }
+
+      // keep in the hash table if at least three copies and give kept items
+      // consecutive numbers.   k will be total kept items.
+      size_t k = 0;
+      for (size_t i = 0; i < table_size; i++) {
+	if (hash_table[i].second > 1) {
+	  E key = hash_table[i].first;
+	  size_t idx = heq.hash(key) & table_mask;
+	  hash_table[idx] = std::make_pair(key, k++);
+	}
+	else hash_table[i].second = -1;
+      }
+
+      heavy_hitters = (k > 0);
+      bucket_mask = heavy_hitters ? num_buckets-1 : 2*num_buckets-1;
+    }
+
+    // the hash function.
+    // uses chosen id if key appears many times (top half)
+    // otherwise uses (heq.hash(v) % num_buckets) directly (bottom half)
+    size_t operator() (E v) const {
+      if (heavy_hitters) {
+        auto h = hash_table[heq.hash(v) & table_mask];
+	if (h.second != -1 && heq.eql(h.first, v))
+	  return h.second + num_buckets; // top half
+      }
+      return heq.hash(v) & bucket_mask; // bottom half
+    }
+
   };
 
   template <typename E, typename Key>
@@ -163,7 +235,8 @@ namespace pbbs {
     //   assuming an L3 cache of size 1M per thread
     // the counting sort uses 2 x input size due to copy
     size_t cache_per_thread = 1000000;
-    size_t bits = std::max<size_t>(log2_up(1 + 2 * (size_t) sizeof(val_type) * n / cache_per_thread),
+    size_t bits = std::max<size_t>(log2_up(1 + 2 * (size_t) sizeof(val_type) * n /
+					   cache_per_thread),
 				   4);
 					   
     size_t num_blocks = (1<<bits);
@@ -188,6 +261,7 @@ namespace pbbs {
     sequence<size_t> block_offsets;
     block_offsets = integer_sort_(A, B.slice(), Tmp.slice(), gb,
 				  bits, num_blocks, false);
+
     // note that this is cache line alligned
     sequence<val_type> sums(num_buckets, monoid.identity);
 
@@ -195,7 +269,7 @@ namespace pbbs {
     parallel_for(0, num_blocks, [&] (size_t i) {
 	size_t start = block_offsets[i];
 	size_t end = block_offsets[i+1];
-	size_t cut =  gb.heavy_hitters ? num_buckets/2 : num_buckets;
+	size_t cut =  gb.heavy_hitters ? num_blocks/2 : num_blocks;
 
 	// small blocks have indices in bottom half
 	if (i < cut)
@@ -214,6 +288,17 @@ namespace pbbs {
     return sums;
   }
 
+  // histogram based on collect_reduce.
+  // m is the number of buckets
+  // the output type of each bucket will have the same integer type as m
+  template <typename int_t, typename Seq>
+  sequence<int_t> histogram(Seq const &A, int_t m) {
+    using T = typename Seq::value_type;
+    auto get_key = [&] (T a) {return a;};
+    auto get_val = [&] (T a) {return (int_t) 1;};
+    return collect_reduce(A, get_key, get_val, pbbs::addm<int_t>(), m);
+  }
+    
   // this one is for more buckets than the length of A (i.e. sparse)
   //  A is a sequence of key-value pairs
   //  monoid has fields m.identity and m.f (a binary associative function)
