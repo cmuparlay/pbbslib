@@ -31,7 +31,7 @@ concept bool Range =
 namespace pbbs {
 
   constexpr bool report_copy = true;
-  constexpr bool bounds_check = true;
+  constexpr bool bounds_check = false;
   
   template <typename Iterator>
   struct range {
