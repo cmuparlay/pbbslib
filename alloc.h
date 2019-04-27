@@ -48,15 +48,17 @@ namespace pbbs {
     void* allocate_large(size_t n) {
 
       size_t bucket = num_small;
+      size_t alloc_size;
 
       if (n <= max_size) {
 	while (n > sizes[bucket]) bucket++;
 	maybe<void*> r = large_buckets[bucket-num_small].pop();
 	if (r) return *r;
-      }
-	    
-      void* a = (void*) aligned_alloc(large_align, sizes[bucket]);
+	alloc_size = sizes[bucket];
+      } else alloc_size = n;
 
+      void* a = (void*) aligned_alloc(large_align, alloc_size);
+      
       large_allocated += n;
       if (a == NULL) std::cout << "alloc failed on size: " << n << std::endl;
       // a hack to make sure pages are touched in parallel
