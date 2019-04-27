@@ -130,7 +130,7 @@ sequence<uchar> bw_transform_reverse(sequence<uchar> const &s) {
 }
   
 int main (int argc, char *argv[]) {
-  commandLine P(argc, argv, "[-r <rounds>] [-o outfile] infile");
+  commandLine P(argc, argv, "[-r <rounds>] [-o] infile");
   int rounds = P.getOptionIntValue("-r", 1);
   bool output = P.getOption("-o");
   bool detrans = P.getOption("-d");

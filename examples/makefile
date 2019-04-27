@@ -36,6 +36,15 @@ EXAMPLES = mcss wc grep build_index primes longest_repeated_substring bw
 
 all : $(EXAMPLES)
 
+runall : $(EXAMPLES)
+	./mcss -r 5 -n 100000000
+	./wc -r 5 build_index.cpp
+	./grep -r 5 main bw.cpp
+	./build_index -r 5 build_index.cpp
+	./primes -r 5 100000000
+	./longest_repeated_substring -r 5 longest_repeated_substring
+	./bw -r 5 bw.cpp
+
 # object files
 % : %.cpp
 	$(CC) $(CFLAGS) $(PFLAGS) $@.cpp -o $@ $(JEMALLOC)

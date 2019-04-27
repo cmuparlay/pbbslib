@@ -30,10 +30,10 @@ int main (int argc, char *argv[]) {
     // 	}));
     auto is_line_break = [&] (char a) {return a == '\n';};
     auto cr = singleton('\n');
-    auto lines = filter(split(str, is_line_break), [&] (auto s) {
+    auto lines = filter(split(str, is_line_break), [&] (auto const &s) {
     	return search(s, search_str) < s.size();});
     out_str = flatten(tabulate(lines.size()*2, [&] (size_t i) {
-    	  return (i & 1) ? cr : lines[i/2];}));
+    	  return (i & 1) ? cr : std::move(lines[i/2]);}));
     t.next("do work");
   }
   cout << out_str;
