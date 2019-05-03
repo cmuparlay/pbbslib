@@ -1,7 +1,8 @@
 #pragma once
 
 namespace pbbs {
-  void* my_alloc(size_t n);
+  void* my_alloc(size_t);
+  void my_free(void*);
 }
 
 #include <atomic>
@@ -11,6 +12,7 @@ namespace pbbs {
 #include "utilities.h"
 #include "block_allocator.h"
 #include "memory_size.h"
+#include "get_time.h"
 
 namespace pbbs {
 
@@ -64,8 +66,8 @@ namespace pbbs {
       // a hack to make sure pages are touched in parallel
       // not the right choice if you want processor local allocations
       size_t stride = (1 << 21); // 2 Mbytes in a huge page
-      parallel_for(0, n/stride, [&] (size_t i) {
-	  ((bool*) a)[i*stride] = 0;});
+      //parallel_for(0, n/stride, [&] (size_t i) {
+      //((bool*) a)[i*stride] = 0;});
       return a;
     }
 
@@ -80,6 +82,8 @@ namespace pbbs {
       }
     }
 
+    const size_t small_alloc_block_size = (1 << 22);
+
   public:
     ~pool_allocator() {
       for (size_t i=0; i < num_small; i++)
@@ -92,6 +96,7 @@ namespace pbbs {
     pool_allocator() {}
   
     pool_allocator(std::vector<size_t> const &sizes) : sizes(sizes) {
+      timer t;
       num_buckets = sizes.size();
       max_size = sizes[num_buckets-1];
       num_small = 0;
@@ -113,14 +118,8 @@ namespace pbbs {
 	  cout << "for small_allocator, bucket sizes must increase" << endl;
 	prev_bucket_size = bucket_size;
 	new (static_cast<void*>(std::addressof(small_allocators[i]))) 
-	  block_allocator(bucket_size); 
+	  block_allocator(bucket_size, 0, small_alloc_block_size - 64); 
       }
-      // std::vector<void*> h;
-      //   for (int i=0; i < 5000; i++)
-      // 	h.push_back(allocate(1 << 22));
-      //   for (int i=0; i < 5000; i++)
-      // 	deallocate(h[i],1 << 22);
-      //
     }
 
     void* allocate(size_t n) {
@@ -139,11 +138,19 @@ namespace pbbs {
       }
     }
 
-    void reserve(size_t n, size_t count) {
-      size_t bucket = 0;
-      while (n > sizes[bucket]) bucket++;
-      if (bucket < num_small)
-	return small_allocators[bucket].reserve(count);
+    // allocate, touch, and free to make sure space for small blocks is paged in
+    void reserve(size_t bytes) {
+      size_t bc = bytes/small_alloc_block_size;
+      std::vector<void*> h(bc);
+      parallel_for(0, bc, [&] (size_t i) {
+	  h[i] = allocate(small_alloc_block_size);
+	}, 1);
+      parallel_for(0, bc, [&] (size_t i) {
+	  for (size_t j=0; j < small_alloc_block_size; j += (1 << 12))
+	    ((char*) h[i])[j] = 0;
+	}, 1);
+      for (size_t i=0; i < bc; i++)
+      	deallocate(h[i], small_alloc_block_size);
     }
 
     void print_stats() {
@@ -265,20 +272,19 @@ namespace pbbs {
 
 #include <malloc.h>
 
-  namespace pbbs {
-    struct __mallopt {
-      __mallopt() {
-	mallopt(M_MMAP_MAX,0);
-	mallopt(M_TRIM_THRESHOLD,-1);
-      }
-    };
+  struct __mallopt {
+    __mallopt() {
+      mallopt(M_MMAP_MAX,0);
+      mallopt(M_TRIM_THRESHOLD,-1);
+    }
+  };
 
-    __mallopt __mallopt_var;
-
-    inline void* my_alloc(size_t i) {return malloc(i);}
-    inline void my_free(void* p) {free(p);}
-    void allocator_clear() {}
-  }
+  __mallopt __mallopt_var;
+  
+  inline void* my_alloc(size_t i) {return malloc(i);}
+  inline void my_free(void* p) {free(p);}
+  void allocator_clear() {}
+  void allocator_reserve(size_t bytes) {}
 
 #else
 
@@ -312,6 +318,10 @@ namespace pbbs {
 
   void allocator_clear() {
     default_allocator.clear();
+  }
+
+  void allocator_reserve(size_t bytes) {
+    default_allocator.reserve(bytes);
   }
 #endif
 

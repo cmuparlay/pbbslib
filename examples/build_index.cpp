@@ -16,15 +16,13 @@
 using namespace std;
 using namespace pbbs;
 
-timer idx_timer("build_index");
-
 // an index consists of a sequence of pairs each consisting of
 //     a character sequence (the word)
 //     an integer sequences (the line numbers it appears in)
 using index_type = sequence<pair<sequence<char>,sequence<size_t>>>;
 
-auto build_index(sequence<char> const &str) -> index_type {
-  timer t("build_index", false); // set to true to print times for each step
+auto build_index(sequence<char> const &str, bool verbose) -> index_type {
+  timer t("build_index", verbose); // set to true to print times for each step
   auto is_line_break = [&] (char a) {return a == '\n' || a == '\r';};
   auto is_space = [&] (char a) {return a == ' ' || a == '\t';};
   
@@ -66,16 +64,22 @@ auto index_to_char_seq(index_type const &idx) {
 int main (int argc, char *argv[]) {
   commandLine P(argc, argv, "[-r <rounds>] [-o <outfile>] infile");
   int rounds = P.getOptionIntValue("-r", 1);
+  bool verbose = P.getOption("-v");
   std::string outfile = P.getOptionValue("-o", "");
   char* filename = P.getArgument(0);
-  idx_timer.start();
-
+  timer idx_timer("build_index", verbose);
   auto str = pbbs::char_range_from_file(filename);
   idx_timer.next("read file");
   index_type idx;
 
+  // resereve 6 x the number of bytes of the string for the memory allocator
+  // not needed, but speeds up the first run
+  pbbs::allocator_reserve(str.size()*6);
+  idx_timer.next("reserve space");
+
+  idx_timer.start();
   for (int i=0; i < rounds ; i++) {
-    idx = build_index(str);
+    idx = build_index(str, verbose);
     idx_timer.next("build index");
   }
 

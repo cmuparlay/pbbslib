@@ -12,6 +12,25 @@ int main (int argc, char *argv[]) {
   int rounds = 4;
   timer t;
 
+  void *x = aligned_alloc(256, ((size_t) 1) << 35);
+  parallel_for (0, (((size_t) 1) << 25), [&] (size_t i) {
+       ((char*) x)[i * (1 << 10)] = 1;}, 1000);
+  free(x);
+  t.next("init");
+
+  // size_t bits = 30; // 22
+  // size_t num_blocks = 8; //2000;
+  // sequence<void*> a(num_blocks);
+  // parallel_for(0, num_blocks, [&] (size_t j) {
+  //     void * x = aligned_alloc(256, 1 << bits);
+  //     parallel_for (0, (1 << (bits - 18)), [&] (size_t i) {
+  //      ((char*) x)[i * (1 << 18)] = 1;}, 10000);
+  //     return x;
+  //   }, 1);
+  // parallel_for(0, num_blocks, [&] (size_t j) {
+  //     free(a[j]);});
+  // t.next("init");
+
   {
     //mem_pool mp;
     for (int i=0; i < rounds; i++) {
@@ -26,6 +45,7 @@ int main (int argc, char *argv[]) {
 	  my_free(b[i]);
 	});
       t.next("free");
+      //default_allocator.print_stats();
     }
   }
   //t.next("delete allocator");
@@ -96,8 +116,7 @@ int main (int argc, char *argv[]) {
   //t.next("clear allocator");
   cout << endl;
   
-
-  for (int j=0; j < rounds; j++) {
+    for (int j=0; j < rounds; j++) {
     sequence<char *> b(n, [&] (size_t i) {
 	char* foo = (char*) malloc(48);
 	foo[0] = 'a';

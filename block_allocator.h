@@ -112,9 +112,9 @@ size_t block_allocator::num_used_blocks() {
 }
 
 auto block_allocator::allocate_blocks(size_t num_blocks) -> char* {
-  char* start = (char*) aligned_alloc(pad_size,
-				      num_blocks * block_size_+ pad_size);
-  //char* start = (char*) pbbs::my_alloc(num_blocks * block_size_);
+  //char* start = (char*) aligned_alloc(pad_size,
+  //num_blocks * block_size_+ pad_size);
+  char* start = (char*) pbbs::my_alloc(num_blocks * block_size_);
   if (start == NULL) {
     fprintf(stderr, "Cannot allocate space in block_allocator");
     exit(1); }
@@ -165,7 +165,7 @@ block_allocator::block_allocator(size_t block_size,
   block_size_ = block_size;
   if (list_length_ == 0)
     list_length = default_list_bytes / block_size;
-  else list_length = list_length_;
+  else list_length = list_length_ / block_size;
   if  (max_blocks_ == 0)
     max_blocks = (3*getMemorySize()/block_size)/4;
   else max_blocks = max_blocks_;
@@ -188,7 +188,7 @@ void block_allocator::clear() {
   
     // throw away all allocated memory
     maybe<char*> x;
-    while ((x = pool_roots.pop())) std::free(*x);
+    while ((x = pool_roots.pop())) pbbs::my_free(*x); //std::free(*x);
     pool_roots.clear();
     global_stack.clear();
     blocks_allocated = 0;
