@@ -63,11 +63,6 @@ namespace pbbs {
       
       large_allocated += n;
       if (a == NULL) std::cout << "alloc failed on size: " << n << std::endl;
-      // a hack to make sure pages are touched in parallel
-      // not the right choice if you want processor local allocations
-      size_t stride = (1 << 21); // 2 Mbytes in a huge page
-      //parallel_for(0, n/stride, [&] (size_t i) {
-      //((bool*) a)[i*stride] = 0;});
       return a;
     }
 
