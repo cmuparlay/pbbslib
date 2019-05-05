@@ -257,54 +257,24 @@ namespace pbbs {
     return split(S, is_space);
   }
 
-  inline int to_chars_len(long a) { return 21;}
-  inline void to_chars_(char* s, long a) { sprintf(s,"%ld",a);}
-
-  inline int to_chars_len(unsigned long a) { return 21;}
-  inline void to_chars_(char* s, unsigned long a) { sprintf(s,"%lu",a);}
-
-  inline uint to_chars_len(uint a) { return 12;}
-  inline void to_chars_(char* s, uint a) { sprintf(s,"%u",a);}
-
-  inline int to_chars_len(int a) { return 12;}
-  inline void to_chars_(char* s, int a) { sprintf(s,"%d",a);}
-
-  inline int to_chars_len(double a) { return 18;}
-  inline void to_chars_(char* s, double a) { sprintf(s,"%.11le", a);}
-
-  inline int to_chars_len(char* a) { return strlen(a)+1;}
-  inline void to_chars_(char* s, char* a) { sprintf(s,"%s",a);}
-
-  template <class A, class B>
-  inline int to_chars_len(std::pair<A,B> a) { 
-    return to_chars_len(a.first) + to_chars_len(a.second) + 1;
-  }
-
-  template <class A, class B>
-  inline void to_chars_(char* s, std::pair<A,B> a) { 
-    int l = to_chars_len(a.first);
-    to_chars_(s, a.first); s[l] = ' '; to_chars_(s+l+1, a.second);
-  }
-
+  // unlike atol, need not be null terminated
   template <class Seq>
-  sequence<char> to_char_seq_o(Seq const &A, char separator=' ') {
-    size_t n = A.size();
-    sequence<long> L(n, [&] (size_t i) -> size_t {
-	return to_chars_len(A[i])+1;});
-    size_t m = pbbs::scan_inplace(L.slice(), addm<size_t>());
-    
-    sequence<char> B(m+1, (char) 0);
-    char* Bs = B.begin();
-    
-    parallel_for(0, n-1, [&] (long i) {
-	to_chars_(Bs + L[i], A[i]);
-	Bs[L[i+1] - 1] = separator;
-      });
-    to_chars_(Bs + L[n-1], A[n-1]);
-    auto r = pbbs::filter(B, [&] (char c) {return c != 0;});
-    return r;
+  long char_seq_to_l(Seq str) {
+    size_t i = 0;
+    auto read_digits = [&] () {
+      long r = 0;
+      while (i < str.size() && std::isdigit(str[i]))
+	r = r*10 + (str[i++] - 48);
+      return r;
+    };
+    if (str[i] == '-') {i++; return -read_digits();}
+    else return read_digits();
   }
 
+  // ********************************
+  // Printing to a character sequence
+  // ********************************
+  
   sequence<char> to_char_seq(bool v) {
     return singleton(v ? '1' : '0');
   }
