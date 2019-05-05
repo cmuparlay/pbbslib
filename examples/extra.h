@@ -24,7 +24,7 @@ sequence<edge> remove_self_edges(sequence<edge> const &E) {
   return filter(E, [&] (auto e) {return e.first != e.second;});}
 
 sequence<edge> symmetrize_graph(sequence<edge> const &E) {
-  auto flipped = map(E, [&] (auto e) {
+  auto flipped = dmap(E, [&] (auto e) {
       return std::make_pair(e.second, e.first);});
   return append(Ef, flipped);
 }
@@ -33,9 +33,10 @@ graph graph_from_edges(sequence<edge> const &E) {
   auto less = [&] (edge a, edge b) { return a < b;}
   auto eq = [&] (edge a, edge b) { return a == b;}
   graph G;
+  auto get_u = [&] (edge e) {return e.first;}
   G.edges = unique(sort(E, less), eq);
-  auto is_start = tabulate(edges.size(), [&] (size_t i) {
-      return (i==0) || (edges[i].first != edges[i-1].first);});
-  G.offsets = pack_index<size_t>(is_start);
+  size_t n = reduce(dmap(G.edges, get_u), maxm<vertex>());
+  G.offsets = get_counts(G.edges, get_u, n);
+  scan_inplace(G.offsets.slice(), addm<size_t>());
   return G;
 }
