@@ -305,6 +305,10 @@ namespace pbbs {
     return r;
   }
 
+  sequence<char> to_char_seq(bool v) {
+    return singleton(v ? '1' : '0');
+  }
+
   sequence<char> to_char_seq(long v) {
     int max_len = 21;
     char s[max_len+1];

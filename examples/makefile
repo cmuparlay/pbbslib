@@ -32,7 +32,7 @@ CC = g++
 PFLAGS = $(HGFLAGS)
 endif
 
-EXAMPLES = mcss wc grep build_index primes longest_repeated_substring bw
+EXAMPLES = mcss wc grep build_index primes longest_repeated_substring bw bfs
 
 all : $(EXAMPLES)
 
@@ -46,7 +46,7 @@ runall : $(EXAMPLES)
 	./bw -r 5 bw.cpp
 
 # object files
-% : %.cpp
+% : %.cpp ligra.h
 	$(CC) $(CFLAGS) $(PFLAGS) $@.cpp -o $@ $(JEMALLOC)
 
 clean:
