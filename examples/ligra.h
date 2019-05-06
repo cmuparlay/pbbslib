@@ -101,7 +101,7 @@ namespace ligra {
 	  parallel_for(0, ngh.size(), [&] (size_t j) {
 	      next[o + j] = (m.cond(ngh[j]) &&
 			     m.updateAtomic(v, ngh[j])) ? ngh[j] : n;
-	    }, 100);
+	    }, 1000);
 	});
 
       auto r = filter(next, [&] (vertex i) {return i < n;});
@@ -125,12 +125,16 @@ namespace ligra {
       return vertex_subset(std::move(out_flags));
     };
 
-    if (vs.size() > g.num_vertices()/sparse_dense_ratio)
-      if (vs.is_dense) return edge_map_dense(vs.flags);
-      else return edge_map_dense(vs.get_flags(g.num_vertices()));
+    if (vs.is_dense)
+      if (vs.size() > g.num_vertices()/sparse_dense_ratio)
+    	return edge_map_dense(vs.flags);
+      else return edge_map_sparse(vs.get_indices());
     else
-      if (vs.is_dense) return edge_map_sparse(vs.get_indices());
+      if (reduce(dmap(vs.indices, [&] (vertex v) { return g[v].size();}),
+		 addm<vertex>()) > g.num_edges()/sparse_dense_ratio)
+	return edge_map_dense(vs.get_flags(g.num_vertices()));
       else return edge_map_sparse(vs.indices);
+    
   }
 
   // **************************************************************
