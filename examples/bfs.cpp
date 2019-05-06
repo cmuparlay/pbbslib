@@ -23,19 +23,21 @@ struct BFS_F {
 };
 
 // **************************************************************
-//    Run BFS, returning number of levels
+//    Run BFS, returning number of levels, and number of vertices
+//    visited
 // **************************************************************
 
-size_t bfs(ligra::graph const &g, vertex start) {
+std::pair<size_t,size_t> bfs(ligra::graph const &g, vertex start) {
   auto BFS = BFS_F(g.num_vertices());
   BFS.Parents[start] = start;
   ligra::vertex_subset frontier(start); //creates initial frontier
-  size_t levels = 0;
+  size_t levels = 0, visited = 0;
   while(!frontier.is_empty()) { //loop until frontier is empty
-    frontier = ligra::edge_map(g, frontier, BFS);
+    visited += frontier.size();
     levels++;
+    frontier = ligra::edge_map(g, frontier, BFS);
   }
-  return levels;
+  return std::make_pair(levels, visited);
 }
 
 // **************************************************************
@@ -53,11 +55,12 @@ int main (int argc, char *argv[]) {
   auto g = ligra::read_graph(filename);
   t.next("read and parse graph");
 
-  size_t levels = 0;
+  size_t levels, visited;
   for (int i=0; i < rounds; i++) {
-    levels = bfs(g, start);
+    std::tie(levels, visited) = bfs(g, start);
     t.next("calculate bfs");
   }
-  cout << levels << " levels in BFS" << endl;
+  cout << levels << " levels in BFS, "
+       << visited << " vertices visited" << endl;
 }
 

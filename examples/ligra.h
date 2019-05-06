@@ -55,16 +55,18 @@ namespace ligra {
   };
 
   // **************************************************************
-  //    read a graph
+  //    read a graph stored in CSR format (ascii)
+  //    expects: <filetype> <number vertices> <number edges> offset_list edge_list
   // **************************************************************
 
   graph read_graph(char* filename) {
     sequence<char> str = char_range_from_file(filename);
     auto is_space = [&] (char a) {return a == ' ' || a == '\n';};
     auto words = tokenize(str, is_space);
-    size_t n = atol(words[1]);
-    size_t m = atol(words[2]);
-    if (3 + n + m != words.size()) abort();
+    size_t n = atol(words[1]); // num_vertices
+    size_t m = atol(words[2]);  // num_edges
+    if (3 + n + m != words.size() && (3 + n + 2*m != words.size()))
+      { cout << "badly formatted input file" << endl; abort();}
     graph g;
     g.offsets = map(words.slice(3,3+n), [&] (auto &s) {
 	return (edge_index) atol(s);});
@@ -130,5 +132,29 @@ namespace ligra {
     else
       if (vs.is_dense) return edge_map_sparse(vs.get_indices());
       else return edge_map_sparse(vs.indices);
+  }
+
+  // **************************************************************
+  //    vertex_map and vertex_filter
+  // **************************************************************
+
+  template <class F>
+  void vertex_map(vertex_subset vs, F f) {
+    if (vs.is_dense) 
+      parallel_for(0, vs.flags.size(), [&] (size_t i) {
+	  if (vs.flags[i]) f(i);});
+    else
+      parallel_for(0, vs.indices.size(), [&] (size_t i) {
+	  f(vs.indices[i]);});
+  }
+
+  template <class F>
+  vertex_subset vertex_filter(vertex_subset vs, F f) {
+    if (vs.is_dense)
+      return
+	vertex_subset(tabulate(vs.flags.size(), [&] (size_t i) {
+	      return vs.flags[i] && (bool) f(i);}));
+    else
+      return vertex_subset(filter(vs.indices, f));
   }
 }
