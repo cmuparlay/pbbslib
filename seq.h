@@ -158,10 +158,10 @@ namespace pbbs {
     };
 
     template <typename Func>
-    sequence(const size_t sz, Func f) {
+    sequence(const size_t sz, Func f, size_t granularity=300) {
       T* start = alloc(sz, false);
       parallel_for(0, sz, [&] (size_t i) {
-	  assign_uninitialized<T>(start[i], f(i));}, 300);
+	  assign_uninitialized<T>(start[i], f(i));}, granularity);
     };
 
     sequence(std::initializer_list<value_type> l) {

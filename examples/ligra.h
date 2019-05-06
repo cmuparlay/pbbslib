@@ -88,8 +88,7 @@ namespace ligra {
       size_t n = g.num_vertices();
       //cout << "sparse: " << idx.size() << endl;
 
-      sequence<vertex> offsets(idx.size(), [&] (size_t i) {
-	  return g[idx[i]].size();});
+      auto offsets = map(idx, [&] (vertex v) { return g[v].size();});
     
       // Find offsets to write the next frontier for each v in this frontier
       size_t total = pbbs::scan_inplace(offsets.slice(), addm<vertex>());
@@ -102,7 +101,7 @@ namespace ligra {
 	  parallel_for(0, ngh.size(), [&] (size_t j) {
 	      next[o + j] = (m.cond(ngh[j]) &&
 			     m.updateAtomic(v, ngh[j])) ? ngh[j] : n;
-	    }, 200);
+	    }, 100);
 	});
 
       auto r = filter(next, [&] (vertex i) {return i < n;});
