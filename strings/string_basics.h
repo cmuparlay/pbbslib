@@ -309,12 +309,16 @@ namespace pbbs {
   sequence<char> to_char_seq(float v) {
     return to_char_seq((double) v);};
 
-  sequence<char> to_char_seq(std::string s) {
+  sequence<char> to_char_seq(std::string const &s) {
     return map(s, [&] (char c) {return c;});
   }
 
+  sequence<char> to_char_seq(const char* s) {
+    return tabulate(strlen(s), [&] (size_t i) {return s[i];});
+  }
+  
   template <class A, class B>
-  sequence<char> to_char_seq(std::pair<A,B> P) {
+  sequence<char> to_char_seq(std::pair<A,B> const &P) {
     sequence<sequence<char>> s = {
       singleton('('), to_char_seq(P.first),
       to_char_seq(", "),
@@ -323,16 +327,23 @@ namespace pbbs {
   }
     
   template <class Seq>
-  sequence<char> to_char_seq(Seq const &A, char separator=' ') {
-    return flatten(tabulate(std::max<long>(2*A.size()-1,0), [&] (size_t i) {
-	  if (i & 1) return singleton(separator);
-	  else return to_char_seq(A[i/2]);
+  sequence<char> to_char_seq(Seq const &A) {
+    auto n = A.size();
+    if (n==0) return to_char_seq("[]");
+    auto separator = to_char_seq(", ");
+    return flatten(tabulate(2 * n + 1, [&] (size_t i) {
+	  if (i == 0) return singleton('[');
+	  if (i == 2*n) return singleton(']');
+	  if (i & 1) return to_char_seq(A[i/2]);
+	  return separator;
 	}));
   }
 
-  sequence<char> to_char_seq(sequence<uchar> s) {
+  sequence<char> to_char_seq(sequence<uchar> const &s) {
     return map(s, [&] (uchar c) {return (char) c;});
   }
+
+  sequence<char> to_char_seq(sequence<char> s) { return s; }
   
   // std::to_chars not widely available yet. sigh!!
   // template<typename T, 
