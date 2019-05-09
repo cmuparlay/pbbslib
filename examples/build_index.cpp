@@ -38,9 +38,9 @@ auto build_index(sequence<char> const &str, bool verbose) -> index_type {
   // generate sequence of sequences of (token, line_number) pairs
   // tokens are strings separated by spaces.
   auto pairs = tabulate(lines.size(), [&] (size_t i) {
-      return map(tokens(lines[i], is_space), [&] (sequence<char> w) {
-	  return make_pair(w, i);
-	});});
+      return dmap(tokens(lines[i], is_space), [=] (sequence<char> s) {
+	  return make_pair(s, i);});
+      });
   t.next("tokens");
 
   // flatten
@@ -52,7 +52,7 @@ auto build_index(sequence<char> const &str, bool verbose) -> index_type {
 }
 
 // converts an index into an ascii character sequence ready for output
-auto index_to_char_seq(index_type const &idx) {
+sequence<char> index_to_char_seq(index_type const &idx) {
   return flatten(map(idx, [&] (auto& entry) {
 	sequence<sequence<char>>&& A = {entry.first,
 					singleton(' '),
@@ -72,9 +72,9 @@ int main (int argc, char *argv[]) {
   idx_timer.next("read file");
   index_type idx;
 
-  // resereve 6 x the number of bytes of the string for the memory allocator
+  // resereve 5 x the number of bytes of the string for the memory allocator
   // not needed, but speeds up the first run
-  pbbs::allocator_reserve(str.size()*6);
+  pbbs::allocator_reserve(str.size()*5);
   idx_timer.next("reserve space");
 
   idx_timer.start();

@@ -70,7 +70,6 @@ namespace pbbs {
   struct delayed_sequence {
     using value_type = T;
     delayed_sequence(size_t n, F _f) : f(_f), s(0), e(n) {};
-    delayed_sequence() : s(0), e(0) {};
     delayed_sequence(size_t n, value_type v) : f([&] (size_t i) {return v;}), s(0), e(n) {};
     delayed_sequence(size_t s, size_t e, F _f) : f(_f), s(s), e(e) {};
     const value_type operator[] (size_t i) const {return (f)(i+s);}
@@ -80,7 +79,7 @@ namespace pbbs {
       return delayed_sequence<T,F>(s,e,f); }
     size_t size() const { return e - s;}
   private:
-    const F f;
+    F f;
     const size_t s, e;
   };
 
@@ -137,7 +136,7 @@ namespace pbbs {
     }
 
     sequence(const size_t sz) {
-      alloc(sz, true);}
+      alloc(sz);}
 
     // only use if a is allocated by same allocator as sequence
     sequence(value_type* a, const size_t sz) {
@@ -147,26 +146,26 @@ namespace pbbs {
 
     static sequence<T> no_init(const size_t sz) {
       sequence<T> r;
-      r.alloc(sz, false);
+      r.alloc_no_init(sz);
       return r;
     };
 
     sequence(const size_t sz, value_type v) {
-      T* start = alloc(sz, false);
+      T* start = alloc_no_init(sz);
       parallel_for(0, sz, [=] (size_t i) {
 	  assign_uninitialized(start[i], (T) v);}, 300);
     };
 
     template <typename Func>
     sequence(const size_t sz, Func f, size_t granularity=300) {
-      T* start = alloc(sz, false);
+      T* start = alloc_no_init(sz);
       parallel_for(0, sz, [&] (size_t i) {
 	  assign_uninitialized<T>(start[i], f(i));}, granularity);
     };
 
     sequence(std::initializer_list<value_type> l) {
       size_t sz = l.end() - l.begin();
-      T* start = alloc(sz, true);
+      T* start = alloc(sz);
       size_t i = 0;
       for (T a : l) start[i++] = a;
     }
@@ -283,14 +282,19 @@ namespace pbbs {
       return false;
     }
     
+
     // allocate and set size
-    value_type* alloc(size_t sz, bool init) {
-      if (is_small(sz)) {
-	val.small[15] = sz;
-	return (T*) &val.small;
-      }
-      T* loc = (sz == 0) ? NULL :
-	(init ? pbbs::new_array<T>(sz) : pbbs::new_array_no_init<T>(sz));
+    value_type* alloc(size_t sz) {
+      if (is_small(sz)) {val.small[15] = sz; return (T*) &val.small; }
+      T* loc = (sz == 0) ? NULL : pbbs::new_array<T>(sz);
+      set(loc, sz);
+      return loc;
+    }
+
+    // allocate and set size with no initialization
+    value_type* alloc_no_init(size_t sz) {
+      if (is_small(sz)) {val.small[15] = sz; return (T*) &val.small; }
+      T* loc = (sz == 0) ? NULL : pbbs::new_array_no_init<T>(sz);
       set(loc, sz);
       return loc;
     }
@@ -307,7 +311,7 @@ namespace pbbs {
     // not DRM compliant
     template <class Iter>
     void copy_from(Iter a, size_t sz) {
-      T* start = alloc(sz, false); 
+      T* start = alloc_no_init(sz); 
       parallel_for(0, sz, [&] (size_t i) {
 	  assign_uninitialized(start[i], a[i]);}, 1000);
     }
