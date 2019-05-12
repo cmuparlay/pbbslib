@@ -194,10 +194,8 @@ namespace pbbs {
 		size_t bits,
 		size_t num_buckets,
 		bool inplace) {
-    if (slice_eq(In.slice(), Out)) {
-      cout << "in integer_sort : input and output must be different locations"
-	   << endl;
-      abort();}
+    if (slice_eq(In.slice(), Out)) 
+      throw std::invalid_argument("in integer_sort : input and output must be different locations");
     if (bits == 0) {
       auto get_key = [&] (size_t i) {return g(In[i]);};
       auto keys = delayed_seq<size_t>(In.size(), get_key);

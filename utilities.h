@@ -160,6 +160,7 @@ namespace pbbs {
 
   template <typename ET>
   inline bool atomic_compare_and_swap(ET* a, ET oldval, ET newval) {
+    static_assert(sizeof(ET) <= 8, "Bad CAS length");
     if (sizeof(ET) == 1) {
       uint8_t r_oval, r_nval;
       std::memcpy(&r_oval, &oldval, sizeof(ET));
@@ -170,15 +171,12 @@ namespace pbbs {
       std::memcpy(&r_oval, &oldval, sizeof(ET));
       std::memcpy(&r_nval, &newval, sizeof(ET));
       return __sync_bool_compare_and_swap(reinterpret_cast<uint32_t*>(a), r_oval, r_nval);
-    } else if (sizeof(ET) == 8) {
+    } else { // if (sizeof(ET) == 8) {
       uint64_t r_oval, r_nval;
       std::memcpy(&r_oval, &oldval, sizeof(ET));
       std::memcpy(&r_nval, &newval, sizeof(ET));
       return __sync_bool_compare_and_swap(reinterpret_cast<uint64_t*>(a), r_oval, r_nval);
-    } else {
-      std::cout << "Bad CAS Length" << sizeof(ET) << std::endl;
-      exit(0);
-    }
+    } 
   }
 
   template <typename E, typename EV>
@@ -249,9 +247,4 @@ namespace pbbs {
   inline size_t granularity(size_t n) {
     return (n > 100) ? ceil(pow(n,0.5)) : 100;
   }
-
-  inline void assert_str(int cond, std::string s) {
-    if (!cond) {std::cout << "PBBS assert error: " << s << std::endl;}
-  }
-
 }

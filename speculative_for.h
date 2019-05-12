@@ -64,10 +64,8 @@ namespace pbbs {
     long totalProcessed = 0; // number done including wasteds tries
 
     while (numberDone < e) {
-      if (round++ > maxTries) {
-        cout << "speculative_for: too many iterations, increase maxTries"<< endl;
-        abort();
-      }
+      if (round++ > maxTries) 
+	throw std::runtime_error("speculative_for: too many iterations, increase maxTries");
       long size = std::min(currentRoundSize, e - numberDone);
 
       totalProcessed += size;

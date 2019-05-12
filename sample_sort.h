@@ -95,7 +95,7 @@ namespace pbbs {
   template<class Seq, class Iter, typename Compare>
   void small_sort_(Seq const &In, range<Iter> Out, const Compare& less,
 		   bool inplace = false, bool stable = false) {
-    if (inplace) std::cout << "bad inplace arg in sort" << std::endl;
+    if (inplace) throw std::invalid_argument("bad inplace arg to small_sort");
     else seq_sort_(In, Out, less, false, stable);
   }
 
@@ -152,20 +152,21 @@ namespace pbbs {
       t.next("head");
 
       // sort each block and merge with samples to get counts for each bucket
-      s_size_t *counts = new_array_no_init<s_size_t>(m+1);
+      sequence<s_size_t> counts(m+1);
       counts[m] = 0;
       sliced_for(n, block_size, [&] (size_t i, size_t start, size_t end) {
 	  seq_sort_(In.slice(start,end), Tmp.slice(start,end), less,
 		    inplace, stable);
-	  merge_seq(Tmp.begin() + start, pivots.begin(), counts + i*num_buckets,
+	  merge_seq(Tmp.begin() + start, pivots.begin(),
+		    counts.begin() + i*num_buckets,
 		    end-start, num_buckets-1, less);
 	});
       t.next("first sort");
 
       // move data from blocks to buckets
-      size_t* bucket_offsets = transpose_buckets(Tmp.begin(), Out.begin(),
-						 counts, n, block_size,
-						 num_blocks, num_buckets);
+      auto bucket_offsets = transpose_buckets(Tmp.begin(), Out.begin(),
+					      counts, n, block_size,
+					      num_blocks, num_buckets);
       t.next("transpose");
       Tmp.clear_no_destruct();
 
@@ -180,7 +181,6 @@ namespace pbbs {
 	  }
 	},1);
       t.next("second sort");
-      delete_array(bucket_offsets,num_buckets+1 );
     }
   }
 

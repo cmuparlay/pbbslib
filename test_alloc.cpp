@@ -6,12 +6,27 @@
 using namespace pbbs;
 using namespace std;
 
+
+template <typename T, typename Allocator=pbbs::allocator<T>>
+  struct my_vect {
+    size_t n;
+    Allocator allocator;
+    
+    my_vect(size_t n, const Allocator &allocator = Allocator()) : n(n), allocator(allocator) {}
+  };
+
 int main (int argc, char *argv[]) {
   //small_allocator pool;
   size_t n = 100000000;
   int rounds = 4;
   timer t;
 
+  my_vect<double> a(10);
+
+  cout << "hello: " << sizeof(a) << endl;
+
+
+  
   void *x = aligned_alloc(256, ((size_t) 1) << 35);
   parallel_for (0, (((size_t) 1) << 25), [&] (size_t i) {
        ((char*) x)[i * (1 << 10)] = 1;}, 1000);

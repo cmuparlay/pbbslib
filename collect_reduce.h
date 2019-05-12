@@ -298,7 +298,7 @@ namespace pbbs {
     auto get_val = [&] (T a) {return (int_t) 1;};
     return collect_reduce(A, get_key, get_val, pbbs::addm<int_t>(), m);
   }
-    
+
   // this one is for more buckets than the length of A (i.e. sparse)
   //  A is a sequence of key-value pairs
   //  monoid has fields m.identity and m.f (a binary associative function)
@@ -370,8 +370,7 @@ namespace pbbs {
       size_t start = bucket_offsets[i];
       size_t end = bucket_offsets[i+1];
       if ((end-start) > table_size)
-	cout << "error in collect_reduce: " << (end-start) << ", " << table_size
-	     << ", " << total_table_size << ", " << n << endl;
+	throw std::runtime_error("hash table overflow in collect_reduce");
       for (size_t j = start; j < end; j++) {
 	size_t idx = B[j].first;
 	size_t k = ((uint) hasheq.hash(B[j])) % table_size;

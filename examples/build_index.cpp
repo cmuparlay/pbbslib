@@ -38,7 +38,8 @@ auto build_index(sequence<char> const &str, bool verbose) -> index_type {
   // generate sequence of sequences of (token, line_number) pairs
   // tokens are strings separated by spaces.
   auto pairs = tabulate(lines.size(), [&] (size_t i) {
-      return dmap(tokens(lines[i], is_space), [=] (sequence<char> s) {
+      return map(tokens(lines[i], is_space), [=] (sequence<char> s) {
+	  cout << i << endl;
 	  return make_pair(s, i);});
       });
   t.next("tokens");
@@ -46,6 +47,7 @@ auto build_index(sequence<char> const &str, bool verbose) -> index_type {
   // flatten
   auto flat_pairs = flatten(pairs);
   t.next("flatten");
+  cout << to_char_seq(flat_pairs) << endl;
       
   // group line numbers by tokens
   return group_by(flat_pairs);
@@ -82,6 +84,8 @@ int main (int argc, char *argv[]) {
     idx = build_index(str, verbose);
     idx_timer.next("build index");
   }
+
+  cout << (idx[0].second)[2] << endl;
 
   if (outfile.size() > 0) {
     auto out_str = index_to_char_seq(idx);

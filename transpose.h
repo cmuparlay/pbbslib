@@ -129,9 +129,12 @@ namespace pbbs {
   // counts is of length num_blocks * num_buckets
   // Data is memcpy'd into To avoiding initializers and overloaded =
   template<typename E, typename s_size_t>
-  size_t* transpose_buckets(E* From, E* To, s_size_t* counts, size_t n,
-			    size_t block_size,
-			    size_t num_blocks, size_t num_buckets) {
+  sequence<size_t> transpose_buckets(E* From, E* To,
+				     sequence<s_size_t> const & counts,
+				     size_t n,
+				     size_t block_size,
+				     size_t num_blocks,
+				     size_t num_buckets) {
     timer t("transpose", false);
     size_t m = num_buckets * num_blocks;
     sequence<s_size_t> dest_offsets; 
@@ -141,11 +144,8 @@ namespace pbbs {
     if (n < (1 << 22) || num_buckets <= 512 || num_blocks <= 512) {
       size_t block_bits = log2_up(num_blocks);
       size_t block_mask = num_blocks-1;
-      if ((size_t) 1 << block_bits != num_blocks) {
-	cout << "in transpose_buckets: num_blocks must be a power or 2"
-	     << endl;
-	abort();
-      }
+      if ((size_t) 1 << block_bits != num_blocks)
+	throw std::invalid_argument("in transpose_buckets: num_blocks must be a power or 2");
 
       // determine the destination offsets
       auto get = [&] (size_t i) {
@@ -154,7 +154,8 @@ namespace pbbs {
       // slow down?
       dest_offsets = sequence<s_size_t>(m, get);
       size_t sum = scan_inplace(dest_offsets.slice(), add);
-      if (sum != n) abort();
+      if (sum != n)
+	throw std::logic_error("in transpose, internal bad count");
       t.next("seq and scan");
 
       // send each key to correct location within its bucket
@@ -169,33 +170,28 @@ namespace pbbs {
       };
       parallel_for(0, num_blocks, f, 1);
       t.next("trans");
-      free_array(counts);
     } else { // for larger input do cache efficient transpose
-      sequence<s_size_t> source_offsets(counts,m+1);
+      //sequence<s_size_t> source_offsets(counts,m+1);
       dest_offsets = sequence<s_size_t>(m);
-      size_t total;
-      transpose<s_size_t>(counts, dest_offsets.begin()).trans(num_blocks,
-							      num_buckets);
+      transpose<s_size_t>(counts.begin(), dest_offsets.begin()).trans(num_blocks,
+								      num_buckets);
       t.next("trans 1");
 
       // do both scans inplace
-      total = scan_inplace(dest_offsets.slice(), add);
-      if (total != n) abort();
-      total = scan_inplace(source_offsets.slice(), add);
-      if (total != n) abort();
-      source_offsets[m] = n;
+      size_t total = scan_inplace(dest_offsets.slice(), add);
+      size_t total2 = scan_inplace(counts.slice(), add);
+      if (total != n || total2 != n)
+	throw std::logic_error("in transpose, internal bad count");
+      counts[m] = n;
       t.next("scans");
 
-      blockTrans<E,s_size_t>(From, To, source_offsets.begin(),
+      blockTrans<E,s_size_t>(From, To, counts.begin(),
 			     dest_offsets.begin()).trans(num_blocks, num_buckets);
       t.next("trans 2");
     }
 
-    size_t *bucket_offsets = new_array_no_init<size_t>(num_buckets+1);
-    for (s_size_t i=0; i < num_buckets; i++)
-      bucket_offsets[i] = dest_offsets[i*num_blocks];
-    // last element is the total size n
-    bucket_offsets[num_buckets] = n;
-    return bucket_offsets;
+    // return the bucket offsets, padded with n at the end
+    return sequence<size_t>(num_buckets+1, [&] (size_t i) {
+	return (i==num_buckets) ? n : dest_offsets[i*num_blocks];});
   }
 }

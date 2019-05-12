@@ -74,10 +74,8 @@ struct Deque {
     local_bot = bot; // atomic load
     deq[local_bot].job = job; // shared store
     local_bot += 1;
-    if (local_bot == q_size) {
-      std::cout << "internal error: scheduler queue overflow" << std::endl;
-      abort();
-    }
+    if (local_bot == q_size) 
+      throw std::runtime_error("internal error: scheduler queue overflow");
     bot = local_bot; // shared store
     fence();
   }

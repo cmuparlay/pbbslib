@@ -297,10 +297,8 @@ namespace pbbs {
 				       Char_Seq const &Fl,
 				       flags fl = no_flag) {
     size_t n = In.size();
-    if (In.begin() == Out.begin()) {
-      std::cout << "In and Out cannot be the same in split_tree" << std::endl;
-      return std::pair<size_t,size_t>(0,0);
-    }
+    if (slice_eq(In.slice(), Out)) 
+      throw std::invalid_argument("In and Out cannot be the same in split_three");
     size_t l = num_blocks(n,_block_size);
     sequence<size_t> Sums0(l);
     sequence<size_t> Sums1(l);

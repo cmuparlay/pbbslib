@@ -7,6 +7,7 @@ namespace pbbs {
 
 #include <atomic>
 #include <vector>
+#include <new>
 #include "utilities.h"
 #include "concurrent_stack.h"
 #include "utilities.h"
@@ -60,9 +61,9 @@ namespace pbbs {
       } else alloc_size = n;
 
       void* a = (void*) aligned_alloc(large_align, alloc_size);
+      if (a == NULL) throw std::bad_alloc();
       
       large_allocated += n;
-      if (a == NULL) std::cout << "alloc failed on size: " << n << std::endl;
       return a;
     }
 
@@ -108,9 +109,9 @@ namespace pbbs {
       for (size_t i = 0; i < num_small; i++) {
 	size_t bucket_size = sizes[i];
 	if (bucket_size < 8)
-	  cout << "for small_allocator, bucket sizes must be at least 8" << endl;
+	  throw std::invalid_argument("for small_allocator, bucket sizes must be at least 8");
 	if (!(bucket_size > prev_bucket_size))
-	  cout << "for small_allocator, bucket sizes must increase" << endl;
+	  throw std::invalid_argument("for small_allocator, bucket sizes must increase");
 	prev_bucket_size = bucket_size;
 	new (static_cast<void*>(std::addressof(small_allocators[i]))) 
 	  block_allocator(bucket_size, 0, small_alloc_block_size - 64); 
@@ -207,7 +208,7 @@ namespace pbbs {
     T* allocate(size_t n) {
       return (T*) default_allocator.allocate(n * sizeof(T));
     }
-    T* deallocate(T* ptr, size_t n) {
+    void deallocate(T* ptr, size_t n) {
       default_allocator.deallocate((void*) ptr, n * sizeof(T));
     }
 
@@ -306,7 +307,7 @@ namespace pbbs {
     size_t hsize = header_size(n);
     if (hsize > (1ul << 48)) {
       cout << "corrupted header in my_free" << endl;
-      abort(); // no good way to survive a corrupted header
+      throw std::bad_alloc(); 
     }
     default_allocator.deallocate((void*) (((char*) ptr) - hsize), n + hsize);
   }
@@ -327,25 +328,16 @@ namespace pbbs {
   // Does not initialize the array
   template<typename E>
   E* new_array_no_init(size_t n) {
-    size_t bytes = n * sizeof(E);
-    E* r = (E*) my_alloc(bytes);
-    if (r == NULL) {fprintf(stderr, "Cannot allocate space: %lu bytes", bytes); exit(1);}
-    return r;
+    return (E*) my_alloc(n * sizeof(E));
   }
 
   // Initializes in parallel
   template<typename E>
   E* new_array(size_t n) {
     E* r = new_array_no_init<E>(n);
-    if (!std::is_trivially_default_constructible<E>::value) {
-      //if (!std::is_default_constructible<E>::value) {
-      if (n > 2048) 
-	parallel_for(0, n, [&] (size_t i) {
-	    new ((void*) (r+i)) E;});
-      else
-	for (size_t i = 0; i < n; i++)
-	  new ((void*) (r+i)) E;
-    }
+    if (!std::is_trivially_default_constructible<E>::value) 
+      parallel_for(0, n, [&] (size_t i) {
+	  new ((void*) (r+i)) E;});
     return r;
   }
 
@@ -356,14 +348,10 @@ namespace pbbs {
   // Destructs in parallel
   template<typename E>
   void delete_array(E* A, size_t n) {
-    // C++14 -- suppored by gnu C++11
-    if (!std::is_trivially_destructible<E>::value) {
-      if (n > 2048) 
-	parallel_for(0, n, [&] (size_t i) {
-	    A[i].~E();});
-      else for (size_t i = 0; i < n; i++)
-	     A[i].~E();
-    }
+    // C++14 -- supported by gnu C++11
+    if (!std::is_trivially_destructible<E>::value)
+      parallel_for(0, n, [&] (size_t i) {
+	  A[i].~E();});
     my_free(A);
   }
 }

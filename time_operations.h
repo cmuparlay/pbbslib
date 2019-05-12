@@ -344,7 +344,7 @@ double t_collect_reduce_pair_dense(size_t n, bool check) {
       return par(r.ith_rand(i) % n, 1);});
   pbbs::sequence<T> out;
   auto get_key = [&] (par a) {return a.first;};
-  auto get_val = [&] (par a) {return a.first;};
+  auto get_val = [&] (par a) {return a.second;};
   time(t, out = pbbs::collect_reduce(S, get_key, get_val, pbbs::addm<T>(), n););
   if (check)
     check_histogram(pbbs::sequence<T>(n, [&] (size_t i) {return S[i].first;}),

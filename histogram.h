@@ -95,7 +95,7 @@ namespace pbbs {
   // HashEq must contain an hash function E -> size_t
   //    and an equality function E x E -> bool
   template <typename E, typename HashEq>
-  struct get_bucket {
+  struct get_bucket_old {
     using HE = std::pair<E,int>;
     sequence<HE> hash_table;
     size_t table_mask;
@@ -110,7 +110,7 @@ namespace pbbs {
     //    the top half [2^{bits-1},2^{bits})
     //    and light items shared into the bottom half [0,2^{bits-1})
     template <typename Seq>
-    get_bucket(Seq const &A, HashEq const &heq, size_t bits) : heq(heq) {
+    get_bucket_old(Seq const &A, HashEq const &heq, size_t bits) : heq(heq) {
       size_t n = A.size();
       size_t low_bits = bits - 1;  // for the bottom half
       num_buckets = 1 << low_bits; // in bottom half
@@ -204,7 +204,7 @@ namespace pbbs {
     // others share a bucket.
     // Keys that share low 4 bits get same bucket unless big.
     // This is to avoid false sharing.
-    get_bucket<T,int_hasheq_mask_low<T>> gb(A, int_hasheq_mask_low<T>(), bits);
+    get_bucket_old<T,int_hasheq_mask_low<T>> gb(A, int_hasheq_mask_low<T>(), bits);
     t.next("head");
 
     // first buckets based on hash using a counting sort

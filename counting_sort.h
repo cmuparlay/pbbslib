@@ -50,7 +50,8 @@ namespace pbbs {
       local_counts[i] = 0;
     for (size_t j = 0; j < n; j++) {
       size_t k = Keys[j];
-      if (k >= num_buckets) abort();
+      if (k >= num_buckets)
+	throw std::runtime_error("bucket out of range in count_sort");
       local_counts[k]++;
     }
     for (size_t i = 0; i < num_buckets; i++)
@@ -112,6 +113,9 @@ namespace pbbs {
   }
 
   // Parallel internal counting sort specialized to type for bucket counts
+  // returns counts, and a flag
+  // If skip_if_in_one and returned flag is true, then the Input was alread
+  // sorted, and it has not been moved to the output.
   template <typename s_size_t,
 	    typename InS, typename OutS, typename KeyS>
   std::pair<sequence<size_t>, bool>
@@ -139,7 +143,7 @@ namespace pbbs {
     size_t block_size = ((n-1)/num_blocks) + 1;
     size_t m = num_blocks * num_buckets;
 
-    s_size_t *counts = new_array_no_init<s_size_t>(m);
+    sequence<s_size_t> counts(m);
     t.next("head");
 
     // sort each block
@@ -147,7 +151,7 @@ namespace pbbs {
 	s_size_t start = std::min(i * block_size, n);
 	s_size_t end =  std::min(start + block_size, n);
 	seq_count_(In.slice(start,end), Keys.slice(start,end),
-		   counts + i*num_buckets, num_buckets);
+		   counts.begin() + i*num_buckets, num_buckets);
       }, 1, is_nested);
 
     t.next("count");
@@ -169,9 +173,10 @@ namespace pbbs {
     if (skip_if_in_one && num_non_zero == 1) {
       return std::make_pair(std::move(bucket_offsets), true);}
 
-    if (total != n) abort();
+    if (total != n)
+      throw std::logic_error("in count_sort, internal bad count");
 
-    sequence<s_size_t> dest_offsets = sequence<s_size_t>::no_init(num_blocks*num_buckets);
+    auto dest_offsets = sequence<s_size_t>::no_init(num_blocks*num_buckets);
     parallel_for(0, num_buckets, [&] (size_t i) {
 	size_t v = bucket_offsets[i];
 	size_t start = i * num_blocks;
@@ -181,7 +186,7 @@ namespace pbbs {
 	}
       }, 1 + 1024/num_blocks);
 
-    s_size_t *counts2 = new_array_no_init<s_size_t>(m);
+    sequence<s_size_t> counts2(m);
 
     parallel_for(0, num_blocks, [&] (size_t i) {
 	size_t start = i * num_buckets;
@@ -191,39 +196,20 @@ namespace pbbs {
 
     t.next("buckets");
 
-    // transpose<s_size_t>(counts, dest_offsets.begin()).trans(num_blocks,
-    // 							    num_buckets);
-    // size_t sum = scan_inplace(dest_offsets, addm<s_size_t>());
-    // if (sum != n) abort();
-    // transpose<s_size_t>(dest_offsets.begin(), counts).trans(num_buckets,
-    // 							    num_blocks);
-    //if (n > 1000000000) t.next("scan");
-
     parallel_for(0, num_blocks,  [&] (size_t i) {
 	s_size_t start = std::min(i * block_size, n);
 	s_size_t end =  std::min(start + block_size, n);
 	seq_write_(In.slice(start,end), Out.begin(),
 		   Keys.slice(start,end),
-		   counts2 + i*num_buckets, num_buckets);
+		   counts2.begin() + i*num_buckets, num_buckets);
       }, 1, is_nested);
 
-    //if (n > 1000000000) t.next("move");
-
-    // for (s_size_t i=0; i < num_buckets; i++) {
-    //   bucket_offsets[i] = dest_offsets[i*num_blocks];
-    //   //cout << i << ", " << bucket_offsets[i] << endl;
-    // }
-    // // last element is the total size n
-    // bucket_offsets[num_buckets] = n;
-
     t.next("transpose");
-    free_array(counts);
-    free_array(counts2);
-    //std::this_thread::sleep_for(std::chrono::seconds(1));
-    return std::make_pair(std::move(bucket_offsets),false);
+    return std::make_pair(std::move(bucket_offsets), false);
   }
 
-  // Parallel version
+  // If skip_if_in_one and returned flag is true, then the Input was alread
+  // sorted, and it has not been moved to the output.
   template <typename InS, typename KeyS>
   std::pair<sequence<size_t>, bool>
   count_sort(InS const &In,
@@ -233,6 +219,8 @@ namespace pbbs {
 	     float parallelism = 1.0,
 	     bool skip_if_in_one=false) {
     size_t n = In.size();
+    if (n != Out.size() || n != Keys.size())
+      throw std::invalid_argument("lengths don't match in call to count_sort");
     size_t max32 = ((size_t) 1) << 32;
     if (n < max32 && num_buckets < max32)
       // use 4-byte counters when larger ones not needed

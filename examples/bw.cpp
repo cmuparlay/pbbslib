@@ -83,14 +83,15 @@ sequence<uchar> bw_transform_reverse_(sequence<uchar> const &s) {
   // at the end return the buffer trimmed to fit the substring exactly
   // also return pointer to the next head
   auto blocks = map(heads, [&] (Int my_head) {
-      // very unlikely to take more than this much space, aborts if it does
+      // very unlikely to take more than this much space, throws an exception if it does
       Int buffer_len = block_size * 30;
       sequence<uchar> buffer(buffer_len);
       Int i = 0;
       Int pos = my_head;
       do {
 	buffer[i++] = ss[pos];
-	if (i == buffer_len) abort();
+	if (i == buffer_len)
+	  throw std::runtime_error("ran out of buffer space in bw decode");
 	pos = links[pos];
       } while (pos < n);
       sequence<uchar> trimmed(buffer.slice(0,i));

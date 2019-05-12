@@ -99,7 +99,9 @@ namespace pbbs {
     return sequence<char>(bytes,n);
   }
 
+  // Reads a file using mmap, returning it as a range
   inline range<char*> char_range_from_file(std::string filename) {
+    // old fashioned c to deal with mmap
     struct stat sb;
     int fd = open(filename.c_str(), O_RDONLY);
     if (fd == -1) { perror("open"); exit(-1);  }

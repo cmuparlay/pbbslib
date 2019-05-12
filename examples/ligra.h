@@ -66,7 +66,7 @@ namespace ligra {
     size_t n = atol(words[1]); // num_vertices
     size_t m = atol(words[2]);  // num_edges
     if (3 + n + m != words.size() && (3 + n + 2*m != words.size()))
-      { cout << "badly formatted input file" << endl; abort();}
+      throw std::runtime_error("Badly formatted file in read_graph");
     graph g;
     g.offsets = map(words.slice(3,3+n), [&] (auto &s) {
 	return (edge_index) atol(s);});

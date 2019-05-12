@@ -96,7 +96,7 @@ namespace pbbs {
     return delayed_sequence<T,F>(n,f);
   }
 
-  template <typename T>
+  template <typename T, typename Allocator=pbbs::allocator<T>>
   struct sequence {
   public:
     using value_type = T;
@@ -212,21 +212,23 @@ namespace pbbs {
     value_type* to_array() {
       value_type* r = begin(); empty(); return r;}
 
-    void clear() {
-      if (size() != 0) {
-        free(true);
-	empty();
-      }
+    void clear_no_destruct() {
+      if (size() != 0 && !is_small()) 
+	//pbbs::free_array(val.large.s);
+	Allocator().deallocate(val.large.s, val.large.n);
+      empty();
     }
 
-    void clear_no_destruct() {
-      if (size() != 0) { free(false); empty();}} 
-  
+    void clear() {
+      delete_elements();
+      clear_no_destruct();
+    }
+    
     value_type& operator[] (const size_t i) const {
-      if (bounds_check && i >= size()) {
-      	cout << "Out of range accessing a sequence.  Length is: " << size()
-      	     << " index is: " << i << endl;
-      }
+      if (bounds_check && i >= size()) 
+      	throw std::out_of_range("in sequence access: length = "
+				+ std::to_string(size())
+				+ " index = " + std::to_string(i));
       return begin()[i];
     }
 
@@ -250,14 +252,14 @@ namespace pbbs {
 
   private:
 
-    // uses short string optimization (SSO)
-    // currently only for char sequences
+    // Uses short string optimization (SSO).
+    // Applied if size < 16/(sizeof(T)).  Last byte used for size.
     union val_t {
       struct {
 	T *s;
 	size_t n;
       } large;
-      char small[16];
+      char small[16]; // if using SSO
     } val;
 
     // my start and size
@@ -271,44 +273,49 @@ namespace pbbs {
 
     // is a given size small
     inline bool is_small(size_t sz) const {
-      return std::is_same<T,char>::value && sz < 16 && sz > 0; }
+      return (sizeof(T) <= 8) && sz < (16/sizeof(T)) && sz > 0; }
 
     // am I small
     inline bool is_small() const {
-      if (std::is_same<T,char>::value) {
+      if (sizeof(T) <= 8) {
 	size_t sz = val.small[15];
-	return (sz > 0 && sz < 16);
+	return (sz > 0 && sz < 16/(sizeof(T)));
       }
       return false;
     }
     
-
-    // allocate and set size
-    value_type* alloc(size_t sz) {
-      if (is_small(sz)) {val.small[15] = sz; return (T*) &val.small; }
-      T* loc = (sz == 0) ? NULL : pbbs::new_array<T>(sz);
-      set(loc, sz);
-      return loc;
+    void initialize_elements() {
+      if (!std::is_trivially_default_constructible<T>::value) 
+	parallel_for(0, size(), [&] (size_t i) {
+	    new ((void*) (begin()+i)) T;});
     }
 
-    // allocate and set size with no initialization
+    void delete_elements() {
+      if (!std::is_trivially_destructible<T>::value)
+	parallel_for(0, size(), [&] (size_t i) {
+	    (begin()+i)->~T();});
+    }
+
+    // allocate and set size without initialization
     value_type* alloc_no_init(size_t sz) {
-      if (is_small(sz)) {val.small[15] = sz; return (T*) &val.small; }
-      T* loc = (sz == 0) ? NULL : pbbs::new_array_no_init<T>(sz);
-      set(loc, sz);
-      return loc;
-    }
-    
-    // free myself
-    void free(bool destruct=true) {
-      if (!is_small()) {
-	if (destruct) // delete all elements
-	  pbbs::delete_array<T>(val.large.s, val.large.n);
-	else pbbs::free_array(val.large.s);
+      if (is_small(sz)) {
+	val.small[15] = sz;
+	return (T*) &val.small;
+      } else {
+	//T* loc = (sz == 0) ? NULL : pbbs::new_array_no_init<T>(sz);
+	T* loc = (sz == 0) ? NULL : Allocator().allocate(sz); 
+	set(loc, sz);
+	return loc;
       }
     }
 
-    // not DRM compliant
+    // allocate and set size with initialization
+    value_type* alloc(size_t sz) {
+      T* loc = alloc_no_init(sz);
+      initialize_elements();
+      return loc;
+    }
+    
     template <class Iter>
     void copy_from(Iter a, size_t sz) {
       T* start = alloc_no_init(sz); 

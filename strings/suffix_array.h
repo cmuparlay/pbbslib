@@ -198,10 +198,8 @@ namespace pbbs {
     // each round doubles offset so there should be at most log n rounds
     // The segments keep regions that have not yet been fully sorted
     while (1) {
-      if (round++ > 40) {
-	cout << "Suffix Array:  Too many rounds" << endl;
-	abort();
-      }
+      if (round++ > 40)
+	throw std::runtime_error("Suffix Array: internal error, too many rounds");
 
       auto is_seg = [&] (seg<indexT> s) {return s.length > 1;};
       // only keep segments that are longer than 1 (otherwise already sorted)

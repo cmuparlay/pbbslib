@@ -19,17 +19,13 @@ sequence<edge> read_dimacs_graph(char* filename) {
    return edges = pack(x, flags);
   }
 
-
-sequence<edge> remove_self_edges(sequence<edge> const &E) {
-  return filter(E, [&] (auto e) {return e.first != e.second;});}
-
-sequence<edge> symmetrize_graph(sequence<edge> const &E) {
-  auto flipped = dmap(E, [&] (auto e) {
-      return std::make_pair(e.second, e.first);});
-  return append(Ef, flipped);
+sequence<edge> graph_to_edge_list(graph const &G) {
+  return flatten(tabulate(G.num_vertices(), [&] (vertex i) {
+	return dmap(G[i], [=] (vertex j) {return make_pair(i,j);});}));
 }
-  
-graph graph_from_edges(sequence<edge> const &E) {
+
+template <typename Seq>
+graph graph_from_edge_list(Seq const &E) {
   auto less = [&] (edge a, edge b) { return a < b;}
   auto eq = [&] (edge a, edge b) { return a == b;}
   graph G;
@@ -39,4 +35,13 @@ graph graph_from_edges(sequence<edge> const &E) {
   G.offsets = get_counts(G.edges, get_u, n);
   scan_inplace(G.offsets.slice(), addm<size_t>());
   return G;
+}
+
+auto symmetrize_edge_list(sequence<edge> const &E) {
+  return dseq(2*E.size(), [&] (size_t i) {
+      return i/2 ? std::make_pair(e[i/2].second, e[i/2].first) : E[i/2];});
+}
+
+graph symmetrize_graph(graph const &G) {
+  return graph_from_edge_list(symmetrize_edge_list(graph_to_edge_list(G)));
 }
