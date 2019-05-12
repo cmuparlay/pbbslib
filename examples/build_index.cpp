@@ -38,16 +38,14 @@ auto build_index(sequence<char> const &str, bool verbose) -> index_type {
   // generate sequence of sequences of (token, line_number) pairs
   // tokens are strings separated by spaces.
   auto pairs = tabulate(lines.size(), [&] (size_t i) {
-      return map(tokens(lines[i], is_space), [=] (sequence<char> s) {
-	  cout << i << endl;
+      return dmap(tokens(lines[i], is_space), [=] (sequence<char> s) {
 	  return make_pair(s, i);});
       });
   t.next("tokens");
 
-  // flatten
+  // flatten the sequence
   auto flat_pairs = flatten(pairs);
   t.next("flatten");
-  cout << to_char_seq(flat_pairs) << endl;
       
   // group line numbers by tokens
   return group_by(flat_pairs);
@@ -55,10 +53,19 @@ auto build_index(sequence<char> const &str, bool verbose) -> index_type {
 
 // converts an index into an ascii character sequence ready for output
 sequence<char> index_to_char_seq(index_type const &idx) {
+
+  // print line numbers separated by spaces for a singe word
+  auto linelist = [] (auto &A) {
+    return flatten(tabulate(2 * A.size(), [&] (size_t i) {
+	  if (i & 1) return to_char_seq(A[i/2]);
+	  return singleton(' ');
+	}));
+  };
+
+  // for each entry, print word followed by list of lines it is in
   return flatten(map(idx, [&] (auto& entry) {
 	sequence<sequence<char>>&& A = {entry.first,
-					singleton(' '),
-					to_char_seq(entry.second),
+					linelist(entry.second),
 					singleton('\n')};
 	return flatten(A);}));
 }
@@ -77,6 +84,7 @@ int main (int argc, char *argv[]) {
   // resereve 5 x the number of bytes of the string for the memory allocator
   // not needed, but speeds up the first run
   pbbs::allocator_reserve(str.size()*5);
+
   idx_timer.next("reserve space");
 
   idx_timer.start();

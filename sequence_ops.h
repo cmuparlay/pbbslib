@@ -39,11 +39,13 @@ namespace pbbs {
 
   // delayed version of map
   // requires C++14 or greater, both since return type is not defined (a lambda)
-  //   and for support of initialization in lambda capture
+  //   and for support of initialization of the closure lambda capture
   template <SEQ Seq, class UnaryFunc>
-  auto dmap(Seq &&A, UnaryFunc const &f) {
+  auto dmap(Seq &&A, UnaryFunc&& f) {
     size_t n = A.size();
-    return dseq(n, [&,A=std::forward<Seq>(A)] (size_t i) {return f(A[i]);});}
+    return dseq(n, [f=std::forward<UnaryFunc>(f),
+		    A=std::forward<Seq>(A)] (size_t i) {
+		  return f(A[i]);});}
 
   template <class T>
   auto singleton(T const &v) -> sequence<T> {

@@ -37,7 +37,7 @@ namespace pbbs {
 
   template<class Seq, class UnaryFunction>
   void for_each(Seq const &S, UnaryFunction f) {
-    parallel_for(S.size_t(), [&] (size_t i) {f(S[i]);});}
+    parallel_for(S.size(), [&] (size_t i) {f(S[i]);});}
 
   template<class Seq, class UnaryPred>
   size_t count_if(Seq const &S, UnaryPred p) {

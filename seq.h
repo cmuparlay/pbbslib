@@ -252,17 +252,19 @@ namespace pbbs {
 
   private:
 
+    struct lg { T *s; size_t n; };
+    static constexpr size_t lg_size = sizeof(lg);
+    static constexpr size_t T_size = sizeof(T);
+    static constexpr size_t max_sso_size = 8;
+
     // Uses short string optimization (SSO).
-    // Applied if size < 16/(sizeof(T)).  Last byte used for size.
-    union val_t {
-      struct {
-	T *s;
-	size_t n;
-      } large;
-      char small[16]; // if using SSO
+    // Applied if T_size <= max_sso_size
+    union {
+      lg large;
+      char small[lg_size]; // for SSO
     } val;
 
-    // my start and size
+    // sets start and size
     void set(T* start, size_t sz) {
       val.large.n = sz;
       val.large.s = start;
@@ -273,13 +275,16 @@ namespace pbbs {
 
     // is a given size small
     inline bool is_small(size_t sz) const {
-      return (sizeof(T) <= 8) && sz < (16/sizeof(T)) && sz > 0; }
+      return ((T_size <= max_sso_size) &&
+	      sz < (lg_size/T_size) &&
+	      sz > 0); }
 
     // am I small
     inline bool is_small() const {
-      if (sizeof(T) <= 8) {
-	size_t sz = val.small[15];
-	return (sz > 0 && sz < 16/(sizeof(T)));
+      //return is_small(val.small[15]);
+      if (T_size <= max_sso_size) {
+      	size_t sz = val.small[15];
+      	return (sz > 0 && sz < (lg_size/T_size));
       }
       return false;
     }
