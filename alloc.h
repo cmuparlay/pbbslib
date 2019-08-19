@@ -78,7 +78,7 @@ namespace pbbs {
       }
     }
 
-    const size_t small_alloc_block_size = (1 << 22);
+    const size_t small_alloc_block_size = (1 << 20);
 
   public:
     ~pool_allocator() {

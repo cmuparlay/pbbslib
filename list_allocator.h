@@ -79,9 +79,9 @@ class list_allocator {
   static size_t num_used_blocks();
   static size_t num_used_bytes();
   static void print_stats();
+  static void rand_shuffle();
 
  private:
-  static void rand_shuffle();
   static concurrent_stack<block_p> pool_roots;
   static concurrent_stack<block_p> global_stack;
   static thread_list* local_lists;

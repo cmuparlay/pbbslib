@@ -249,6 +249,23 @@ namespace pbbs {
 	return sequence<char>(S.slice(start, end));});
   }
 
+  template <class Seq, class UnaryPred>
+  auto split_range(Seq const &S, UnaryPred const &is_space)
+    -> sequence<range<typename Seq::value_type *>> {
+    using T = typename Seq::value_type;
+    size_t n = S.size();
+
+    auto X = sequence<bool>(n, [&] (size_t i) {
+	return is_space(S[i]);});
+    sequence<long> Locations = pbbs::pack_index<long>(X);
+    size_t m = Locations.size();
+  
+    return tabulate(m + 1, [&] (size_t i) {
+	size_t start = (i==0) ? 0 : Locations[i-1] + 1;
+	size_t end = (i==m) ? n : Locations[i];
+	return S.slice(start, end);});
+  }
+
   template <class Seq>
   sequence<sequence<char>> split(Seq const &S, std::string const &spaces) {
     auto is_space = [&] (char a) {
@@ -271,6 +288,15 @@ namespace pbbs {
     };
     if (str[i] == '-') {i++; return -read_digits();}
     else return read_digits();
+  }
+
+  template <class Seq>
+  double char_seq_to_d(Seq str) {
+    char str_padded[str.size()+1];
+    parallel_for(0, str.size(), [&] (size_t i) {
+	str_padded[i] = str[i];});
+    str_padded[str.size()] = 0;
+    return atof(str_padded);
   }
 
   // ********************************
@@ -312,13 +338,13 @@ namespace pbbs {
     return to_char_seq((double) v);};
 
   sequence<char> to_char_seq(std::string const &s) {
-    return map(s, [&] (char c) {return c;});
+    return tabulate(s.size(), [&] (size_t i) {return s[i];});
   }
 
-  sequence<char> to_char_seq(const char* s) {
+  sequence<char> to_char_seq(char* const s) {
     return tabulate(strlen(s), [&] (size_t i) {return s[i];});
   }
-  
+
   template <class A, class B>
   sequence<char> to_char_seq(std::pair<A,B> const &P) {
     sequence<sequence<char>> s = {
