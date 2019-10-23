@@ -252,7 +252,6 @@ namespace pbbs {
   template <class Seq, class UnaryPred>
   auto split_range(Seq const &S, UnaryPred const &is_space)
     -> sequence<range<typename Seq::value_type *>> {
-    using T = typename Seq::value_type;
     size_t n = S.size();
 
     auto X = sequence<bool>(n, [&] (size_t i) {
@@ -341,9 +340,9 @@ namespace pbbs {
     return tabulate(s.size(), [&] (size_t i) {return s[i];});
   }
 
-  sequence<char> to_char_seq(char* const s) {
-    return tabulate(strlen(s), [&] (size_t i) {return s[i];});
-  }
+  // sequence<char> to_char_seq(char* const s) {
+  //   return tabulate(strlen(s), [&] (size_t i) {return s[i];});
+  // }
 
   template <class A, class B>
   sequence<char> to_char_seq(std::pair<A,B> const &P) {
@@ -355,7 +354,7 @@ namespace pbbs {
   }
     
   template <class Seq>
-  sequence<char> to_char_seq(Seq const &A) {
+  sequence<char> to_char_seq_a(Seq const &A) {
     auto n = A.size();
     if (n==0) return to_char_seq("[]");
     auto separator = to_char_seq(", ");
@@ -367,8 +366,22 @@ namespace pbbs {
 	}));
   }
 
-  sequence<char> to_char_seq(sequence<uchar> const &s) {
-    return map(s, [&] (uchar c) {return (char) c;});
+  template <class T>
+  sequence<char> to_char_seq(range<T> const &A) {
+    auto n = A.size();
+    if (n==0) return to_char_seq("[]");
+    auto separator = to_char_seq(", ");
+    return flatten(tabulate(2 * n + 1, [&] (size_t i) {
+	  if (i == 0) return singleton('[');
+	  if (i == 2*n) return singleton(']');
+	  if (i & 1) return to_char_seq(A[i/2]);
+	  return separator;
+	}));
+  }
+
+  template <class T>
+  sequence<char> to_char_seq(sequence<T> const &A) {
+    return to_char_seq(A.slice());
   }
 
   sequence<char> to_char_seq(sequence<char> s) { return s; }

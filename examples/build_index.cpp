@@ -93,8 +93,6 @@ int main (int argc, char *argv[]) {
     idx_timer.next("build index");
   }
 
-  cout << (idx[0].second)[2] << endl;
-
   if (outfile.size() > 0) {
     auto out_str = index_to_char_seq(idx);
     idx_timer.next("generate output string");

@@ -108,7 +108,7 @@ namespace pbbs {
     sequence(const sequence& a) {
       if (report_copy && !a.is_small())
 	cout << "copy constructor: len: " << a.size()
-	     << " element size: " << sizeof(T) << endl;
+	     << " element size: " << sizeof(value_type) << endl;
       if (a.is_small()) val = a.val;
       else copy_from(a.val.large.s, a.val.large.n);
     }
@@ -117,58 +117,87 @@ namespace pbbs {
     sequence(sequence&& a) {
       val = a.val; a.empty();}
 
-    // copy assignment
-    sequence& operator = (const sequence& a) {
-      if (report_copy && !a.is_small())
-	cout << "copy assignment: len: " << a.size()
-	     << " element size: " << sizeof(T) << endl;
-      if (this != &a) {
-	clear(); 
-	if (a.is_small()) val = a.val;
-	else copy_from(a.val.large.s, a.val.large.n);}
+    // // copy assignment
+    // sequence& operator = (const sequence& a) {
+    //   if (report_copy && !a.is_small())
+    // 	cout << "copy assignment: len: " << a.size()
+    // 	     << " element size: " << sizeof(T) << endl;
+    //   if (this != &a) {
+    // 	clear(); 
+    // 	if (a.is_small()) val = a.val;
+    // 	else copy_from(a.val.large.s, a.val.large.n);}
+    //   return *this;
+    // }
+
+    // //move assignment
+    // sequence& operator = (sequence&& a) {
+    //   if (this != &a) {clear(); val = a.val; a.empty();}
+    //   return *this;
+    // }
+
+    // unified copy/move assignment using the copy and swap idiom
+    // now safer for exceptions
+    sequence& operator = (sequence a) {
+      swap(a);
       return *this;
     }
 
-    // move assignment
-    sequence& operator = (sequence&& a) {
-      if (this != &a) {clear(); val = a.val; a.empty();}
-      return *this;
-    }
-
+    // constructs a sequence of length sz
+    // with each element default constructed
     sequence(const size_t sz) {
       alloc(sz);}
 
-    // only use if a is allocated by same allocator as sequence
-    sequence(value_type* a, const size_t sz) {
-      set(a, sz);
-      // cout << "dangerous: " << size();
+    // constructs a sequence of length sz initialized with v
+    sequence(const size_t sz, value_type v) {
+      T* start = alloc_no_init(sz);
+      parallel_for(0, sz, [=] (size_t i) {
+	  assign_uninitialized(start[i], (value_type) v);}, 300);
     };
 
-    static sequence<T> no_init(const size_t sz) {
-      sequence<T> r;
+    // constructs a sequence by applying f to indices [0, ..., sz-1]
+    template <typename Func>
+    sequence(const size_t sz, Func f, size_t granularity=300) {
+      value_type* start = alloc_no_init(sz);
+      parallel_for(0, sz, [&] (size_t i) {
+	  assign_uninitialized<value_type>(start[i], f(i));}, granularity);
+    };
+
+    // construct a sequence from initializer list
+    sequence(std::initializer_list<value_type> l) {
+      size_t sz = l.end() - l.begin();
+      value_type* start = alloc(sz);
+      size_t i = 0;
+      for (value_type a : l) start[i++] = a;
+    }
+
+    // constructs from a range
+    template <typename Iter>
+    sequence(range<Iter> const &a) {
+      copy_from(a.begin(), a.size());
+    }
+
+    // constructs from a delayed sequence
+    template <class F>
+    sequence(delayed_sequence<value_type,F> const &a) {
+      copy_from(a, a.size());
+    }
+
+    // uninitialized sequence of length sz
+    // dangerous if non primitive types and not immediately initialized
+    static sequence<value_type> no_init(const size_t sz) {
+      sequence<value_type> r;
       r.alloc_no_init(sz);
       return r;
     };
 
-    sequence(const size_t sz, value_type v) {
-      T* start = alloc_no_init(sz);
-      parallel_for(0, sz, [=] (size_t i) {
-	  assign_uninitialized(start[i], (T) v);}, 300);
+    // Constructs a sequence by taking ownership of an
+    // allocated value_type array.
+    // Only use if a is allocated by the same allocator as 
+    // the sequence since the sequence delete will destruct it.
+    sequence(value_type* a, const size_t sz) {
+      set(a, sz);
+      // cout << "dangerous: " << size();
     };
-
-    template <typename Func>
-    sequence(const size_t sz, Func f, size_t granularity=300) {
-      T* start = alloc_no_init(sz);
-      parallel_for(0, sz, [&] (size_t i) {
-	  assign_uninitialized<T>(start[i], f(i));}, granularity);
-    };
-
-    sequence(std::initializer_list<value_type> l) {
-      size_t sz = l.end() - l.begin();
-      T* start = alloc(sz);
-      size_t i = 0;
-      for (T a : l) start[i++] = a;
-    }
 
     // Copies a Seq type 
     // Uses enable_if to avoid matching on integer argument, which creates
@@ -177,16 +206,6 @@ namespace pbbs {
     //sequence(Seq const &a) {
     //  copy_from(a.begin(), a.size());
     //}
-
-    template <typename Iter>
-    sequence(range<Iter> const &a) {
-      copy_from(a.begin(), a.size());
-    }
-
-     template <class F>
-     sequence(delayed_sequence<T,F> const &a) {
-       copy_from(a, a.size());
-     }
 
     ~sequence() { clear();}
 
@@ -207,11 +226,13 @@ namespace pbbs {
       return range<value_type*>(begin(), begin() + size());
     }
 
-    // gives up ownership of space
+    // gives up ownership, returning an array of the elements
     // only use if will be freed by same allocator as sequence
     value_type* to_array() {
       value_type* r = begin(); empty(); return r;}
 
+    // frees the memory assuming elements are already destructed,
+    // and sets pointer to Null (empty());
     void clear_no_destruct() {
       if (size() != 0 && !is_small()) 
 	//pbbs::free_array(val.large.s);
@@ -219,6 +240,7 @@ namespace pbbs {
       empty();
     }
 
+    // destructs the sequence
     void clear() {
       delete_elements();
       clear_no_destruct();
@@ -237,35 +259,42 @@ namespace pbbs {
     }
 
     void swap(sequence& b) {
-      std::swap(val.large.s, b.val.large.s); std::swap(val.large.n, b.val.large.n);
+      std::swap(val.large.s, b.val.large.s);
+      std::swap(val.large.n, b.val.large.n);
     }
 
     size_t size() const {
-      if (is_small()) return val.small[15];
+      if (is_small()) return val.small[flag_loc];
       return val.large.n;}
 
     value_type* begin() const {
-      if (is_small()) return (T*) &val.small;
+      if (is_small()) return (value_type*) &val.small;
       return val.large.s;}
 
     value_type* end() const {return begin() + size();}
 
   private:
 
-    struct lg { T *s; size_t n; };
+    struct lg { value_type *s; size_t n; };
     static constexpr size_t lg_size = sizeof(lg);
-    static constexpr size_t T_size = sizeof(T);
+    static constexpr size_t T_size = sizeof(value_type);
     static constexpr size_t max_sso_size = 8;
+    static constexpr size_t flag_loc = 15;
+    // For future use in c++20
+    // --- (std::endian::native == std::endian::big) ? 8 : 15;
 
     // Uses short string optimization (SSO).
     // Applied if T_size <= max_sso_size
+    // Stores flag in byte 15 (flag_loc) of the small array
+    // It assumes the machine is little_endian so this is
+    // the high order bits of the size field (n)
     union {
       lg large;
       char small[lg_size]; // for SSO
     } val;
 
     // sets start and size
-    void set(T* start, size_t sz) {
+    void set(value_type* start, size_t sz) {
       val.large.n = sz;
       val.large.s = start;
     }
@@ -281,34 +310,34 @@ namespace pbbs {
 
     // am I small
     inline bool is_small() const {
-      //return is_small(val.small[15]);
+      //return is_small(val.small[flag_loc]);
       if (T_size <= max_sso_size) {
-      	size_t sz = val.small[15];
+      	size_t sz = val.small[flag_loc];
       	return (sz > 0 && sz < (lg_size/T_size));
       }
       return false;
     }
     
     void initialize_elements() {
-      if (!std::is_trivially_default_constructible<T>::value) 
+      if (!std::is_trivially_default_constructible<value_type>::value) 
 	parallel_for(0, size(), [&] (size_t i) {
-	    new ((void*) (begin()+i)) T;});
+	    new ((void*) (begin()+i)) value_type;});
     }
 
     void delete_elements() {
-      if (!std::is_trivially_destructible<T>::value)
+      if (!std::is_trivially_destructible<value_type>::value)
 	parallel_for(0, size(), [&] (size_t i) {
-	    (begin()+i)->~T();});
+	    (begin()+i)->~value_type();});
     }
 
     // allocate and set size without initialization
     value_type* alloc_no_init(size_t sz) {
       if (is_small(sz)) {
-	val.small[15] = sz;
-	return (T*) &val.small;
+	val.small[flag_loc] = sz;
+	return (value_type*) &val.small;
       } else {
 	//T* loc = (sz == 0) ? NULL : pbbs::new_array_no_init<T>(sz);
-	T* loc = (sz == 0) ? NULL : Allocator().allocate(sz); 
+	value_type* loc = (sz == 0) ? NULL : Allocator().allocate(sz); 
 	set(loc, sz);
 	return loc;
       }
@@ -316,14 +345,16 @@ namespace pbbs {
 
     // allocate and set size with initialization
     value_type* alloc(size_t sz) {
-      T* loc = alloc_no_init(sz);
+      value_type* loc = alloc_no_init(sz);
       initialize_elements();
       return loc;
     }
-    
+
+    // Allocates and copies sequence from random access iterator
+    // Only used if not short string optimized.
     template <class Iter>
     void copy_from(Iter a, size_t sz) {
-      T* start = alloc_no_init(sz); 
+      value_type* start = alloc_no_init(sz); 
       parallel_for(0, sz, [&] (size_t i) {
 	  assign_uninitialized(start[i], a[i]);}, 1000);
     }

@@ -47,11 +47,8 @@ int main (int argc, char *argv[]) {
     auto out_str = to_char_seq(primes);
     t.next("generate output string");
 
-    char_seq_to_file(out_str, outfile);
+    //char_seq_to_file(out_str, outfile);
     t.next("write file");
   } else cout << "number of primes = " << primes.size() << endl;
-
-
-
 }
 

@@ -36,7 +36,7 @@ std::pair<size_t, range<uchar*>> split_head(sequence<uchar> const &s) {
 }
 
 template <class Int>
-sequence<uchar> bw_transform_reverse_(sequence<uchar> const &s) {
+sequence<uchar> bw_transform_inverse_(sequence<uchar> const &s) {
   timer t("trans", false);
 
   Int head;
@@ -123,18 +123,18 @@ sequence<uchar> bw_transform_reverse_(sequence<uchar> const &s) {
   return res;
 }
 
-sequence<uchar> bw_transform_reverse(sequence<uchar> const &s) {
+sequence<uchar> bw_transform_inverse(sequence<uchar> const &s) {
   if (s.size() >= (((long) 1) << 31))
-    return bw_transform_reverse_<unsigned long>(s);
+    return bw_transform_inverse_<unsigned long>(s);
   else
-    return bw_transform_reverse_<unsigned int>(s);
+    return bw_transform_inverse_<unsigned int>(s);
 }
   
 int main (int argc, char *argv[]) {
-  commandLine P(argc, argv, "[-r <rounds>] [-o] infile");
+  commandLine P(argc, argv, "[-r <rounds>] [-o] [-i] infile");
   int rounds = P.getOptionIntValue("-r", 1);
   bool output = P.getOption("-o");
-  bool detrans = P.getOption("-d");
+  bool inverse = P.getOption("-i");
   char* filename = P.getArgument(0);
   timer t("bw", !output);
 
@@ -146,8 +146,8 @@ int main (int argc, char *argv[]) {
   sequence<uchar> out;
     
   for (int i=0; i < rounds; i++) {
-    if (detrans)
-      out = bw_transform_reverse(str);
+    if (inverse)
+      out = bw_transform_inverse(str);
     else 
       std::tie(out, loc) = bw_transform<uint>(str);
     t.next("calculate bw transform");
@@ -155,7 +155,7 @@ int main (int argc, char *argv[]) {
   
   if (output) {
     auto ostr = map(out, [&] (uchar c) {return (char) c;});
-    if (!detrans)
+    if (!inverse)
       cout << loc << ':';
     cout << ostr;
   }
