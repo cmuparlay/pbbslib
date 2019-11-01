@@ -112,6 +112,7 @@ inline void par_do(Lf left, Rf right, bool conservative) {
     left();
 #pragma omp task
     right();
+#pragma omp taskwait
   }
 }
 
