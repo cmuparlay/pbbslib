@@ -33,7 +33,6 @@
 #include <stdlib.h>
 #include <math.h>
 #include <atomic>
-#include "list_allocator.h"
 
 namespace pbbs {
 
@@ -55,8 +54,8 @@ struct bag {
     bag right;
   };
 
-  using node_alloc = list_allocator<node>;
-  using leaf_alloc = list_allocator<T>;
+  using node_alloc = type_allocator<node>;
+  using leaf_alloc = type_allocator<T>;
 
   static void init() {
     node_alloc::init();

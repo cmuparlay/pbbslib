@@ -52,7 +52,7 @@ namespace pbbs {
     return sequence<T>(1, v); }
 
   template <SEQ Seq, RANGE Range>
-  auto copy(Seq const &A, Range R, flags fl = no_flag) -> void {
+  auto copy(Seq const &A, Range R, flags) -> void {
     parallel_for(0, A.size(), [&] (size_t i) {R[i] = A[i];});}
 
   constexpr const size_t _log_block_size = 10;
@@ -242,7 +242,7 @@ namespace pbbs {
   }
 
   template <SEQ In_Seq, class F>
-  auto filter(In_Seq const &In, F f, flags fl = no_flag)
+  auto filter(In_Seq const &In, F f)
     -> sequence<typename In_Seq::value_type>
   {
     using T = typename In_Seq::value_type;
@@ -266,9 +266,13 @@ namespace pbbs {
     return Out;
   }
 
+  template <SEQ In_Seq, class F>
+  auto filter(In_Seq const &In, F f, flags)
+  { return filter(In, f);}
+  
   // Filter and write the output to the output range.
   template <SEQ In_Seq, RANGE Out_Seq, class F>
-  size_t filter_out(In_Seq const &In, Out_Seq Out, F f, flags fl = no_flag) {
+  size_t filter_out(In_Seq const &In, Out_Seq Out, F f) {
     size_t n = In.size();
     size_t l = pbbs::num_blocks(n,_block_size);
     pbbs::sequence<size_t> Sums(l);
@@ -286,6 +290,10 @@ namespace pbbs {
                   Out.slice(Sums[i], (i == l-1) ? m : Sums[i+1]));});
     return m;
   }
+
+  template <SEQ In_Seq, RANGE Out_Seq, class F>
+  size_t filter_out(In_Seq const &In, Out_Seq Out, F f, flags) {
+    return filter_out(In, Out, f);}
 
   template <class Idx_Type, SEQ Bool_Seq>
   sequence<Idx_Type> pack_index(Bool_Seq const &Fl, flags fl = no_flag) {

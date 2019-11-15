@@ -167,7 +167,7 @@ inline void par_do(Lf left, Rf right, bool conservative) {
 }
 
 template <typename Job>
-inline void parallel_run(Job job, int num_threads=0) {
+inline void parallel_run(Job job, int) {
   job();
 }
 

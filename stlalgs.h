@@ -80,12 +80,23 @@ namespace pbbs {
   template<class Seq, class BinaryPred>
   size_t adjacent_find(Seq const &S, BinaryPred pred) {
     return find_if_index(S.size()-1, [&] (size_t i) {
+	return pred(S[i], S[i+1]);});}
+
+  template<class Seq>
+  size_t adjacent_find(Seq const &S) {
+    return find_if_index(S.size()-1, [&] (size_t i) {
 	return S[i] == S[i+1];});}
 
   template<class Seq, class BinaryPred>
-  size_t mismatch(Seq const &S1, Seq const &S2, BinaryPred pred) {
+  size_t mismatch(Seq const &S1, Seq const &S2) {
     return find_if_index(std::min(S1.size(),S2.size()), [&] (size_t i) {
 	return S1[i] != S2[i];});}
+
+    template<class Seq, class BinaryPred>
+  size_t mismatch(Seq const &S1, Seq const &S2, BinaryPred pred) {
+    return find_if_index(std::min(S1.size(),S2.size()), [&] (size_t i) {
+	return !pred(S1[i], S2[i]);});}
+  
 
   template<class Seq1, class Seq2, class BinaryPred>
   size_t search(Seq1 const &S1, Seq2 const &S2, BinaryPred pred) {
@@ -112,9 +123,16 @@ namespace pbbs {
     size_t idx = find_if_index(S1.size()-S2.size()+1, [&] (size_t i) {
 	size_t j;
 	for (j=0; j < n2; j++)
-	  if (S1[(n1-i-n2)+j] != S2[j]) break;
+	  if (!pred(S1[(n1-i-n2)+j], S2[j])) break;
 	return (j == S2.size());});
-    return n1 - idx - n2;}
+    return n1 - idx - n2;
+  }
+
+  template<class Seq, class BinaryPred>
+  size_t find_end(Seq const &S1, Seq const &S2) {
+    using T = typename Seq::value_type;
+    find_end(S1, S2, [] (T a, T b) {return a == b;});
+  }
 
   template <class Seq1, class Seq2, class BinaryPred>
   bool equal(Seq1 s1, Seq2 s2, BinaryPred p) {
@@ -186,13 +204,13 @@ namespace pbbs {
   template <class Seq, class Compare>
   bool is_sorted(Seq const &S, Compare comp) {
     auto B = delayed_seq<bool> (S.size()-1, [&] (size_t i) -> size_t {
-	return f(S[i+1],S[i]);});
+	return comp(S[i+1],S[i]);});
     return (reduce(B, addm<size_t>()) != 0);}
 
   template <class Seq, class Compare>
   size_t is_sorted_until(Seq const &S, Compare comp) {
     return find_if_index(S.size()-1, [&] (size_t i) {
-	f(S[i+1],S[i]);}) + 1;}
+	comp(S[i+1],S[i]);}) + 1;}
 
   template <class Seq, class UnaryPred>
   size_t is_partitioned(Seq const &S, UnaryPred f) {

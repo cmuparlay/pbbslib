@@ -18,7 +18,7 @@ namespace pbbs {
 namespace pbbs {
 
 #if defined(__APPLE__) // a little behind the times
-  void* aligned_alloc(size_t a, size_t n) {return malloc(n);}
+  void* aligned_alloc(size_t, size_t n) {return malloc(n);}
 #endif
 
 
@@ -240,10 +240,10 @@ namespace pbbs {
     static void free(T* ptr) {allocator.free((void*) ptr);}
 
     // for backward compatibility
-    static void init(size_t _alloc_size = 0, size_t _list_size=0) {};
-    static void reserve(size_t n = default_alloc_size,
-			bool randomize = false,
-			size_t _max_blocks = 0) {
+    //static void init(size_t _alloc_size = 0, size_t _list_size=0) {};
+    static void init(size_t, size_t) {};
+    static void init() {};
+    static void reserve(size_t n = default_alloc_size) {
       allocator.reserve(n);
     }
     static void finish() {allocator.clear();

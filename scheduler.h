@@ -218,7 +218,7 @@ public:
   int worker_id() {
     return thread_id;
   }
-  void set_num_workers(int n) {
+  void set_num_workers(int) {
     std::cout << "Unsupported" << std::endl; exit(-1);
   }
 

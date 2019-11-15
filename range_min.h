@@ -98,7 +98,7 @@ namespace pbbs {
 
     void precomputeQueries() {
       depth = log2_up(m+1);
-      table = sequence<sequence<Uint>>(depth, [&] (size_t i) {
+      table = sequence<sequence<Uint>>(depth, [&] (size_t) {
 	  return sequence<Uint>(m);});
 
       // minimums within each block

@@ -295,7 +295,7 @@ namespace pbbs {
   sequence<int_t> histogram(Seq const &A, int_t m) {
     using T = typename Seq::value_type;
     auto get_key = [&] (T a) {return a;};
-    auto get_val = [&] (T a) {return (int_t) 1;};
+    auto get_val = [&] (T) {return (int_t) 1;};
     return collect_reduce(A, get_key, get_val, pbbs::addm<int_t>(), m);
   }
 

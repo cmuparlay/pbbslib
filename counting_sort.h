@@ -75,7 +75,7 @@ namespace pbbs {
   // write to destination, where offsets give end of each bucket
   template <typename s_size_t, typename InSeq, typename KeySeq>
   void seq_write_down_(InSeq In, typename InSeq::value_type* Out, KeySeq Keys,
-		       s_size_t* offsets, size_t num_buckets) {
+		       s_size_t* offsets, size_t) { // num_buckets) {
     for (long j = In.size()-1; j >= 0; j--) {
       long k = --offsets[Keys[j]];
       move_uninitialized(Out[k], In[j]);

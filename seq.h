@@ -70,7 +70,7 @@ namespace pbbs {
   struct delayed_sequence {
     using value_type = T;
     delayed_sequence(size_t n, F _f) : f(_f), s(0), e(n) {};
-    delayed_sequence(size_t n, value_type v) : f([&] (size_t i) {return v;}), s(0), e(n) {};
+    delayed_sequence(size_t n, value_type v) : f([&] (size_t) {return v;}), s(0), e(n) {};
     delayed_sequence(size_t s, size_t e, F _f) : f(_f), s(s), e(e) {};
     const value_type operator[] (size_t i) const {return (f)(i+s);}
     delayed_sequence<T,F> slice(size_t ss, size_t ee) const {
@@ -366,7 +366,7 @@ namespace pbbs {
     return a.begin() == b.begin();}
 
   template <class SeqA, class SeqB>
-  bool slice_eq(SeqA a, SeqB b) { return false;}
+  bool slice_eq(SeqA, SeqB) { return false;}
 
   template <class Seq>
   auto to_sequence(Seq const &s) -> sequence<typename Seq::value_type> {

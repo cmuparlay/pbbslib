@@ -289,8 +289,8 @@ namespace pbbs {
     kType getKey(eType v) {return v;}
     T hash(kType v) {return v * 999029;} //hash64_2(v);}
     int cmp(kType v, kType b) {return (v > b) ? 1 : ((v == b) ? 0 : -1);}
-    bool replaceQ(eType v, eType b) {return 0;}
-    eType update(eType v, eType b) {return v;}
+    bool replaceQ(eType, eType) {return 0;}
+    eType update(eType v, eType) {return v;}
     bool cas(eType* p, eType o, eType n) {return
 	atomic_compare_and_swap(p, o, n);}
   };
