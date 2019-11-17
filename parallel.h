@@ -45,17 +45,27 @@ static void par_do(Lf left, Rf right, bool conservative=false);
 
 inline int num_workers() {return __cilkrts_get_nworkers();}
 inline int worker_id() {return __cilkrts_get_worker_number();}
-inline void set_num_workers(int n) {
-  __cilkrts_end_cilk();
-  std::stringstream ss; ss << n;
-  if (0 != __cilkrts_set_param("nworkers", ss.str().c_str())) {
-    throw std::runtime_error("failed to set worker count!");
+inline void set_num_workers(int) {
+  throw std::runtime_error("don't know how to set worker count!");
+}
+
+// Not sure this still works
+//__cilkrts_end_cilk();
+//  std::stringstream ss; ss << n;
+//  if (0 != __cilkrts_set_param("nworkers", ss.str().c_str())) 
+
+
+template <typename Lf, typename Rf>
+inline void par_do(Lf left, Rf right, bool) {
+    cilk_spawn right();
+    left();
+    cilk_sync;
 }
 
 template <typename F>
 inline void parallel_for(long start, long end, F f,
 			 long granularity,
-			 bool conservative) {
+			 bool) {
   if (granularity == 0)
     cilk_for(long i=start; i<end; i++) f(i);
   else if ((end - start) <= granularity)
@@ -67,13 +77,6 @@ inline void parallel_for(long start, long end, F f,
     parallel_for(mid, end, f, granularity);
     cilk_sync;
   }
-}
-
-template <typename Lf, typename Rf>
-inline void par_do(Lf left, Rf right, bool conservative) {
-    cilk_spawn right();
-    left();
-    cilk_sync;
 }
 
 // openmp
@@ -176,25 +179,25 @@ inline void parallel_run(Job job, int) {
 
 inline int num_workers() { return 1;}
 inline int worker_id() { return 0;}
-inline void set_num_workers(int n) { ; }
+inline void set_num_workers(int) { ; }
 #define PAR_GRANULARITY 1000
 
 template <class F>
 inline void parallel_for(long start, long end, F f,
-			 long granularity,
-			 bool conservative) {
+			 long,   // granularity,
+			 bool) { // conservative) {
   for (long i=start; i<end; i++) {
     f(i);
   }
 }
 
 template <typename Lf, typename Rf>
-inline void par_do(Lf left, Rf right, bool conservative) {
+inline void par_do(Lf left, Rf right, bool) { // conservative) {
   left(); right();
 }
 
 template <typename Job>
-inline void parallel_run(Job job, int num_threads=0) {
+inline void parallel_run(Job job, int) { // num_threads=0) {
   job();
 }
 

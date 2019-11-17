@@ -6,14 +6,14 @@ JEMALLOC = -L$(JEMALLOCLD) -ljemalloc
 endif
 
 CONCEPTS = -fconcepts -DCONCEPTS
-CFLAGS = -mcx16 -O3 -std=c++17 -march=native -Wall -Wextra
+CFLAGS = -mcx16 -O3 -std=c++14 -march=native -Wall -Wextra
 
 OMPFLAGS = -DOPENMP -fopenmp
 CILKFLAGS = -DCILK -fcilkplus
 HGFLAGS = -DHOMEGROWN -pthread
 
 ifdef CLANG
-CC = clang++
+CC = clang++-5.0
 PFLAGS = $(CILKFLAGS)
 else ifdef CILK
 CC = g++
