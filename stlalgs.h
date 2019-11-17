@@ -131,7 +131,7 @@ namespace pbbs {
   template<class Seq, class BinaryPred>
   size_t find_end(Seq const &S1, Seq const &S2) {
     using T = typename Seq::value_type;
-    find_end(S1, S2, [] (T a, T b) {return a == b;});
+    return find_end(S1, S2, [] (T a, T b) {return a == b;});
   }
 
   template <class Seq1, class Seq2, class BinaryPred>
