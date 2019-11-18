@@ -27,15 +27,15 @@ namespace pbbs {
 
   // A "history independent" hash table that supports insertion, and searching
   // It is described in the paper
-  //   Guy E. Blelloch, Daniel Golovin
-  //   Strongly History-Independent Hashing with Applications
-  //   FOCS 2007: 272-282
-  // At any quiescent point (when no operations are actively updating the
-  //   structure) the state will depend only on the keys it contains and not
-  //   on the history of the insertion order.
-  // Insertions can happen in parallel, but they cannot overlap with searches
+  //   Julian Shun and Guy E. Blelloch
+  //   Phase-concurrent hash tables for determinism
+  //   SPAA 2014: 96-107
+  // Insertions can happen in parallel
   // Searches can happen in parallel
-  // Deletions must happen sequentially
+  // Deletion can happen in parallel
+  // but insertions cannot happen in parallel with searches or deletions
+  // and searches cannot happen in parallel with deletions
+  // i.e. each of the three types of operations have to happen in phase
   template <class HASH>
   class Table {
   private:
