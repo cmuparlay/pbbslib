@@ -199,8 +199,7 @@ namespace pbbs {
     if (bits == 0) {
       auto get_key = [&] (size_t i) {return g(In[i]);};
       auto keys = delayed_seq<size_t>(In.size(), get_key);
-      num_buckets = reduce(keys, maxm<size_t>()) + 1;
-      bits = log2_up(num_buckets);
+      bits = log2_up(reduce(keys, maxm<size_t>()) + 1);
     }
     return integer_sort_r(In, Out, Tmp, g,
 			  bits, num_buckets, inplace);
