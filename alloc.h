@@ -264,7 +264,7 @@ namespace pbbs {
   //    ifdefed to either use malloc or the pbbs allocator
   // ****************************************
 
-#ifdef USEMALLOC
+#ifndef USEMALLOC
 
 #include <malloc.h>
 
