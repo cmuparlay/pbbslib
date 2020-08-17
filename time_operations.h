@@ -29,8 +29,23 @@ using uchar = unsigned char;
   _body;		    \
   double _var = bt.stop();
 
+#include "xmmintrin.h"
+static inline void StoreNTD(long * dest, long const & source) {
+  _mm_stream_pi((__m64*)dest, *(__m64*)&source); // MOVNTQ
+  //_mm_empty(); // EMMS
+}
+
 template<typename T>
 double t_tabulate(size_t n, bool) {
+  pbbs::sequence<T> out(n);
+  auto f = [&] (size_t i) {
+    StoreNTD(&out[i],i);};
+  time(t, parallel_for(0, n, f););
+  return t;
+}
+
+template<typename T>
+double t_tabulate_o(size_t n, bool) {
   auto f = [] (size_t i) {return i;};
   time(t, pbbs::sequence<T>(n, f););
   return t;
