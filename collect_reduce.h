@@ -308,7 +308,7 @@ namespace pbbs {
     using T = typename Seq::value_type;
     using val_type = typename T::second_type;
 
-    timer t("collect_reduce_sparse", false);
+    timer t("collect_reduce_sparse", true);
     size_t n = A.size();
 
     if (n < 1000) {

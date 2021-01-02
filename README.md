@@ -1,5 +1,14 @@
 # pbbslib
 
+*******************
+NOTE: This library is no longer supported or updated and has been replaced by the parlaylib library
+available at:  https://github.com/cmuparlay/parlaylib
+
+The parlaylib library includes just about everything from pbbslib and
+much more and is supported on a much broader set of platforms.
+
+*************
+
 Contains the PBBS (Problem Based Benchmark Suite) library.  This is a
 collection of parallel algorithms and other support for parallelism
 written in C++.  It supports a reasonably wide variety of algorithms
