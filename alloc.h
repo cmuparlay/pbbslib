@@ -292,7 +292,7 @@ namespace pbbs {
   }
 
   // allocates and tags with a header (8, 16 or 64 bytes) that contains the size
-  void* my_alloc(size_t n) {
+  inline void* my_alloc(size_t n) {
     size_t hsize = header_size(n);
     void* ptr;
     ptr = default_allocator.allocate(n + hsize);
@@ -302,7 +302,7 @@ namespace pbbs {
   }
 
   // reads the size, offsets the header and frees
-  void my_free(void *ptr) {
+  inline void my_free(void *ptr) {
     size_t n = *(((size_t*) ptr)-size_offset);
     size_t hsize = header_size(n);
     if (hsize > (1ul << 48)) {
@@ -312,11 +312,11 @@ namespace pbbs {
     default_allocator.deallocate((void*) (((char*) ptr) - hsize), n + hsize);
   }
 
-  void allocator_clear() {
+  inline void allocator_clear() {
     default_allocator.clear();
   }
 
-  void allocator_reserve(size_t bytes) {
+  inline void allocator_reserve(size_t bytes) {
     default_allocator.reserve(bytes);
   }
 #endif
